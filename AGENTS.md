@@ -47,9 +47,10 @@ code default is `claude`.
   Treat it as production code.
 - Schema-drift fixes belong in `normalizeSchemaDrift` (`src/output.ts`), not in
   the prompt. OpenAI and Claude save paths are deliberately in sync.
-- Website staging / HTML export and the shared jobs dir are optional and
-  parameterised (`WEBSITE_REPO`, `EXPLAINER_OUTPUT_DIR`,
-  `EXPLAINER_JOBS_DIR`); code degrades gracefully when unset.
+- Input/output locations and integrations are parameterised
+  (`EXPLAINER_INPUT_DIR`, `EXPLAINER_OUTPUT_DIR`, `WEBSITE_REPO`,
+  `EXPLAINER_JOBS_DIR`); code degrades gracefully / uses repo defaults when
+  unset.
 
 ## Collaboration habits
 

@@ -160,6 +160,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `PROVIDER` | Default provider when no `--provider` flag | `claude` |
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
+| `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
 | `EXPLAINER_OUTPUT_DIR` | Where JSON is written | `<repo>/output` |
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |

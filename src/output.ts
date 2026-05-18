@@ -5,7 +5,15 @@ import { extractFigureAsDataUrl } from './figure-extract';
 import { readState } from './state';
 
 const ROOT_DIR = path.join(__dirname, '..');
-const INPUT_DIR = path.join(ROOT_DIR, 'input');
+
+/**
+ * Where source PDFs / urls.txt / focus sidecars are read from. Defaults to
+ * `<repo>/input`; override with EXPLAINER_INPUT_DIR (e.g. an Obsidian/Dropbox
+ * folder) to keep inputs and outputs together outside the repo.
+ */
+export const INPUT_DIR = process.env.EXPLAINER_INPUT_DIR
+  ? path.resolve(process.env.EXPLAINER_INPUT_DIR)
+  : path.join(ROOT_DIR, 'input');
 
 /**
  * Where generated explainers are written. Defaults to `<repo>/output`;

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { INPUT_DIR } from './output';
 
-const INPUT_DIR = path.join(__dirname, '..', 'input');
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
 const HTML_FETCH_MAX_BYTES = 200_000;
