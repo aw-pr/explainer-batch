@@ -179,8 +179,9 @@ async function maybeRepairClaude(
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     let parsed: unknown;
     try {
-      const { extractJson } = await import('./output');
+      const { extractJson, normalizeSchemaDrift } = await import('./output');
       parsed = extractJson(currentText);
+      normalizeSchemaDrift(parsed as never);
     } catch {
       return { html: currentText }; // unparseable — saveResult will handle the error
     }
@@ -215,8 +216,9 @@ async function maybeRepairOpenAI(
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     let parsed: unknown;
     try {
-      const { extractJson } = await import('./output');
+      const { extractJson, normalizeSchemaDrift } = await import('./output');
       parsed = extractJson(currentText);
+      normalizeSchemaDrift(parsed as never);
     } catch {
       return { html: currentText };
     }

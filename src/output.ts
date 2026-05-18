@@ -152,7 +152,7 @@ function htmlToPlain(s: string): string {
  * instead of `label/body`. We derive the missing fields rather than fail
  * validation or render blank blocks.
  */
-function normalizeSchemaDrift(json: ExplainerJson): void {
+export function normalizeSchemaDrift(json: ExplainerJson): void {
   if (Array.isArray(json.sections)) {
     for (const section of json.sections) {
       const s = section as unknown as Record<string, unknown>;
@@ -170,6 +170,10 @@ function normalizeSchemaDrift(json: ExplainerJson): void {
     }
     if (typeof et.body !== 'string' && typeof et.body_html === 'string') {
       et.body = htmlToPlain(et.body_html as string);
+    }
+    // Opus sometimes emits paragraphs_html on end_takeaway instead of body_html
+    if (typeof et.body !== 'string' && Array.isArray(et.paragraphs_html)) {
+      et.body = (et.paragraphs_html as string[]).map(htmlToPlain).join(' ');
     }
   }
 }

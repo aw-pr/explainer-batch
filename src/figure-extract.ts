@@ -180,6 +180,13 @@ function tokenAfterPattern(token: string): string {
  * Returns true if the page is dominated by code blocks or dense running text
  * rather than a standalone figure. Drops the image block before extraction
  * to avoid shipping a screenshot of prose or code listings.
+ *
+ * Two independent guards:
+ *   1. Code density  — >25% of lines match code-pattern heuristics.
+ *   2. Prose density — page has many lines AND most are long running-text
+ *      sentences (avg word count per line > threshold). Academic body-text
+ *      pages typically have 35+ lines averaging 8+ words each; figure pages
+ *      have far fewer or much shorter lines.
  */
 function isPageCodeHeavy(pdfPath: string, page: number): boolean {
   const result = spawnSync(
@@ -192,6 +199,7 @@ function isPageCodeHeavy(pdfPath: string, page: number): boolean {
   const lines = result.stdout.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length < 8) return false; // sparse page — likely fine
 
+  // Guard 1: code patterns
   const codePatterns = [
     /^#\s+\S/,                    // comment lines
     /^\w[\w.]*\s*=\s*\S/,         // assignments
@@ -200,9 +208,19 @@ function isPageCodeHeavy(pdfPath: string, page: number): boolean {
     /\bimport\s+\w+/,             // imports
     /^[a-z_]\w*\(.*\)\s*[{;]?$/,  // function calls
   ];
-
   const codeLines = lines.filter(l => codePatterns.some(p => p.test(l))).length;
-  return codeLines / lines.length > 0.25;
+  if (codeLines / lines.length > 0.25) return true;
+
+  // Guard 2: prose density — many lines of long running text
+  const PROSE_LINE_THRESHOLD = 30;
+  const PROSE_AVG_WORDS_THRESHOLD = 7;
+  if (lines.length >= PROSE_LINE_THRESHOLD) {
+    const totalWords = lines.reduce((sum, l) => sum + l.split(/\s+/).filter(Boolean).length, 0);
+    const avgWords = totalWords / lines.length;
+    if (avgWords >= PROSE_AVG_WORDS_THRESHOLD) return true;
+  }
+
+  return false;
 }
 
 function locateFigurePage(pdfPath: string, figureToken: string): number | null {
@@ -288,8 +306,8 @@ interface FigureCrop {
   figureBottomY: number | null;
 }
 
-/** Minimum vertical gap (pts) above caption to count as a figure region. */
-const MIN_FIGURE_GAP_PTS = 50;
+/** Minimum vertical gap (pts) adjacent to caption to count as a figure region. */
+const MIN_FIGURE_GAP_PTS = 25;
 /** Assumed line height when projecting figure top below the last text row. */
 const LINE_HEIGHT_PTS = 12;
 
@@ -369,7 +387,9 @@ function findGapAbove(words: Array<{ yMin: number }>, captionY: number): number 
 
   const rowYs = bucketRows(above.map(w => w.yMin));
 
-  let bestGap = rowYs[0];
+  // Only count inter-row gaps — do NOT initialise with rowYs[0] (the top
+  // margin gap) because that just measures empty header space, not a figure region.
+  let bestGap = 0;
   let bestIdx = -1;
   for (let i = 0; i < rowYs.length - 1; i++) {
     const g = rowYs[i + 1] - rowYs[i];
@@ -388,23 +408,28 @@ function findGapAbove(words: Array<{ yMin: number }>, captionY: number): number 
     : Math.min(captionY, rowYs[bestIdx] + LINE_HEIGHT_PTS);
 }
 
+// After this many content rows we start looking for a closing gap.
+// Prevents the headGap (space between a title-above caption and the chart body)
+// from being mistaken for the figure bottom.
+const MIN_CONTENT_ROWS_BEFORE_BOTTOM = 5;
+
 function findGapBelow(words: Array<{ yMin: number }>, captionY: number, pageHeight: number | null): number | null {
   const below = words.filter(w => w.yMin > captionY + CAPTION_MARGIN_PTS);
   if (below.length === 0) return pageHeight;
 
   const rowYs = bucketRows(below.map(w => w.yMin));
 
-  let bestGap = 0;
-  let bestRowAfter = -1;
-  // Gap between caption and first row below it.
-  const headGap = rowYs[0] - (captionY + CAPTION_MARGIN_PTS);
-  if (headGap > bestGap) { bestGap = headGap; bestRowAfter = 0; }
-  for (let i = 0; i < rowYs.length - 1; i++) {
+  // Return the FIRST significant gap that appears after at least
+  // MIN_CONTENT_ROWS_BEFORE_BOTTOM content rows have been seen.  Using the
+  // first (not the largest) gap prevents page-number whitespace at the foot of
+  // the page from swamping the real chart→notes boundary.
+  for (let i = MIN_CONTENT_ROWS_BEFORE_BOTTOM - 1; i < rowYs.length - 1; i++) {
     const g = rowYs[i + 1] - rowYs[i];
-    if (g > bestGap) { bestGap = g; bestRowAfter = i + 1; }
+    if (g >= MIN_FIGURE_GAP_PTS) {
+      return Math.max(captionY, rowYs[i + 1] - LINE_HEIGHT_PTS);
+    }
   }
-  if (bestGap < MIN_FIGURE_GAP_PTS) return null;
-  return Math.max(captionY, rowYs[bestRowAfter] - LINE_HEIGHT_PTS);
+  return null;
 }
 
 function bucketRows(yMins: number[]): number[] {
