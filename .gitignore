@@ -14,8 +14,14 @@ node_modules/
 op-refs.local.sh
 .publish-guard.local
 
-# Parse-failure dumps (not explainers)
-output/**/*_error.txt
+# Generated explainers: keep ONE tracked example, ignore everything else.
+# Real runs should write elsewhere (EXPLAINER_OUTPUT_DIR / WEBSITE_REPO);
+# the full local archive lives in the gitignored output.local/.
+/output/*
+!/output/.gitkeep
+!/output/2026-04-16_alenezi_agentic-ai-architecture_explainer.json
+!/output/2026-04-16_alenezi_agentic-ai-architecture_explainer.html
+output.local/
 
 # Auto-managed state (machine-specific absolute paths)
 state.json
