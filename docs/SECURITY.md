@@ -58,6 +58,10 @@ Each route fetches only the secrets it needs:
   narrating the mistake as it completes. Org/repo names live only in local
   `git config` (`publishguard.*`), never in the committed tree.
 
+The end-to-end branching + publish model (orphan-squash base, the `publish`
+line, topic-branch workflow, one-time setup for a new repo) is in
+`docs/PUBLISH-WORKFLOW.md`.
+
 Hooks are local and not transferred by clone; each contributor runs
 `npm run guards:install` once. Override an individual block intentionally with
 `--no-verify`.

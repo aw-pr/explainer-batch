@@ -236,7 +236,9 @@ npm run guards:install # arm local publish hooks (one-time, per clone)
 ```
 
 `state.json` is auto-managed — do not hand-edit. Agent guidance lives in
-`AGENTS.md`; Claude Code specifics in `CLAUDE.md`.
+`AGENTS.md`; Claude Code specifics in `CLAUDE.md`. The private-work →
+public-mirror branching/publish model is documented in
+`docs/PUBLISH-WORKFLOW.md`.
 
 ## Security
 
