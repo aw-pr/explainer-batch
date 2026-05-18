@@ -5,6 +5,15 @@ Guidance for Claude Code working in this repo. **Start with `README.md`**
 agent contract). This file holds only Claude-Code-specific notes that do not
 belong in either.
 
+## Publishing
+
+Private work → public mirror. Work on `wip/*` topic branches, squash-merge
+into the **`publish`** branch, run `git publish`. Every `publish` commit goes
+public; never rewrite commits already on the public remote. Full model +
+one-time setup: `docs/PUBLISH-WORKFLOW.md`. Machine-specific context (remotes,
+config, paths) is in the gitignored `LOCAL.md`. The `repo-publish-workflow`
+skill carries the portable version of this for any repo.
+
 ## Don't duplicate
 
 Provider rules, commands, configuration, and the website integration are

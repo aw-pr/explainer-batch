@@ -23,6 +23,9 @@ op-refs.local.sh
 !/output/2026-04-16_alenezi_agentic-ai-architecture_explainer.html
 output.local/
 
+# Local machine context notes (never publish)
+/LOCAL.md
+
 # Auto-managed state (machine-specific absolute paths)
 state.json
 

@@ -52,6 +52,15 @@ code default is `claude`.
   `EXPLAINER_JOBS_DIR`); code degrades gracefully / uses repo defaults when
   unset.
 
+## Publishing
+
+This repo is a public mirror of private work. Do messy work on `wip/*`
+branches, squash-merge into **`publish`**, then `git publish` (never hand-push
+the default branch to the public remote — the pre-push gate blocks it by
+design; route through `git publish`). Never rewrite commits already public.
+Model + new-repo setup: `docs/PUBLISH-WORKFLOW.md`. Local-only operational
+context: gitignored `LOCAL.md`. Portable pattern: `repo-publish-workflow` skill.
+
 ## Collaboration habits
 
 - Small, focused commits with suggested commit messages.
