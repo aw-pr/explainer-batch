@@ -1,0 +1,42 @@
+{
+  "name": "explainer-batch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CLI that turns research PDFs into structured JSON explainer articles via the Claude or OpenAI batch/sync APIs.",
+  "license": "MIT",
+  "author": "Promotionem",
+  "keywords": [
+    "llm",
+    "claude",
+    "openai",
+    "pdf",
+    "research",
+    "batch-api",
+    "explainer"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "process": "ts-node src/index.ts process",
+    "submit": "ts-node src/index.ts submit",
+    "poll": "ts-node src/index.ts poll",
+    "status": "ts-node src/index.ts status",
+    "process:secure:tmux": "bash ./scripts/run-batch-tmux.sh",
+    "process:claude:tmux": "PROVIDER=claude EXTRA_ARGS=--sync SESSION_NAME=explainer-claude-sync bash ./scripts/run-batch-tmux.sh",
+    "render-html": "ts-node scripts/render-html.ts",
+    "export-html": "ts-node scripts/export-html.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "guards:install": "bash ./scripts/install-guards.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+    "@anthropic-ai/sdk": "^0.82.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Inference Scaling Laws: Wu et al. (2025)",
+    "eyebrow": "Research Explainer · Wu, Sun, Li, Welleck & Yang (2025)",
+    "date_created": "2026-04-09",
+    "filename_slug": "2026-04-09_wu_inference-scaling-laws_explainer"
+  },
+  "hero": {
+    "headline": "Smaller models with smarter inference beat bigger models, and it's not even close",
+    "headline_html": "Smaller models with smarter inference beat bigger models, <span>and it's not even close</span>",
+    "subtitle": "A 7-billion-parameter model paired with a novel tree search algorithm consistently outperforms a model five times its size on maths benchmarks, using half the compute. The trick is spending your budget on thinking harder, not on being bigger."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "2× less FLOPs",
+        "description": "needed for Llemma-7B with REBASE to match Llemma-34B accuracy on MATH500 and GSM8K benchmarks",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "7× less compute",
+        "description": "used by REBASE with a 7B model to surpass sampling-based weighted voting with 256 samples on MATH500",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "46.8% accuracy",
+        "description": "achieved by Llemma-7B + REBASE (32 samples) on MATH500, beating Llemma-34B sampling (64 samples) at 46.7%",
+        "accent_color": "#f6ad55"
+      }
+    ]
+  },
+  "chart": {
+    "title": "MATH500 Accuracy: REBASE Achieves More with Less Compute",
+    "caption": "Source: Table 1, Wu et al. (2025). REBASE uses weighted voting to aggregate candidates. FLOPs shown in units of 10 14 . Higher accuracy with lower FLOPs is better.",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('mainChart').getContext('2d');\n\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: ['Mistral-7B\\nSampling (256)', 'Mistral-7B\\nREBASE (32)', 'Llemma-7B\\nSampling (256)', 'Llemma-7B\\nREBASE (32)', 'Llemma-34B\\nSampling (64)', 'Llemma-34B\\nREBASE (32)'],\n    datasets: [\n      {\n        label: 'MATH500 Accuracy (%)',\n        data: [42.8, 45.0, 45.5, 46.8, 46.7, 49.2],\n        backgroundColor: [\n          '#f6ad55', '#4dabf7',\n          '#f6ad55', '#4dabf7',\n          '#f6ad55', '#4dabf7'\n        ],\n        borderRadius: 6,\n        barPercentage: 0.7,\n        categoryPercentage: 0.8,\n      }\n    ]\n  },\n  options: {\n    animation: false,\n    maintainAspectRatio: false,\n    responsive: true,\n    scales: {\n      y: {\n        beginAtZero: false,\n        min: 38,\n        max: 52,\n        title: {\n          display: true,\n          text: 'MATH500 Accuracy (%)',\n          font: { size: 12, weight: '600' },\n          color: '#4a5568'\n        },\n        ticks: {\n          callback: function(value) { return value + '%'; },\n          color: '#718096',\n          font: { size: 11 }\n        },\n        grid: {\n          color: '#e2e8f0'\n        }\n      },\n      x: {\n        ticks: {\n          color: '#4a5568',\n          font: { size: 10.5 },\n          maxRotation: 0,\n          autoSkip: false\n        },\n        grid: {\n          display: false\n        }\n      }\n    },\n    plugins: {\n      legend: {\n        display: false\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            return context.parsed.y + '% accuracy';\n          }\n        }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "What They Did",
+      "paragraphs": [
+        "Training scaling laws are well understood: throw more data and parameters at a language model during training and performance improves predictably. Wu and colleagues asked the mirror question that almost nobody had systematically studied. Given a model that is already trained, how should you spend your inference compute to get the best possible answer?",
+        "They tested five model families (Pythia from 410M to 12B parameters, Llemma 7B and 34B, Mistral-7B, and Llama3-8B) across six inference strategies on two maths benchmarks: GSM8K (grade-school maths) and MATH500 (competition-level problems). The strategies ranged from simple greedy decoding through majority voting and best-of- n to Monte Carlo Tree Search (MCTS) and their own novel algorithm, REBASE (REward BAlanced SEarch). Every configuration was measured in raw FLOPs, giving them a fair cost accounting across different model sizes and strategies."
+      ],
+      "paragraphs_html": [
+        "Training scaling laws are well understood: throw more data and parameters at a language model during training and performance improves predictably. Wu and colleagues asked the mirror question that almost nobody had systematically studied. Given a model that is already trained, how should you spend your inference compute to get the best possible answer?",
+        "They tested five model families (Pythia from 410M to 12B parameters, Llemma 7B and 34B, Mistral-7B, and Llama3-8B) across six inference strategies on two maths benchmarks: GSM8K (grade-school maths) and MATH500 (competition-level problems). The strategies ranged from simple greedy decoding through majority voting and best-of-<em>n</em> to Monte Carlo Tree Search (MCTS) and their own novel algorithm, <strong>REBASE</strong> (REward BAlanced SEarch). Every configuration was measured in raw FLOPs, giving them a fair cost accounting across different model sizes and strategies."
+      ]
+    },
+    {
+      "label": "The Core Finding",
+      "paragraphs": [
+        "The headline result upends the intuition that bigger models are always better. When you fix the total inference compute budget and vary both model size and inference strategy, smaller models paired with smarter search algorithms consistently land on the Pareto frontier . Llemma-7B with REBASE outperformed Llemma-34B with standard weighted majority voting at every compute budget the authors tested. It achieved comparable accuracy to the larger model while consuming roughly half the FLOPs.",
+        "The theoretical underpinning is equally sharp. The authors prove (Theorems 1 and 2) that majority voting and weighted majority voting converge exponentially to a ceiling determined entirely by the language model's output distribution. No amount of additional sampling will push past that ceiling. This means sampling-based strategies have hard diminishing returns, and the only escape hatch is to change the effective sampling distribution by searching more intelligently through the solution space.",
+        "MCTS, the most popular tree-search method borrowed from game-playing AI, turns out to be a poor fit here. Its costly rollouts eat the compute budget without producing enough complete candidate solutions for effective voting. REBASE sidesteps this by using a process reward model to score partial solutions at each reasoning step, then allocating expansion budget proportionally to the softmax-normalized reward scores. Promising branches get more exploration; dead ends get pruned. The result is a tree search that generates enough finished solutions to pair well with weighted voting, at a compute cost barely above naive sampling."
+      ],
+      "paragraphs_html": [
+        "The headline result upends the intuition that bigger models are always better. When you fix the total inference compute budget and vary both model size and inference strategy, <strong>smaller models paired with smarter search algorithms consistently land on the Pareto frontier</strong>. Llemma-7B with REBASE outperformed Llemma-34B with standard weighted majority voting at every compute budget the authors tested. It achieved comparable accuracy to the larger model while consuming roughly half the FLOPs.",
+        "The theoretical underpinning is equally sharp. The authors prove (Theorems 1 and 2) that majority voting and weighted majority voting converge exponentially to a ceiling determined entirely by the language model's output distribution. No amount of additional sampling will push past that ceiling. This means sampling-based strategies have hard diminishing returns, and the only escape hatch is to change the effective sampling distribution by searching more intelligently through the solution space.",
+        "MCTS, the most popular tree-search method borrowed from game-playing AI, turns out to be a poor fit here. Its costly rollouts eat the compute budget without producing enough complete candidate solutions for effective voting. REBASE sidesteps this by using a process reward model to score partial solutions at each reasoning step, then allocating expansion budget proportionally to the softmax-normalized reward scores. Promising branches get more exploration; dead ends get pruned. The result is a tree search that generates enough finished solutions to pair well with weighted voting, at a compute cost barely above naive sampling."
+      ]
+    },
+    {
+      "label": "Where It Matters Most",
+      "paragraphs": [
+        "The gap between REBASE and vanilla sampling is largest on hard problems. When the authors split MATH into easy (levels 1-2) and hard (levels 3-5) subsets, sampling and REBASE performed comparably on easy questions. On hard problems, REBASE pulled clearly ahead for both Llemma-7B and Llemma-34B. This makes intuitive sense: easy problems have a dominant correct-answer mode that sampling finds quickly, while hard problems scatter probability mass across many reasoning paths. A search algorithm that prunes bad intermediate steps and doubles down on good ones concentrates that scattered mass more efficiently.",
+        "REBASE also saturates later and at a higher accuracy than sampling. On MATH, sampling-based weighted voting for Llemma-7B flattens around 45.5% with 256 samples. REBASE reaches 46.8% with just 32 samples and shows no sign of plateauing at the same budget. The authors hypothesise that drawing samples from REBASE effectively creates a new, better policy distribution, which raises the theoretical accuracy ceiling from Theorems 1 and 2."
+      ]
+    },
+    {
+      "label": "Why This Changes the Calculus",
+      "paragraphs": [
+        "The practical upshot is a direct challenge to the \"scale the model\" default. In real-world deployment, inference compute is constrained by latency, cost, and hardware availability. The regimes where smaller models are compute-optimal (the authors fit a scaling law: log₁₀(C) = 1.19·log₁₀(N) + 2.03) cover the budgets most production systems actually operate in. The crossover point where larger models begin to dominate only arrives when the smaller model's accuracy has fully saturated, which requires sampling hundreds of solutions per query.",
+        "The findings also generalise beyond maths. Additional experiments on the MBPP code generation benchmark showed the same pattern: REBASE with 64 samples achieved an 81.4% pass rate versus 79% for sampling at equivalent compute. The core principle, that spending inference compute on guided search over a smaller model beats brute-force generation from a larger one, appears to be task-agnostic. For anyone deploying language models under a cost constraint, the message is: try a smaller model with a smarter inference algorithm before you reach for the next size up."
+      ]
+    }
+  ],
+  "references": [
+    "Wu, Y., Sun, Z., Li, S., Welleck, S., &amp; Yang, Y. (2025). Inference scaling laws: An empirical analysis of compute-optimal inference for LLM problem-solving. In <em>Proceedings of the International Conference on Learning Representations (ICLR 2025)</em>. <a href=\"https://thu-wyz.github.io/inference-scaling/\">https://thu-wyz.github.io/inference-scaling/</a>"
+  ]
+}

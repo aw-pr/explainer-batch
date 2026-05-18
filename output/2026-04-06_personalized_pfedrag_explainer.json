@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "pFedRAG: Personalized Federated RAG with Adaptive Embeddings – He et al. (2025)",
+    "eyebrow": "Research Explainer · He, Yuan, Wu, Liu & Ni (2025)",
+    "date_created": "2026-04-06",
+    "filename_slug": "2026-04-06_personalized_pfedrag_explainer"
+  },
+  "hero": {
+    "headline": "Federated learning lets hospitals fine-tune RAG together, while each one keeps its own data private",
+    "headline_html": "Federated learning lets hospitals fine-tune RAG together, while <span>each one keeps its own data private</span>",
+    "subtitle": "pFedRAG splits embedding adapters into shared and personalized layers, lets each client adjust model complexity on the fly, and achieves 95% of centralized fine-tuning performance without any institution sharing a single document."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "",
+        "description": "76.0% improvement in local Recall@k over a pretrained embedding baseline when retrieving medical documents with pFedRAG's DATE architecture",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "",
+        "description": "4.3% of full-model parameters updated per federated round, thanks to the lightweight ADT-Head sitting on a frozen embedding backbone",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "",
+        "description": "8.1 vs 6.0 average human-evaluation score for pFedRAG over static pretrained embeddings, with experts preferring it in 78% of response pairs",
+        "accent_color": "#4dabf7"
+      }
+    ]
+  },
+  "chart": {
+    "title": "",
+    "caption": "Figure: Recall@k (Top-K = 5) across embedding architectures, averaged over three runs with 95% confidence intervals. PT = pretrained embedding only; GSL = global shared layer; Base/Adv/Ext = fixed-complexity personalized layers; DATE = depth-adaptive (pFedRAG). Data from Table 2 of the paper.",
+    "config_json": null,
+    "config_raw": "(function() {\n  const ctx = document.getElementById('recallChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: ['PT (EB only)', 'EB+GSL', 'EB+Base', 'EB+Adv', 'EB+Ext', 'DATE'],\n      datasets: [\n        {\n          label: 'Local Test Set',\n          data: [0.484, 0.798, 0.834, 0.816, 0.792, 0.852],\n          backgroundColor: '#4dabf7',\n          borderRadius: 4\n        },\n        {\n          label: 'Global Test Set',\n          data: [0.472, 0.768, 0.804, 0.779, 0.757, 0.810],\n          backgroundColor: '#f6ad55',\n          borderRadius: 4\n        }\n      ]\n    },\n    options: {\n      animation: false,\n      responsive: true,\n      maintainAspectRatio: true,\n      plugins: {\n        legend: {\n          position: 'top',\n          labels: {\n            font: { family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\", size: 13 },\n            color: '#4a5568',\n            usePointStyle: true,\n            pointStyle: 'rectRounded'\n          }\n        },\n        title: {\n          display: true,\n          text: 'Recall@5 by Embedding Architecture',\n          font: { family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\", size: 15, weight: '700' },\n          color: '#1a1a1a',\n          padding: { bottom: 14 }\n        }\n      },\n      scales: {\n        y: {\n          beginAtZero: true,\n          max: 1.0,\n          ticks: {\n            callback: function(v) { return (v * 100).toFixed(0) + '%'; },\n            color: '#718096',\n            font: { size: 12 }\n          },\n          grid: { color: '#e2e8f0' },\n          title: {\n            display: true,\n            text: 'Recall@5',\n            color: '#718096',\n            font: { size: 12 }\n          }\n        },\n        x: {\n          ticks: { color: '#718096', font: { size: 11 } },\n          grid: { display: false }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "The Problem",
+      "paragraphs": [
+        "Retrieval-Augmented Generation (RAG) works by fetching relevant documents from a knowledge base before an LLM writes its answer. The quality of that fetch depends almost entirely on the embedding model that converts queries and documents into vectors. General-purpose embeddings perform respectably on everyday text, but they struggle with specialised vocabularies. Ask a cardiology question and the retriever may hand you a passage about chest-wall bruising instead of coronary artery disease.",
+        "Fine-tuning the embedding model on domain data fixes that, but it creates a new headache: hospitals, research labs, and clinics each hold sensitive patient data they cannot, and should not, share. Federated learning (FL) offers a workaround by letting participants collaborate on a model without pooling their records. The catch is that FL assumes everyone's data looks roughly similar. In reality, one hospital may specialise in cardiology while another focuses on pharmacy. This non-IID heterogeneity degrades the shared model, and a one-size-fits-all adapter cannot satisfy all clients at once."
+      ],
+      "paragraphs_html": [
+        "Retrieval-Augmented Generation (RAG) works by fetching relevant documents from a knowledge base before an LLM writes its answer. The quality of that fetch depends almost entirely on the embedding model that converts queries and documents into vectors. General-purpose embeddings perform respectably on everyday text, but they struggle with specialised vocabularies. Ask a cardiology question and the retriever may hand you a passage about chest-wall bruising instead of coronary artery disease.",
+        "Fine-tuning the embedding model on domain data fixes that, but it creates a new headache: hospitals, research labs, and clinics each hold sensitive patient data they cannot, and should not, share. Federated learning (FL) offers a workaround by letting participants collaborate on a model without pooling their records. The catch is that FL assumes everyone's data looks roughly similar. In reality, one hospital may specialise in cardiology while another focuses on pharmacy. This <strong>non-IID</strong> heterogeneity degrades the shared model, and a one-size-fits-all adapter cannot satisfy all clients at once."
+      ]
+    },
+    {
+      "label": "What pFedRAG Does",
+      "paragraphs": [
+        "The framework's centrepiece is the Depth-Adaptive Tiered Embedding (DATE) architecture. Each client's model has three parts: a frozen pre-trained backbone (e5-base-v2, 109M parameters), a Global Shared Layer trained collectively via FedAvg, and a Personalized Layer whose complexity adapts per client. Only the shared layer is uploaded to the server each round, so per-round communication covers just 4.3% of the full model's parameters.",
+        "The personalized layer comes in three sizes. A Base Layer is a single linear transform for simple data. An Advanced Layer stacks two transforms with a dimensionality expansion. An Extended Layer adds multi-head self-attention between the transforms for clients with complex or diverse corpora. A Depth Controller decides which tier each client starts at (based on local data complexity metrics such as average token length, type-token ratio, and perplexity) and then adjusts it dynamically during training using an Adaptation Performance Index that balances learning momentum against overfitting risk. When the controller triggers a tier change, knowledge distillation transfers learned representations from the old architecture to the new one so performance does not crater mid-switch.",
+        "Training data is another obstacle in federated setups: you need query-document pairs with hard negatives, and generating those usually requires a centralised pipeline. pFedRAG keeps it entirely local. Each client uses a lightweight LLM (QWen2.5-7B) to generate two queries per document chunk, then uses vector-database similarity search to find hard negatives from its own corpus. No data leaves the device."
+      ],
+      "paragraphs_html": [
+        "The framework's centrepiece is the <em>Depth-Adaptive Tiered Embedding</em> (DATE) architecture. Each client's model has three parts: a frozen pre-trained backbone (e5-base-v2, 109M parameters), a <strong>Global Shared Layer</strong> trained collectively via FedAvg, and a <strong>Personalized Layer</strong> whose complexity adapts per client. Only the shared layer is uploaded to the server each round, so per-round communication covers just 4.3% of the full model's parameters.",
+        "The personalized layer comes in three sizes. A <em>Base Layer</em> is a single linear transform for simple data. An <em>Advanced Layer</em> stacks two transforms with a dimensionality expansion. An <em>Extended Layer</em> adds multi-head self-attention between the transforms for clients with complex or diverse corpora. A Depth Controller decides which tier each client starts at (based on local data complexity metrics such as average token length, type-token ratio, and perplexity) and then adjusts it dynamically during training using an Adaptation Performance Index that balances learning momentum against overfitting risk. When the controller triggers a tier change, knowledge distillation transfers learned representations from the old architecture to the new one so performance does not crater mid-switch.",
+        "Training data is another obstacle in federated setups: you need query-document pairs with hard negatives, and generating those usually requires a centralised pipeline. pFedRAG keeps it entirely local. Each client uses a lightweight LLM (QWen2.5-7B) to generate two queries per document chunk, then uses vector-database similarity search to find hard negatives from its own corpus. No data leaves the device."
+      ]
+    },
+    {
+      "label": "What the Experiments Show",
+      "paragraphs": [
+        "The team built a non-IID medical dataset from 12,501 PubMed Central papers spanning six domains (cardiology, radiology, medical informatics, pharmacy, neuroscience, oncology) and distributed them across six simulated clients using a Dirichlet partition with α = 0.3, creating sharp data imbalances. One client ended up with 99.7% cardiology; another held 74.3% medical informatics. That is an aggressive heterogeneity stress test.",
+        "DATE achieved a Recall@5 of 0.852 on local test sets and 0.810 on the global set, beating the best fixed-complexity configuration (EB+Base Layer, 0.834 local / 0.804 global) and dramatically outperforming the frozen pretrained baseline (0.484 local / 0.472 global). The Dynamic Depth Scheduler alone accounted for a 5.0% local and 3.6% global lift in NDCG over static tier assignments, with average rank dropping by roughly 10%. Comparing federated training with centralised training on the global test set, pFedRAG retained 95.0% of centralised Recall@k, a remarkably small gap given that no client ever saw another's documents.",
+        "Human evaluators scored 50 response pairs generated by QWen2.5-7B from documents retrieved by DATE versus the pretrained baseline. DATE scored 8.1 on average versus 6.0, with a Win/Tie/Loss split of 32/11/7 and an inter-annotator agreement of α = 0.82. Experts specifically flagged fewer factual errors and broader coverage of medical concepts in the pFedRAG condition. Better retrieval feeds the LLM better context, which feeds users better answers."
+      ]
+    },
+    {
+      "label": "Why It Matters",
+      "paragraphs": [
+        "Most federated RAG research has focused on the retrieval mechanism or the generator. The embedding model, the component that determines whether the right documents even reach the LLM, has been largely ignored in federated settings. pFedRAG is the first framework to personalise embedding fine-tuning under FL, and the results suggest the engineering cost is modest: a lightweight adapter head on a frozen backbone, local training-data generation, and an automated depth controller that replaces manual architecture search per client.",
+        "There are clear limits. The generator itself is not personalised, hard negatives are mined once rather than iteratively refreshed, and the local LLM used for query generation is small. The authors note all three as directions for future work. Still, the core claim holds up: you can get domain-specific, privacy-preserving retrieval that nearly matches centralised training, with only a fraction of the communication budget. For institutions that cannot share data but need to share knowledge, that is a meaningful trade-off."
+      ]
+    }
+  ],
+  "references": [
+    "He, H., Yuan, X., Wu, K., Liu, R. P., &amp; Ni, W. (2025). pFedRAG: A personalized federated retrieval-augmented generation system with depth-adaptive tiered embedding tuning. In <em>Findings of the Association for Computational Linguistics: EMNLP 2025</em> (pp. 14255–14268). <a href=\"https://aclanthology.org/2025.findings-emnlp.832/\">https://aclanthology.org/2025.findings-emnlp.832/</a>"
+  ]
+}

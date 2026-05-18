@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Compute-Accuracy Pareto Frontiers for Reasoning LLMs: Prucs et al. (2025)",
+    "eyebrow": "Research Explainer · Prucs, Csutora, Antal & Marosi (2025)",
+    "date_created": "2026-04-09",
+    "filename_slug": "2026-04-09_prucs_compute-accuracy-pareto-frontiers-for-re_explainer"
+  },
+  "hero": {
+    "headline": "Reasoning models hit a compute ceiling, but sparse architectures keep climbing",
+    "headline_html": "Reasoning models hit a compute ceiling, but <span>sparse architectures keep climbing</span>",
+    "subtitle": "A benchmark study of 19 open-source LLMs finds that Mixture-of-Experts models consistently dominate the accuracy-per-FLOP frontier, while all architectures eventually reach a task-dependent saturation point where more thinking time stops helping."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "97%",
+        "description": "of evaluated models burn more compute on wrong answers than right ones, revealing a costly failure mode where models spiral into longer traces when stuck",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "19 models",
+        "description": "tested across five benchmarks spanning grade-school maths (GSM8K) to graduate-level science (GPQA-Diamond), each with full chain-of-thought decoding",
+        "accent_color": "#f6ad55"
+      },
+      {
+        "number": "<10 16 FLOPs",
+        "description": "is the saturation threshold on easier benchmarks like GSM8K and MATH500, beyond which additional inference compute yields negligible accuracy gains",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "chart": {
+    "title": "Accuracy vs. Inference Compute: Dense Models vs. Mixture-of-Experts",
+    "caption": "Source: Prucs et al. (2025), Figure 1. Average accuracy across five benchmarks plotted against average KV-aware FLOPs per query (log scale). MoE = Mixture of Experts. Bubble size represents approximate total parameter count.",
+    "config_json": null,
+    "config_raw": "(function() {\n  const ctx = document.getElementById('paretoChart').getContext('2d');\n\n  // Data from Figure 1 — average accuracy across 5 benchmarks vs log10(avg FLOPs)\n  // Dense models (blue), MoE models (yellow/orange)\n  const denseModels = [\n    { label: 'Gemma-3-1B', x: 13.0, y: 0.255, r: 4 },\n    { label: 'Gemma-3-4B', x: 13.6, y: 0.393, r: 6 },\n    { label: 'Gemma-3n-E2B', x: 13.8, y: 0.342, r: 5 },\n    { label: 'Gemma-3n-E4B', x: 14.1, y: 0.412, r: 6 },\n    { label: 'Gemma-3-12B', x: 14.5, y: 0.479, r: 8 },\n    { label: 'Phi-4', x: 14.4, y: 0.510, r: 9 },\n    { label: 'Gemma-3-27B', x: 15.0, y: 0.537, r: 11 },\n    { label: 'Phi-4-Mini', x: 15.2, y: 0.564, r: 7 },\n    { label: 'Phi-4-Plus', x: 15.6, y: 0.663, r: 10 },\n    { label: 'Llama-3.1-8B', x: 15.4, y: 0.329, r: 7 },\n    { label: 'DeepSeek-R1-Qwen3-8B', x: 15.5, y: 0.635, r: 7 },\n    { label: 'Nemotron-Nano-9B-v2', x: 15.6, y: 0.656, r: 8 },\n    { label: 'Qwen3-4B Instruct', x: 14.8, y: 0.641, r: 6 },\n    { label: 'Qwen3-4B Thinking', x: 15.3, y: 0.770, r: 6 }\n  ];\n\n  const moeModels = [\n    { label: 'GPT-OSS-20B Low', x: 13.8, y: 0.604, r: 9 },\n    { label: 'GPT-OSS-20B Med', x: 15.0, y: 0.741, r: 9 },\n    { label: 'GPT-OSS-20B High', x: 16.0, y: 0.803, r: 9 },\n    { label: 'Qwen3-30B-A3B Instruct', x: 15.2, y: 0.700, r: 11 },\n    { label: 'Qwen3-30B-A3B Thinking', x: 15.5, y: 0.838, r: 11 }\n  ];\n\n  new Chart(ctx, {\n    type: 'bubble',\n    data: {\n      datasets: [\n        {\n          label: 'Dense',\n          data: denseModels.map(m => ({ x: m.x, y: m.y * 100, r: m.r })),\n          backgroundColor: 'rgba(77, 171, 247, 0.55)',\n          borderColor: '#4dabf7',\n          borderWidth: 1.5\n        },\n        {\n          label: 'MoE',\n          data: moeModels.map(m => ({ x: m.x, y: m.y * 100, r: m.r })),\n          backgroundColor: 'rgba(246, 173, 85, 0.6)',\n          borderColor: '#f6ad55',\n          borderWidth: 1.5\n        }\n      ]\n    },\n    options: {\n      animation: false,\n      maintainAspectRatio: false,\n      scales: {\n        x: {\n          title: {\n            display: true,\n            text: 'log₁₀(Average FLOPs per query)',\n            font: { size: 12, family: 'system-ui' },\n            color: '#4a5568'\n          },\n          min: 12.5,\n          max: 16.5,\n          grid: { color: '#e2e8f0' },\n          ticks: { color: '#718096', font: { size: 11 } }\n        },\n        y: {\n          title: {\n            display: true,\n            text: 'Average Accuracy (%)',\n            font: { size: 12, family: 'system-ui' },\n            color: '#4a5568'\n          },\n          min: 20,\n          max: 95,\n          grid: { color: '#e2e8f0' },\n          ticks: {\n            color: '#718096',\n            font: { size: 11 },\n            callback: function(v) { return v + '%'; }\n          }\n        }\n      },\n      plugins: {\n        legend: {\n          labels: {\n            color: '#4a5568',\n            font: { size: 12, family: 'system-ui' },\n            usePointStyle: true,\n            pointStyle: 'circle'\n          }\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              const ds = context.dataset.label;\n              const allModels = ds === 'Dense' ? denseModels : moeModels;\n              const m = allModels[context.dataIndex];\n              return m ? m.label + ': ' + (m.y * 100).toFixed(1) + '% at 10^' + m.x.toFixed(1) + ' FLOPs' : '';\n            }\n          }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "What they measured",
+      "paragraphs": [
+        "The researchers evaluated 19 open-source LLMs, from the 1-billion-parameter Gemma-3-1B up to 30-billion-parameter Qwen3 variants, on five reasoning benchmarks of escalating difficulty. GSM8K tests grade-school arithmetic. MATH500 and two competition-level sets (AIME 2025, HMMT February 2025) push into Olympiad-style territory. GPQA-Diamond asks graduate-level science questions designed to stump Google searches. Every model ran with full chain-of-thought decoding, a single pass per problem, and no majority-vote tricks.",
+        "The twist is in how they scored each model. Rather than reporting accuracy alone, the team estimated the floating-point operations (FLOPs) consumed by every reasoning trace, using a component-aware formula that accounts for grouped-query attention, gated feed-forward layers, and MoE routing. This let them plot each model's accuracy against its actual computational cost and identify the Pareto frontier , the set of models where you cannot improve accuracy without spending more compute."
+      ],
+      "paragraphs_html": [
+        "The researchers evaluated 19 open-source LLMs, from the 1-billion-parameter Gemma-3-1B up to 30-billion-parameter Qwen3 variants, on five reasoning benchmarks of escalating difficulty. GSM8K tests grade-school arithmetic. MATH500 and two competition-level sets (AIME 2025, HMMT February 2025) push into Olympiad-style territory. GPQA-Diamond asks graduate-level science questions designed to stump Google searches. Every model ran with full chain-of-thought decoding, a single pass per problem, and no majority-vote tricks.",
+        "The twist is in how they scored each model. Rather than reporting accuracy alone, the team estimated the floating-point operations (FLOPs) consumed by every reasoning trace, using a component-aware formula that accounts for grouped-query attention, gated feed-forward layers, and MoE routing. This let them plot each model's accuracy against its actual computational cost and identify the <strong>Pareto frontier</strong>, the set of models where you cannot improve accuracy without spending more compute."
+      ]
+    },
+    {
+      "label": "Why sparse models win the frontier",
+      "paragraphs": [
+        "The headline finding is architectural: Mixture-of-Experts models sit on the Pareto frontier far more often than dense models do. An MoE like Qwen3-30B-A3B activates only 3 billion of its 30 billion parameters per token, which lets it generate much longer reasoning chains within the same FLOP budget. On GPQA-Diamond, AIME 2025, and HMMT February 2025, MoE models consistently dominated the frontier, achieving accuracy that dense models could match only by burning orders of magnitude more compute.",
+        "This matters because chain-of-thought reasoning is token-hungry. Models that \"think\" by generating thousands of intermediate tokens pay a linear cost per token through the feed-forward layers and a quadratic cost through attention. By activating a sparse subset of experts, MoE architectures keep the linear cost low, which effectively decouples the model's total parameter knowledge from its per-token inference price. Sparsity, in other words, is the lever that makes extended reasoning affordable."
+      ]
+    },
+    {
+      "label": "The thinking ceiling",
+      "paragraphs": [
+        "Every benchmark shows the same shape: a steep initial climb where more compute buys meaningful accuracy gains, followed by a flattening \"knee\" after which additional FLOPs return almost nothing. Where that knee sits depends on how hard the task is. On GSM8K, models plateau below 10 16 FLOPs because even small models can largely solve grade-school maths. On AIME 2025 and GPQA-Diamond, the knee shifts to much higher compute regimes, yet even there the curve eventually flattens. No amount of thinking time can overcome a model's fundamental \"deductive horizon.\"",
+        "Smaller dense models (1B to 8B parameters) exploit this dynamic in an interesting way. By generating substantially longer reasoning traces, they trade parameter capacity for inference-time compute and occasionally reach accuracy parity with 30B+ baselines. The catch is that this strategy has hard limits. Once a model's knowledge runs out, thinking longer produces only longer failures."
+      ]
+    },
+    {
+      "label": "The cost of being wrong",
+      "paragraphs": [
+        "Perhaps the most practically useful finding: 97% of evaluated models spend more compute on incorrect answers than on correct ones. When a model lacks the capacity to solve a problem, it does not stop early. It loops, backtracks, hallucinates alternative paths, and frequently exhausts its context window in a futile attempt to converge. The paper calls this \"trace length asymmetry,\" and it means that the hardest-to-solve problems are also the most expensive to fail at.",
+        "This creates a vicious efficiency trap for deployment. Problems outside a model's capability boundary are precisely the ones that consume the most resources, with no accuracy payoff. The authors frame this as an open algorithmic challenge: building early-stopping mechanisms that can distinguish between productive reasoning (which genuinely needs time) and unproductive spiralling (which should be terminated) remains unsolved."
+      ],
+      "paragraphs_html": [
+        "Perhaps the most practically useful finding: 97% of evaluated models spend <em>more</em> compute on incorrect answers than on correct ones. When a model lacks the capacity to solve a problem, it does not stop early. It loops, backtracks, hallucinates alternative paths, and frequently exhausts its context window in a futile attempt to converge. The paper calls this \"trace length asymmetry,\" and it means that the hardest-to-solve problems are also the most expensive to fail at.",
+        "This creates a vicious efficiency trap for deployment. Problems outside a model's capability boundary are precisely the ones that consume the most resources, with no accuracy payoff. The authors frame this as an open algorithmic challenge: building early-stopping mechanisms that can distinguish between productive reasoning (which genuinely needs time) and unproductive spiralling (which should be terminated) remains unsolved."
+      ]
+    }
+  ],
+  "references": [
+    "Prucs, Á., Csutora, M., Antal, M., &amp; Marosi, M. (2025). Compute-accuracy Pareto frontiers for open-source reasoning large language models. <em>arXiv preprint arXiv:2512.24776</em>. <a href=\"https://arxiv.org/abs/2512.24776\" target=\"_blank\">https://arxiv.org/abs/2512.24776</a>"
+  ]
+}

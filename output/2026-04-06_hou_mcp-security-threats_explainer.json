@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "MCP Security Threats: Hou et al. (2025)",
+    "eyebrow": "Research Explainer · Hou et al. (2025)",
+    "date_created": "2026-04-06",
+    "filename_slug": "2026-04-06_hou_mcp-security-threats_explainer"
+  },
+  "hero": {
+    "headline": "MCP gives AI agents a universal way to use tools, but the protocol is riddled with security holes",
+    "headline_html": "MCP gives AI agents a universal way to use tools, but <span>the protocol is riddled with security holes</span>",
+    "subtitle": "The first systematic security analysis of the Model Context Protocol finds 16 distinct threat scenarios across four attacker types, from tool poisoning and namespace typosquatting to silent credential theft, all validated with working proof-of-concept exploits."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Table 3 in Hou et al. (2025). Threat counts by attacker type, with lifecycle stage of origin indicated by colour.",
+    "config_json": null,
+    "config_raw": "(function() {\n  const ctx = document.getElementById('threatChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: [\n        'Malicious\\nDeveloper',\n        'External\\nAttacker',\n        'Malicious\\nUser',\n        'Security\\nFlaws'\n      ],\n      datasets: [\n        {\n          label: 'Creation phase origin',\n          data: [7, 0, 0, 0],\n          backgroundColor: '#ff6b6b'\n        },\n        {\n          label: 'Deployment phase origin',\n          data: [0, 1, 0, 0],\n          backgroundColor: '#f6ad55'\n        },\n        {\n          label: 'Operation phase origin',\n          data: [0, 1, 4, 0],\n          backgroundColor: '#4dabf7'\n        },\n        {\n          label: 'Maintenance phase origin',\n          data: [0, 0, 0, 3],\n          backgroundColor: '#51cf66'\n        }\n      ]\n    },\n    options: {\n      animation: false,\n      responsive: true,\n      maintainAspectRatio: true,\n      plugins: {\n        legend: {\n          position: 'bottom',\n          labels: {\n            font: { size: 12, family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\" },\n            padding: 16,\n            usePointStyle: true,\n            pointStyleWidth: 12\n          }\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              return context.dataset.label + ': ' + context.parsed.y + ' threat(s)';\n            }\n          }\n        }\n      },\n      scales: {\n        x: {\n          stacked: true,\n          grid: { display: false },\n          ticks: {\n            font: { size: 12, weight: '600', family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\" },\n            color: '#4a5568'\n          }\n        },\n        y: {\n          stacked: true,\n          beginAtZero: true,\n          max: 8,\n          ticks: {\n            stepSize: 1,\n            font: { size: 11, family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\" },\n            color: '#718096'\n          },\n          grid: {\n            color: '#e2e8f0'\n          },\n          title: {\n            display: true,\n            text: 'Number of threat scenarios',\n            font: { size: 12, family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\" },\n            color: '#718096'\n          }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "What MCP Actually Does",
+      "paragraphs": [
+        "Think of the Model Context Protocol as a USB-C port for AI. Before MCP, connecting a language model to an external tool (a database, a payment API, a file system) required bespoke wiring for every single integration. Each AI platform had its own plugin format, its own authentication dance, its own way of describing what a tool could do. MCP, launched by Anthropic in late 2024, replaces all of that with a single open standard: one protocol for discovering tools, describing their capabilities, and invoking them, regardless of which model or framework is doing the asking.",
+        "The architecture has three moving parts. An MCP host (Claude Desktop, Cursor, or any AI agent) runs an MCP client , which maintains a one-to-one connection with an MCP server . The server exposes tools (executable operations), resources (structured data), and prompts (reusable templates). Communication is bidirectional: the model can call the tool, and the tool can push notifications back. It is a genuine step forward from the one-directional plugin systems of 2023, where tools could respond to requests and nothing more.",
+        "Adoption has been swift. OpenAI, Google DeepMind, Microsoft Copilot Studio, JetBrains, Cloudflare, Stripe, and Alipay all now support MCP in some form. Community-maintained directories list tens of thousands of servers. The protocol is becoming infrastructure. That is exactly what makes its security posture so consequential."
+      ],
+      "paragraphs_html": [
+        "Think of the Model Context Protocol as a USB-C port for AI. Before MCP, connecting a language model to an external tool (a database, a payment API, a file system) required bespoke wiring for every single integration. Each AI platform had its own plugin format, its own authentication dance, its own way of describing what a tool could do. MCP, launched by Anthropic in late 2024, replaces all of that with a single open standard: one protocol for discovering tools, describing their capabilities, and invoking them, regardless of which model or framework is doing the asking.",
+        "The architecture has three moving parts. An <strong>MCP host</strong> (Claude Desktop, Cursor, or any AI agent) runs an <strong>MCP client</strong>, which maintains a one-to-one connection with an <strong>MCP server</strong>. The server exposes tools (executable operations), resources (structured data), and prompts (reusable templates). Communication is bidirectional: the model can call the tool, and the tool can push notifications back. It is a genuine step forward from the one-directional plugin systems of 2023, where tools could respond to requests and nothing more.",
+        "Adoption has been swift. OpenAI, Google DeepMind, Microsoft Copilot Studio, JetBrains, Cloudflare, Stripe, and Alipay all now support MCP in some form. Community-maintained directories list tens of thousands of servers. The protocol is becoming infrastructure. That is exactly what makes its security posture so consequential."
+      ]
+    },
+    {
+      "label": "How the Study Works",
+      "paragraphs": [
+        "Hou and colleagues define the full lifecycle of an MCP server in four phases (creation, deployment, operation, maintenance), decomposed into 16 key activities ranging from metadata definition to log auditing. They then walk each phase looking for places where things can go wrong, asking a pointed question at every step: who would exploit this, and how?",
+        "The answer yields four attacker archetypes. Malicious developers who publish poisoned or deceptively named servers. External attackers who tamper with installers or inject hostile instructions into data the model retrieves. Malicious users who abuse tool chaining, steal credentials, or hijack sessions. And security flaws baked into the maintenance layer: vulnerable versions that nobody patches, privileges that persist after revocation, configuration files that silently drift from their intended state.",
+        "For each scenario, the researchers built a proof-of-concept MCP server in an isolated environment and connected it to a custom MCP host built on the official SDK. The goal was not to measure attack success rates across different LLMs but to demonstrate feasibility: can you actually pull this off? In every case, the answer was yes."
+      ],
+      "paragraphs_html": [
+        "Hou and colleagues define the full lifecycle of an MCP server in four phases (creation, deployment, operation, maintenance), decomposed into 16 key activities ranging from metadata definition to log auditing. They then walk each phase looking for places where things can go wrong, asking a pointed question at every step: <em>who would exploit this, and how?</em>",
+        "The answer yields four attacker archetypes. <strong>Malicious developers</strong> who publish poisoned or deceptively named servers. <strong>External attackers</strong> who tamper with installers or inject hostile instructions into data the model retrieves. <strong>Malicious users</strong> who abuse tool chaining, steal credentials, or hijack sessions. And <strong>security flaws</strong> baked into the maintenance layer: vulnerable versions that nobody patches, privileges that persist after revocation, configuration files that silently drift from their intended state.",
+        "For each scenario, the researchers built a proof-of-concept MCP server in an isolated environment and connected it to a custom MCP host built on the official SDK. The goal was not to measure attack success rates across different LLMs but to demonstrate feasibility: can you actually pull this off? In every case, the answer was yes."
+      ]
+    },
+    {
+      "label": "The Ecosystem's Growing Pains",
+      "paragraphs": [
+        "The paper paints a striking picture of how quickly the MCP ecosystem has grown, and how unevenly. The researchers catalogued 26 public MCP server directories, the largest (MCPWorld) listing over 26,000 servers. When they randomly sampled 300 servers from MCP.so, 30 used \"MCP\" in the title but had nothing to do with the Model Context Protocol, and 18 were unavailable or still in active development. The marketplace is big, noisy, and largely unvetted.",
+        "Unofficial auto-installers like Smithery CLI (7,437 servers, 407 GitHub stars) and mcp-installer (1,432 stars) have sprung up to smooth over MCP's manual configuration process, which requires users to hand-edit JSON files with API keys and server paths. These tools make installation painless. They also make it painless for attackers: most users who run one-click installs never inspect the underlying code, and the installers frequently ship outdated server packages that have not received security patches in months.",
+        "Large platforms also present a structural tension. Walled-garden services might expose a read-only map API through MCP, for instance, while keeping navigation history and recommendation algorithms firmly locked away. MCP promotes composable, open interoperability. Platform economics promote the opposite. How this tension resolves will shape whether MCP becomes genuine infrastructure or stays a developer toy."
+      ]
+    },
+    {
+      "label": "What Would Fix This",
+      "paragraphs": [
+        "The authors propose defences mapped to each lifecycle phase. During creation : auto-generate metadata with digital fingerprints, validate that declared capabilities match actual implementations, and isolate each tool into its own module with strict input checking. During deployment : run every server inside a sandbox that limits file, network, and OS access to a predefined scope, and verify package integrity through cryptographic signatures before anything touches production.",
+        "At operation , the recommendations get more concrete. An intent filter should sit between user requests and tool invocation, rejecting commands that exceed declared capabilities (a file-deletion call against a read-only tool, for example). Session tokens should be short-lived and automatically expire. Every tool invocation should be logged with its name, parameters, execution time, and result summary. And crucially, the sandbox must stay active during execution, not just at install time.",
+        "The maintenance phase needs automated version control with integrity attestation, controlled configuration-change workflows requiring a second maintainer's approval, and continuous anomaly detection scanning for patterns like repeated failed logins or unexpected privilege escalations. The broader ecosystem needs something it currently lacks entirely: an official, centralized package registry with standardised packaging formats, signed manifests, and verified publisher identities. Without that, every community marketplace is a supply-chain attack waiting to happen."
+      ],
+      "paragraphs_html": [
+        "The authors propose defences mapped to each lifecycle phase. During <strong>creation</strong>: auto-generate metadata with digital fingerprints, validate that declared capabilities match actual implementations, and isolate each tool into its own module with strict input checking. During <strong>deployment</strong>: run every server inside a sandbox that limits file, network, and OS access to a predefined scope, and verify package integrity through cryptographic signatures before anything touches production.",
+        "At <strong>operation</strong>, the recommendations get more concrete. An intent filter should sit between user requests and tool invocation, rejecting commands that exceed declared capabilities (a file-deletion call against a read-only tool, for example). Session tokens should be short-lived and automatically expire. Every tool invocation should be logged with its name, parameters, execution time, and result summary. And crucially, the sandbox must stay active during execution, not just at install time.",
+        "The <strong>maintenance</strong> phase needs automated version control with integrity attestation, controlled configuration-change workflows requiring a second maintainer's approval, and continuous anomaly detection scanning for patterns like repeated failed logins or unexpected privilege escalations. The broader ecosystem needs something it currently lacks entirely: an official, centralized package registry with standardised packaging formats, signed manifests, and verified publisher identities. Without that, every community marketplace is a supply-chain attack waiting to happen."
+      ]
+    }
+  ],
+  "references": [
+    "Hou, X., Zhao, Y., Wang, S., &amp; Wang, H. (2025). Model Context Protocol (MCP): Landscape, security threats, and future research directions. <em>arXiv preprint arXiv:2503.23278v3</em>. <a href=\"https://arxiv.org/abs/2503.23278\" target=\"_blank\" rel=\"noopener\">https://arxiv.org/abs/2503.23278</a>"
+  ]
+}

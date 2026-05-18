@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "IndustryCode: Benchmarking LLMs on Industrial Code · Zeng et al. (2026)",
+    "eyebrow": "Research Explainer · Zeng et al. (2026)",
+    "date_created": "2026-04-07",
+    "filename_slug": "2026-04-07_benchmarking_industrycode_explainer"
+  },
+  "hero": {
+    "headline": "The best AI can write Python, but ask it for MATLAB and it starts making things up",
+    "headline_html": "The best AI can write Python, but ask it for MATLAB and it <span>starts making things up</span>",
+    "subtitle": "IndustryCode, the first multi-domain, multi-language benchmark for industrial code generation, finds that even top models solve fewer than half of real-world engineering problems and collapse on specialist languages like Stata and MATLAB."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "Overall Sub-Problem vs Main-Problem Accuracy by Model",
+    "caption": "Source: Table 2 and Figure 4 in Zeng et al. (2026). Overall Pass@1 accuracy (%) averaged across Python, C++, MATLAB, and Stata. Top-6 models shown.",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('mainChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: ['Claude 4.5\\nOpus', 'Gemini-3-pro', 'Claude 4.5\\nSonnet', 'Qwen3-Max', 'GPT-5.2', 'Claude 4.5\\nHaiku'],\n    datasets: [\n      {\n        label: 'Sub-Problem',\n        data: [68.1, 63.4, 64.4, 55.9, 53.4, 57.4],\n        backgroundColor: '#4dabf7',\n        borderRadius: 4,\n        barPercentage: 0.7,\n        categoryPercentage: 0.65\n      },\n      {\n        label: 'Main Problem',\n        data: [42.5, 41.2, 33.8, 32.5, 32.4, 31.8],\n        backgroundColor: '#f6ad55',\n        borderRadius: 4,\n        barPercentage: 0.7,\n        categoryPercentage: 0.65\n      }\n    ]\n  },\n  options: {\n    animation: false,\n    responsive: true,\n    maintainAspectRatio: false,\n    plugins: {\n      legend: {\n        position: 'top',\n        labels: {\n          font: { family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\", size: 12 },\n          padding: 16,\n          usePointStyle: true,\n          pointStyle: 'rectRounded'\n        }\n      }\n    },\n    scales: {\n      y: {\n        beginAtZero: true,\n        max: 80,\n        grid: { color: '#e2e8f0' },\n        ticks: {\n          font: { size: 11 },\n          callback: function(v) { return v + '%'; }\n        }\n      },\n      x: {\n        grid: { display: false },\n        ticks: {\n          font: { size: 11 },\n          maxRotation: 0\n        }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "What They Built",
+      "paragraphs": [
+        "IndustryCode is a benchmark of 579 sub-problems drawn from 125 main industrial challenges , sourced from the actual production codebases of working engineers. The domains span finance, automation, aerospace, remote sensing, chemical engineering, and more. The languages cover Python, C++, MATLAB, and Stata, reflecting the polyglot reality of industrial software rather than the Python-dominated world of existing benchmarks like HumanEval and SWE-bench.",
+        "Each main problem is hierarchically decomposed into modular sub-problems, mimicking the way engineers naturally break a system into functions. To solve a main problem, a model must implement each sub-module and then integrate them into a working whole. The benchmark was hardened against data contamination through manual reformulation and adversarial revision, with domain experts verifying that all 579 tasks produce results within engineering tolerance of ground-truth values."
+      ],
+      "paragraphs_html": [
+        "IndustryCode is a benchmark of <strong>579 sub-problems</strong> drawn from <strong>125 main industrial challenges</strong>, sourced from the actual production codebases of working engineers. The domains span finance, automation, aerospace, remote sensing, chemical engineering, and more. The languages cover Python, C++, MATLAB, and Stata, reflecting the polyglot reality of industrial software rather than the Python-dominated world of existing benchmarks like HumanEval and SWE-bench.",
+        "Each main problem is hierarchically decomposed into modular sub-problems, mimicking the way engineers naturally break a system into functions. To solve a main problem, a model must implement each sub-module and then integrate them into a working whole. The benchmark was hardened against data contamination through manual reformulation and adversarial revision, with domain experts verifying that all 579 tasks produce results within engineering tolerance of ground-truth values."
+      ]
+    },
+    {
+      "label": "What They Found",
+      "paragraphs": [
+        "Twenty-one models were evaluated, ranging from proprietary flagships (Claude 4.5 Opus, GPT-5.2, Gemini-3-pro) to open-weights systems (Qwen3-Max, DeepSeek-V3.2-Exp). Claude 4.5 Opus came first on both sub-problems (68.1%) and main problems (42.5%), followed by Gemini-3-pro and Claude 4.5 Sonnet. The gap between sub-problem and main-problem scores is striking: even the best model drops by 25.6 percentage points when it must wire components together into a complete system. Models can handle individual functions; they struggle with integration.",
+        "Performance also varies wildly by language. Python and C++ sub-problems clustered in the 45–72% range for strong models, while Stata accuracy hovered near 33–50% for most, and several models scored zero on Stata main problems entirely. MATLAB sat in between, with accuracy often below 50% on main problems. The authors attribute this to a simple data-availability gap: Python and C++ have billions of training tokens on GitHub, while Stata and MATLAB codebases are mostly proprietary and locked behind academic paywalls.",
+        "Domain performance told its own story. Finance and IT sub-problems saw average accuracy above 59%, benefiting from their algorithmic certainty. Semiconductors and Microelectronics sat at the bottom at 33.5%, because models trained on sequential software languages keep misapplying patterns to concurrent hardware-description logic. Qwen3-Max beat all proprietary models in IT (86.5%) and Machinery Manufacturing (83.3%), showing that open models optimised through Mixture-of-Experts routing can dominate specific sectors even if they trail on aggregate scores."
+      ]
+    },
+    {
+      "label": "Why Models Fail",
+      "paragraphs": [
+        "The error analysis is more revealing than the leaderboard. Syntax errors accounted for 32.8% of all failures, and problem misinterpretation for another 30.2%. Reasoning failure, the error mode you might expect to dominate industrial tasks, was only 8.4%. Models do not struggle to think through the logic; they struggle to speak the right language and read the specification correctly. Hallucination (19.6%) rounds out the picture: when domain knowledge is absent, models invent non-existent APIs rather than admitting ignorance.",
+        "Turning on explicit \"thinking mode\" (chain-of-thought reasoning) produced a paradox. Reasoning failures dropped from 11.8% to 0.8%, confirming that the chain-of-thought mechanism genuinely helps with logical decomposition. But context confusion exploded from 1.9% to 29.2%, and problem misinterpretation doubled to 30.4%. The longer reasoning trace consumes token budget, introduces semantic leakage into the code output, and over-engineers solutions with unnecessary complexity. The authors call this the \"cost of reasoning,\" a Pareto trade-off where improved logic comes at the expense of instruction adherence and syntactic stability."
+      ]
+    },
+    {
+      "label": "Why It Matters",
+      "paragraphs": [
+        "Existing code benchmarks (HumanEval, MBPP, SWE-bench) test models on the kind of code most commonly found on the internet: Python, web applications, algorithmic puzzles. IndustryCode tests them on the kind of code that runs factories, prices derivatives, and simulates spacecraft trajectories. The gap between benchmark scores and real-world utility has been an open question; this paper quantifies it. A model that scores 80%+ on HumanEval can score under 50% on IndustryCode's sub-problems and under 25% on its main problems.",
+        "The implication is practical. Companies evaluating LLMs for industrial deployment should not trust general-purpose benchmarks as proxies. MATLAB fluency, cross-module integration, and domain-specific precision are distinct capabilities, and current models have not saturated any of them. The 25-point gap between sub-problem and main-problem accuracy suggests that the bottleneck is not function-level generation but system-level orchestration, the ability to keep state consistent across a long engineering workflow. That is the frontier."
+      ]
+    }
+  ],
+  "references": [
+    "Zeng, P., Wang, Z., Duan, Z., Feng, L., Wang, S., Wang, C., Wang, J., Zhao, B., Wei, H., & Zhang, L. (2026). IndustryCode: A benchmark for industry code generation. <em>arXiv preprint arXiv:2604.02729</em>. <a href=\"https://arxiv.org/abs/2604.02729\">https://arxiv.org/abs/2604.02729</a>"
+  ]
+}

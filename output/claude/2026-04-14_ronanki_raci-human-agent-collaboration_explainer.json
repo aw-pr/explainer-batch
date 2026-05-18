@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "RACI for Human-AI Collaboration in SE: Ronanki (2025)",
+    "eyebrow": "Research Explainer · Ronanki (2025)",
+    "date_created": "2026-04-14",
+    "filename_slug": "2026-04-14_ronanki_raci-human-agent-collaboration_explainer"
+  },
+  "hero": {
+    "headline": "LLM-agent teams can now run chunks of your DevOps pipeline, but someone still needs to be accountable",
+    "headline_html": "LLM-agent teams can now run chunks of your DevOps pipeline, but <span>someone still needs to be accountable</span>",
+    "subtitle": "A RACI-based framework assigns Responsible, Accountable, Consulted, and Informed roles across humans and LLM-based agents in multi-agent software engineering, keeping automation trustworthy and EU AI Act-compliant.",
+    "publication_date": "Published June 2025"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "RACI",
+        "description": "Responsible, Accountable, Consulted, Informed: the four role assignments adapted for human-agent collaboration in the SDLC",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "3 Constraints",
+        "description": "Every task must have at least one Responsible and one Accountable actor, and no LLM-agent can be Responsible without a human Accountable",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "9 Steps",
+        "description": "A repeatable implementation process from task listing through regulatory compliance checks to workflow design",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "EU AI Act",
+        "description": "The framework embeds compliance checkpoints for the AI Act's high-risk and GPAI requirements at two stages of the process",
+        "accent_color": "#fcc419"
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "title": "Responsibility Assignment Framework: nine-step process",
+      "caption": "Recreated from Ronanki (2025), Figure 1. The process includes two compliance feedback loops: one after role assignment (Steps 6-7) and one after workflow design (Steps 8-9).",
+      "mermaid": "flowchart TD\n  S([Start]) --> S1[Step 1: List all tasks]\n  S1 --> S2a[Step 2a: List human actors]\n  S1 --> S2b[Step 2b: List LLM agents]\n  S2a --> S3[Step 3: List regulatory & compliance constraints]\n  S2b --> S3\n  S3 --> S4[Step 4: Identify tasks automatable by LLM agents]\n  S4 --> S5[Step 5: Ensure LLM agents are technically proficient]\n  S5 --> S6[Step 6: Assign R, A, C, or I to each actor per task]\n  S6 --> S7{Step 7: Assignments comply with regulations?}\n  S7 -- NO --> S5\n  S7 -- YES --> S8[Step 8: Create workflows for automated tasks]\n  S8 --> S9{Step 9: Workflows comply with regulations?}\n  S9 -- NO --> S8\n  S9 -- YES --> E([End])",
+      "source_figure": "Figure 1"
+    },
+    {
+      "title": "RACI matrix for DevOps Planning phase (example implementation)",
+      "caption": "Recreated from Ronanki (2025), Table 1. Shows how three human roles and three LLM-agents share six planning tasks. Note: LLM-agent C (scrum implementation assistant) is hypothetical.",
+      "mermaid": "flowchart LR\n  subgraph Humans\n    PO[Product Owner]\n    BA[Business Analyst]\n    SM[Scrum Master]\n  end\n  subgraph LLM Agents\n    A[Agent A: PO-style]\n    B[Agent B: RE-style]\n    C[Agent C: Scrum Assistant]\n  end\n  subgraph Tasks\n    T1[Requirements Elicitation]\n    T2[Product Roadmap]\n    T3[Features & User Stories]\n    T4[Product Backlog]\n    T5[Sprint Planning]\n    T6[Task Allocation]\n  end\n  BA -- R --> T1\n  PO -- A --> T1\n  B -- C --> T1\n  C -- C --> T1\n  PO -- R/A --> T2\n  A -- C --> T2\n  C -- C --> T2\n  B -- R --> T3\n  BA -- A --> T3\n  A -- C --> T3\n  A -- R --> T4\n  PO -- A --> T4\n  C -- R --> T5\n  SM -- A --> T5\n  C -- R --> T6\n  SM -- A --> T6",
+      "source_figure": "Table 1"
+    }
+  ],
+  "sections": [
+    {
+      "label": "The problem with letting agents loose in your SDLC",
+      "paragraphs": [
+        "Multi-agent systems built on large language models (LMA systems) are the hot new entrant in automated software engineering. Platforms like ChatDev, MetaGPT, and CAMEL deploy multiple specialised LLM-agents that each take a role (developer, tester, product owner) and collaborate to produce software artefacts. The pitch is compelling: agents that can plan sprints, draft user stories, and generate product backlogs without waiting for a human to context-switch.",
+        "The catch is accountability. The EU AI Act imposes concrete obligations on deployers of high-risk AI systems and general-purpose AI models. If an LLM-agent writes your user stories and nobody with decision-making authority reviews them, you have a compliance gap and, more practically, a quality gap. Previous work on trust in automated software engineering (Christakis & Bird, 2016; Widder et al., 2021) already showed that developers only adopt automation they can verify and override. LMA systems multiply this concern because there are now several agents, each with opaque reasoning, collaborating in chains where errors compound.",
+        "Ronanki's paper reframes this as a role-assignment problem rather than a pure technical one. The question is not whether LLM-agents can do the work, but who is Responsible, Accountable, Consulted, and Informed for each task when agents and humans share the pipeline."
+      ],
+      "paragraphs_html": [
+        "Multi-agent systems built on large language models (<strong>LMA systems</strong>) are the hot new entrant in automated software engineering. Platforms like ChatDev, MetaGPT, and CAMEL deploy multiple specialised LLM-agents that each take a role (developer, tester, product owner) and collaborate to produce software artefacts. The pitch is compelling: agents that can plan sprints, draft user stories, and generate product backlogs without waiting for a human to context-switch.",
+        "The catch is <strong>accountability</strong>. The EU AI Act imposes concrete obligations on deployers of high-risk AI systems and general-purpose AI models. If an LLM-agent writes your user stories and nobody with decision-making authority reviews them, you have a compliance gap and, more practically, a quality gap. Previous work on trust in automated software engineering (Christakis &amp; Bird, 2016; Widder et al., 2021) already showed that developers only adopt automation they can verify and override. LMA systems multiply this concern because there are now several agents, each with opaque reasoning, collaborating in chains where errors compound.",
+        "Ronanki's paper reframes this as a <strong>role-assignment problem</strong> rather than a pure technical one. The question is not whether LLM-agents can do the work, but who is Responsible, Accountable, Consulted, and Informed for each task when agents and humans share the pipeline."
+      ]
+    },
+    {
+      "label": "The framework: RACI adapted for human-agent collaboration",
+      "paragraphs": [
+        "The framework adapts the classic RACI matrix from project management to LMA-oriented software engineering. Each of the four role labels gets a definition tuned for mixed human-agent teams. 'Responsible' means the actor does the work. 'Accountable' means the actor delegates and validates before the task is marked complete. 'Consulted' means the actor provides input that the responsible party must consider (with a twist: if the responsible actor is an LLM-agent, it must take consulted input into account, whereas humans exercise judgement). 'Informed' means the actor stays in the loop without active involvement.",
+        "The framework enforces three hard constraints. First, every task must have at least one Responsible actor. Second, every task must have at least one Accountable actor (the only exception is when the LMA system has no influence on the output). Third, and most importantly, no LLM-agent can hold a Responsible assignment unless at least one human holds the Accountable assignment on the same task. This last constraint is the structural guarantee of human oversight that aligns the framework with the EU AI Act."
+      ],
+      "paragraphs_html": [
+        "The framework adapts the classic <strong>RACI matrix</strong> from project management to LMA-oriented software engineering. Each of the four role labels gets a definition tuned for mixed human-agent teams. <em>Responsible</em> means the actor does the work. <em>Accountable</em> means the actor delegates and validates before the task is marked complete. <em>Consulted</em> means the actor provides input that the responsible party must consider (with a twist: if the responsible actor is an LLM-agent, it <strong>must</strong> take consulted input into account, whereas humans exercise judgement). <em>Informed</em> means the actor stays in the loop without active involvement.",
+        "The framework enforces <strong>three hard constraints</strong>. First, every task must have at least one Responsible actor. Second, every task must have at least one Accountable actor (the only exception is when the LMA system has no influence on the output). Third, and most importantly, <strong>no LLM-agent can hold a Responsible assignment unless at least one human holds the Accountable assignment on the same task</strong>. This last constraint is the structural guarantee of human oversight that aligns the framework with the EU AI Act."
+      ],
+      "list": {
+        "ordered": true,
+        "style": "steps",
+        "intro": "The three non-negotiable constraints of the framework:",
+        "items": [
+          {
+            "label": "At least one Responsible",
+            "body": "Every task must have at least one actor assigned R."
+          },
+          {
+            "label": "At least one Accountable",
+            "body": "Every task must have at least one actor assigned A, unless LLM-agents have zero influence on the output."
+          },
+          {
+            "label": "Human A when agent is R",
+            "body": "An LLM-agent cannot be Responsible unless a human is Accountable for the same task."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Nine steps to implementation (with two compliance gates)",
+      "paragraphs": [
+        "The implementation process, shown in Figure 1, runs through nine steps grouped into three phases. The first phase (Steps 1-3) is an inventory exercise: list every artefact-based task, list every human and LLM-agent actor, and catalogue all relevant regulatory constraints (for EU-based teams, that is primarily the AI Act). The second phase (Steps 4-6) identifies which tasks can be automated, confirms that the selected agents are technically capable, and assigns the R, A, C, or I labels. The third phase (Steps 7-9) introduces two compliance feedback loops: one that checks whether the role assignments conflict with regulations (looping back to Step 5 if they do) and one that checks whether the resulting workflows conflict with regulations (looping back to Step 8 if they do).",
+        "The twin feedback loops are the mechanism that distinguishes this from a one-shot planning exercise. They force teams to iterate on both the allocation of authority and the design of the workflow until neither violates the regulatory constraints they identified in Step 3. It is a simple structural idea, but one that few existing LMA frameworks (ChatDev, MetaGPT, CAMEL) address at all."
+      ],
+      "paragraphs_html": [
+        "The implementation process, shown in <strong>Figure 1</strong>, runs through nine steps grouped into three phases. The first phase (Steps 1-3) is an inventory exercise: list every artefact-based task, list every human and LLM-agent actor, and catalogue all relevant regulatory constraints (for EU-based teams, that is primarily the AI Act). The second phase (Steps 4-6) identifies which tasks can be automated, confirms that the selected agents are technically capable, and assigns the R, A, C, or I labels. The third phase (Steps 7-9) introduces <strong>two compliance feedback loops</strong>: one that checks whether the role assignments conflict with regulations (looping back to Step 5 if they do) and one that checks whether the resulting workflows conflict with regulations (looping back to Step 8 if they do).",
+        "The twin feedback loops are the mechanism that distinguishes this from a one-shot planning exercise. They force teams to iterate on both the allocation of authority and the design of the workflow until neither violates the regulatory constraints they identified in Step 3. It is a simple structural idea, but one that few existing LMA frameworks (ChatDev, MetaGPT, CAMEL) address at all."
+      ]
+    },
+    {
+      "label": "The DevOps example: who does what in a planning sprint",
+      "paragraphs": [
+        "The paper walks through a hypothetical DevOps planning phase with three humans (product owner, business analyst, scrum master) and three LLM-agents: Agent A modelled on an autonomous product owner, Agent B modelled on an autonomous requirements engineer, and Agent C, a hypothetical scrum implementation assistant. Six tasks are mapped: requirements elicitation, product roadmap, features and user stories, product backlog, sprint planning, and task allocation.",
+        "Requirements elicitation and the product roadmap stay human-led because they require customer interaction and multi-stakeholder alignment. Agents serve as Consulted advisors on these tasks. Features and user stories shift to Agent B as Responsible, with the business analyst as Accountable. The product backlog is generated by Agent A under the product owner's accountability. Sprint planning and task allocation are handled by Agent C with the scrum master as Accountable. In every case where an agent does the work, a human validates the artefact before it flows downstream. The pattern is clear: agents generate, humans gate.",
+        "The paper notes that even for the two human-led tasks, agents can still add value in a Consulted capacity, for instance by drafting requirements elicitation questionnaires or helping structure roadmap planning sessions. This is a practical touch: the framework does not force a binary choice between full automation and no automation."
+      ],
+      "paragraphs_html": [
+        "The paper walks through a hypothetical DevOps planning phase with three humans (product owner, business analyst, scrum master) and three LLM-agents: <strong>Agent A</strong> modelled on an autonomous product owner, <strong>Agent B</strong> modelled on an autonomous requirements engineer, and <strong>Agent C</strong>, a hypothetical scrum implementation assistant. Six tasks are mapped: requirements elicitation, product roadmap, features and user stories, product backlog, sprint planning, and task allocation.",
+        "Requirements elicitation and the product roadmap stay human-led because they require customer interaction and multi-stakeholder alignment. Agents serve as <em>Consulted</em> advisors on these tasks. Features and user stories shift to Agent B as <em>Responsible</em>, with the business analyst as <em>Accountable</em>. The product backlog is generated by Agent A under the product owner's accountability. Sprint planning and task allocation are handled by Agent C with the scrum master as <em>Accountable</em>. In every case where an agent does the work, a human validates the artefact before it flows downstream. The pattern is clear: <strong>agents generate, humans gate</strong>.",
+        "The paper notes that even for the two human-led tasks, agents can still add value in a Consulted capacity, for instance by drafting requirements elicitation questionnaires or helping structure roadmap planning sessions. This is a practical touch: the framework does not force a binary choice between full automation and no automation."
+      ]
+    },
+    {
+      "label": "Limitations and what comes next",
+      "paragraphs": [
+        "This is a work-in-progress paper, and the author is candid about its principal limitation: the framework has not yet been empirically validated. The DevOps example is hypothetical, and Agent C (the scrum implementation assistant) does not exist yet. The next planned step is a groupware walkthrough-based multi-case study that will collect validation data from practitioners and potential users.",
+        "Even without empirical data, the contribution is structurally useful. Most LMA frameworks in software engineering focus on what agents can do, not on who is allowed to do what and under what oversight. The RACI adaptation fills that governance gap. Whether the specific nine-step process survives contact with real teams is an open question, but the three constraints (especially the rule that agent Responsibility requires human Accountability) are a sound design principle for any team deploying LLM-agents in regulated environments."
+      ],
+      "paragraphs_html": [
+        "This is a work-in-progress paper, and the author is candid about its principal limitation: <strong>the framework has not yet been empirically validated</strong>. The DevOps example is hypothetical, and Agent C (the scrum implementation assistant) does not exist yet. The next planned step is a groupware walkthrough-based multi-case study that will collect validation data from practitioners and potential users.",
+        "Even without empirical data, the contribution is structurally useful. Most LMA frameworks in software engineering focus on <em>what</em> agents can do, not on <em>who is allowed to do what</em> and under what oversight. The RACI adaptation fills that governance gap. Whether the specific nine-step process survives contact with real teams is an open question, but the three constraints (especially the rule that agent Responsibility requires human Accountability) are a sound design principle for any team deploying LLM-agents in regulated environments."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "KEY CONTRIBUTION",
+    "body": "Ronanki proposes a RACI-based framework that assigns clear Responsible, Accountable, Consulted, and Informed roles across humans and LLM-agents for software engineering tasks. Its core structural rule, that no agent can be Responsible without a human being Accountable, builds EU AI Act compliance into the task allocation itself. The framework provides a nine-step implementation process with two regulatory feedback loops, demonstrated through a DevOps planning phase example. Empirical validation is planned but not yet completed."
+  },
+  "references": [
+    "Ronanki, K. (2025). Facilitating Trustworthy Human-Agent Collaboration in LLM-based Multi-Agent System oriented Software Engineering. In <em>Companion Proceedings of the 33rd ACM Symposium on the Foundations of Software Engineering (FSE '25)</em>, June 23–27, 2025, Trondheim, Norway. ACM, 1333–1337. <a href=\"https://doi.org/10.1145/3696630.3728717\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1145/3696630.3728717</a>"
+  ]
+}

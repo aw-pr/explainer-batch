@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Enterprise LLM Benchmarking: Wang (2025)",
+    "eyebrow": "Research Explainer · Wang (2025)",
+    "date_created": "2026-04-13",
+    "filename_slug": "2026-04-13_wang_enterprise-llm-benchmark_explainer"
+  },
+  "hero": {
+    "headline": "LLMs ace content generation and summaries, but they can barely remember your company's acronyms",
+    "headline_html": "LLMs ace content generation and summaries, but <span>they can barely remember your company's acronyms</span>",
+    "subtitle": "Atlassian's 14-task enterprise benchmark, grounded in Bloom's Taxonomy, reveals that even the best models score below 0.20 on proprietary knowledge tasks while open-source reasoning models now rival GPT-4o on most other enterprise work.",
+    "publication_date": "Published April 2026"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "9,700",
+        "description": "curated benchmark samples spanning 14 enterprise tasks across six cognitive levels of Bloom's Taxonomy",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "0.20",
+        "description": "maximum correctness score any model achieved on acronym memorization, exposing a near-total gap in proprietary knowledge",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "0.97",
+        "description": "coherence score for DeepSeek R1 on content generation, the highest across all six models tested",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "chart": {
+    "title": "Model Performance Across Six Cognitive Levels",
+    "caption": "One representative task per Bloom's Taxonomy level. Scores are G-Eval correctness (Tasks 1-2, 4-1), Exact Match (Task 2-4), G-Eval relevance (Task 3-1), Spearman's r (Task 5-1), and G-Eval coherence (Task 6-1). For Task 4-1 (Hallucination Detection), lower is better; the chart shows 1 minus hallucination percentage so higher bars remain preferable. Source: Wang et al. (2025), Table 2.",
+    "config_json": {
+      "type": "bar",
+      "data": {
+        "labels": [
+          "1-2 Factual QA",
+          "2-4 NER",
+          "3-1 Summary",
+          "4-1 Halluc. (inv.)",
+          "5-1 Judge",
+          "6-1 Content Gen."
+        ],
+        "datasets": [
+          {
+            "label": "Llama 3.2 3B",
+            "data": [
+              0.03,
+              0.16,
+              0.81,
+              0.155,
+              0.08,
+              0.84
+            ],
+            "backgroundColor": "#a5d8ff"
+          },
+          {
+            "label": "Llama 3.3 70B",
+            "data": [
+              0.1,
+              0.506,
+              0.83,
+              0.089,
+              0.37,
+              0.9
+            ],
+            "backgroundColor": "#4dabf7"
+          },
+          {
+            "label": "DeepSeek R1",
+            "data": [
+              0.18,
+              0.62,
+              0.88,
+              0.242,
+              0.38,
+              0.97
+            ],
+            "backgroundColor": "#51cf66"
+          },
+          {
+            "label": "GPT-4o",
+            "data": [
+              0.11,
+              0.774,
+              0.87,
+              0.183,
+              0.47,
+              0.91
+            ],
+            "backgroundColor": "#f6ad55"
+          }
+        ]
+      },
+      "options": {
+        "animation": false,
+        "maintainAspectRatio": false,
+        "scales": {
+          "y": {
+            "beginAtZero": true,
+            "max": 1,
+            "title": {
+              "display": true,
+              "text": "Score (higher = better)"
+            }
+          },
+          "x": {
+            "ticks": {
+              "maxRotation": 45,
+              "minRotation": 25
+            }
+          }
+        },
+        "plugins": {
+          "legend": {
+            "position": "top"
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"1-2 Factual QA\",\"2-4 NER\",\"3-1 Summary\",\"4-1 Halluc. (inv.)\",\"5-1 Judge\",\"6-1 Content Gen.\"],\"datasets\":[{\"label\":\"Llama 3.2 3B\",\"data\":[0.03,0.16,0.81,0.155,0.08,0.84],\"backgroundColor\":\"#a5d8ff\"},{\"label\":\"Llama 3.3 70B\",\"data\":[0.1,0.506,0.83,0.089,0.37,0.9],\"backgroundColor\":\"#4dabf7\"},{\"label\":\"DeepSeek R1\",\"data\":[0.18,0.62,0.88,0.242,0.38,0.97],\"backgroundColor\":\"#51cf66\"},{\"label\":\"GPT-4o\",\"data\":[0.11,0.774,0.87,0.183,0.47,0.91],\"backgroundColor\":\"#f6ad55\"}]},\"options\":{\"animation\":false,\"maintainAspectRatio\":false,\"scales\":{\"y\":{\"beginAtZero\":true,\"max\":1,\"title\":{\"display\":true,\"text\":\"Score (higher = better)\"}},\"x\":{\"ticks\":{\"maxRotation\":45,\"minRotation\":25}}},\"plugins\":{\"legend\":{\"position\":\"top\"}}}}"
+  },
+  "sections": [
+    {
+      "label": "Why generic benchmarks fail the enterprise",
+      "paragraphs": [
+        "Standard LLM benchmarks like MMLU and Big-Bench measure general knowledge and reasoning, but they tell you almost nothing about how a model will perform inside your organisation. Enterprise work involves proprietary acronyms, internal documentation, domain-specific query languages, and subtle judgment calls that no public test set can capture. Atlassian's team recognised this gap and built a 14-task benchmark from their own operational data, drawing on Confluence pages, Rovo chat logs, customer feedback, Slack queries, and developer documentation.",
+        "The tasks are organised around Bloom's Taxonomy, the six-level cognitive framework that runs from basic recall (\"Remember\") up through understanding, application, analysis, evaluation, and creation. Each task maps to a specific level: acronym memorisation sits at \"Remember,\" sentiment analysis at \"Understand,\" software engineering questions at \"Apply,\" hallucination detection at \"Analyze,\" and so on. This structure gives a readable profile of where a model excels and where it collapses, rather than collapsing everything into a single leaderboard number."
+      ],
+      "paragraphs_html": [
+        "Standard LLM benchmarks like <strong>MMLU</strong> and <strong>Big-Bench</strong> measure general knowledge and reasoning, but they tell you almost nothing about how a model will perform inside your organisation. Enterprise work involves proprietary acronyms, internal documentation, domain-specific query languages, and subtle judgment calls that no public test set can capture. Atlassian's team recognised this gap and built a 14-task benchmark from their own operational data, drawing on Confluence pages, Rovo chat logs, customer feedback, Slack queries, and developer documentation.",
+        "The tasks are organised around <strong>Bloom's Taxonomy</strong>, the six-level cognitive framework that runs from basic recall (\"Remember\") up through understanding, application, analysis, evaluation, and creation. Each task maps to a specific level: acronym memorisation sits at \"Remember,\" sentiment analysis at \"Understand,\" software engineering questions at \"Apply,\" hallucination detection at \"Analyze,\" and so on. This structure gives a readable profile of where a model excels and where it collapses, rather than collapsing everything into a single leaderboard number."
+      ]
+    },
+    {
+      "label": "How they built 9,700 labelled samples without breaking the bank",
+      "paragraphs": [
+        "Labelling nearly ten thousand enterprise samples by hand would have been prohibitively expensive. Instead, the team developed a five-stage pipeline. Raw data was collected from internal Atlassian sources (excluding any user-generated content), then cleaned through grammar checks and paraphrase mining to remove duplicates and noise. GPT-4o served as the primary annotator, a technique called LLM-as-a-Labeler. For tasks requiring domain-specific knowledge, like software engineering and machine learning questions, they augmented the labelling with Corrective Retrieval-Augmented Generation (CRAG), which pulls in enterprise and web knowledge and self-assesses document relevance before generating labels.",
+        "After annotation, label quality was checked by an LLM-as-a-Judge step using the G-Eval framework. Samples that received low confidence scores were routed to human experts for final validation. The result: a benchmark large enough for stable evaluation (the team ran ablation studies confirming that roughly 600 samples per task yielded reliable scores) while keeping manual effort targeted at the cases where machines were least confident."
+      ],
+      "paragraphs_html": [
+        "Labelling nearly ten thousand enterprise samples by hand would have been prohibitively expensive. Instead, the team developed a five-stage pipeline. Raw data was collected from internal Atlassian sources (excluding any user-generated content), then cleaned through grammar checks and paraphrase mining to remove duplicates and noise. <strong>GPT-4o</strong> served as the primary annotator, a technique called <em>LLM-as-a-Labeler</em>. For tasks requiring domain-specific knowledge, like software engineering and machine learning questions, they augmented the labelling with <em>Corrective Retrieval-Augmented Generation</em> (<strong>CRAG</strong>), which pulls in enterprise and web knowledge and self-assesses document relevance before generating labels.",
+        "After annotation, label quality was checked by an <em>LLM-as-a-Judge</em> step using the <strong>G-Eval</strong> framework. Samples that received low confidence scores were routed to human experts for final validation. The result: a benchmark large enough for stable evaluation (the team ran ablation studies confirming that roughly 600 samples per task yielded reliable scores) while keeping manual effort targeted at the cases where machines were least confident."
+      ]
+    },
+    {
+      "label": "Open-source models are catching up, except when judgment is required",
+      "paragraphs": [
+        "Six models were tested: Llama 3.2 3B, Llama 3.3 70B, Llama 4 Scout, DeepSeek R1 (671B), a distilled DeepSeek variant based on Llama 3.3 70B, and the proprietary GPT-4o. Across the 14 tasks, open-source models collectively won eight matchups against GPT-4o, tied one, and lost five. DeepSeek R1 hit a 0.97 coherence score on content generation, topping every other model by a clear margin, and led on summarisation relevance at 0.88.",
+        "The picture changes at the \"Evaluate\" level of Bloom's Taxonomy. On the LLM-as-a-Judge task, where models had to rate Slack search query quality on a 1-to-5 scale and match human rankings, GPT-4o achieved the highest Spearman's r at 0.47. The reasoning models (DeepSeek R1 and its distilled variant) actually performed worse here, scoring 0.38 and 0.34 respectively. The authors attribute this to \"overthinking,\" where the chain-of-thought reasoning process that helps on logic-heavy tasks becomes a liability when the task requires concise, calibrated judgment rather than extended deliberation.",
+        "The distilled reasoning model told an interesting story on its own. Compared to its base Llama 3.3 70B, it won 11 of 14 tasks, including a jump from 74.2% to 84.3% on sentiment analysis. Distilling reasoning capability into a smaller model appears to be a genuine performance multiplier for enterprise work, not just a parlour trick on academic benchmarks."
+      ],
+      "paragraphs_html": [
+        "Six models were tested: <strong>Llama 3.2 3B</strong>, <strong>Llama 3.3 70B</strong>, <strong>Llama 4 Scout</strong>, <strong>DeepSeek R1</strong> (671B), a distilled DeepSeek variant based on Llama 3.3 70B, and the proprietary <strong>GPT-4o</strong>. Across the 14 tasks, open-source models collectively won eight matchups against GPT-4o, tied one, and lost five. DeepSeek R1 hit a <strong>0.97</strong> coherence score on content generation, topping every other model by a clear margin, and led on summarisation relevance at 0.88.",
+        "The picture changes at the \"Evaluate\" level of Bloom's Taxonomy. On the <em>LLM-as-a-Judge</em> task, where models had to rate Slack search query quality on a 1-to-5 scale and match human rankings, GPT-4o achieved the highest Spearman's r at <strong>0.47</strong>. The reasoning models (DeepSeek R1 and its distilled variant) actually performed worse here, scoring 0.38 and 0.34 respectively. The authors attribute this to <em>\"overthinking,\"</em> where the chain-of-thought reasoning process that helps on logic-heavy tasks becomes a liability when the task requires concise, calibrated judgment rather than extended deliberation.",
+        "The distilled reasoning model told an interesting story on its own. Compared to its base Llama 3.3 70B, it won 11 of 14 tasks, including a jump from 74.2% to 84.3% on sentiment analysis. Distilling reasoning capability into a smaller model appears to be a genuine performance multiplier for enterprise work, not just a parlour trick on academic benchmarks."
+      ]
+    },
+    {
+      "label": "The proprietary knowledge wall",
+      "paragraphs": [
+        "The most striking finding is how badly every model fails at tasks requiring company-specific knowledge. On acronym memorisation, the best score was 0.20 (Llama 3.3 70B). On factual question-answering about Atlassian's own Confluence content, DeepSeek R1 led with a mere 0.18. Hallucination rates were alarmingly high across the board: even the best performer, DeepSeek R1, hallucinated on 75.8% of cases when asked about Atlassian's software development practices. Llama 3.3 70B hit 91.1%.",
+        "This is not a failure of model architecture. It is a data problem. These models simply have not been trained on Atlassian's internal documentation, and no amount of general intelligence compensates for that absence. The practical implication is clear: if you want an LLM to know your business, you need to fine-tune it on your data or give it retrieval access at inference time. The benchmark provides a structured way to measure whether that investment is actually working, task by task, cognitive level by cognitive level."
+      ],
+      "paragraphs_html": [
+        "The most striking finding is how badly every model fails at tasks requiring company-specific knowledge. On acronym memorisation, the best score was <strong>0.20</strong> (Llama 3.3 70B). On factual question-answering about Atlassian's own Confluence content, DeepSeek R1 led with a mere <strong>0.18</strong>. Hallucination rates were alarmingly high across the board: even the best performer, DeepSeek R1, hallucinated on <strong>75.8%</strong> of cases when asked about Atlassian's software development practices. Llama 3.3 70B hit 91.1%.",
+        "This is not a failure of model architecture. It is a data problem. These models simply have not been trained on Atlassian's internal documentation, and no amount of general intelligence compensates for that absence. The practical implication is clear: if you want an LLM to know your business, you need to fine-tune it on your data or give it retrieval access at inference time. The benchmark provides a structured way to measure whether that investment is actually working, task by task, cognitive level by cognitive level."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "KEY TAKEAWAY",
+    "body": "General-purpose LLMs can summarise, generate content, and detect toxicity with impressive reliability in enterprise settings. But they know almost nothing about your company. Atlassian's Bloom's Taxonomy benchmark makes this gap measurable, and the scalable annotation pipeline behind it gives other organisations a replicable playbook for building their own evaluations without manual-labelling budgets."
+  },
+  "references": [
+    "Wang, L., Yi, D., Jose, D., Passarelli, J., Gao, J., Leventis, J., & Li, K. (2025). Enterprise Large Language Model Evaluation Benchmark. <em>Atlassian</em>. <a href=\"https://arxiv.org/abs/2507.02300\" target=\"_blank\" rel=\"noopener noreferrer\">https://arxiv.org/abs/2507.02300</a>"
+  ]
+}

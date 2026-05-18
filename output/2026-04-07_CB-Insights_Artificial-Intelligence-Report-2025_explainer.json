@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "State of AI 2025: CB Insights Global Recap",
+    "eyebrow": "Research Explainer · CB Insights (2026)",
+    "date_created": "2026-04-07",
+    "filename_slug": "2026-04-07_CB-Insights_Artificial-Intelligence-Report-2025_explainer"
+  },
+  "hero": {
+    "headline": "AI funding nearly doubled to $225.8B in 2025, but fewer companies are getting the cheques",
+    "headline_html": "AI funding nearly doubled to $225.8B in 2025, but <span>fewer companies are getting the cheques</span>",
+    "subtitle": "Global AI investment hit a record high, propelled by three LLM developers that captured $86.3B between them. Deal counts, meanwhile, drifted lower, signalling a market that is concentrating fast around a small number of enormous bets."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "$225.8B",
+        "description": "in global AI equity funding in 2025, up 97% from $114.4B in 2024, with mega-rounds ($100M+ deals) accounting for 79% of that total",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "782",
+        "description": "M&A exits by private AI companies in 2025, over 1.5x the 484 recorded in 2024, as tech giants acquire their way into the AI stack",
+        "accent_color": "#f6ad55"
+      },
+      {
+        "number": "75",
+        "description": "new AI unicorns minted in 2025, representing 61% of all new unicorn births globally, with 63% already at commercial scaling stage",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "chart": {
+    "title": "Annual Global AI Equity Funding & Deal Count (2021-2025)",
+    "caption": "Source: CB Insights, State of AI 2025. Equity funding only. © 2026 CB Insights.",
+    "config_json": null,
+    "config_raw": "(function() {\n  const ctx = document.getElementById('fundingChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: ['2021', '2022', '2023', '2024', '2025'],\n      datasets: [\n        {\n          label: 'Funding ($B)',\n          data: [114.9, 76.5, 65.6, 114.4, 225.8],\n          backgroundColor: ['#9f7aea','#9f7aea','#9f7aea','#9f7aea','#6b21a8'],\n          borderRadius: 6,\n          yAxisID: 'y',\n          order: 2\n        },\n        {\n          label: 'Deals',\n          data: [6085, 6148, 6065, 6934, 6913],\n          type: 'line',\n          borderColor: '#0a1f44',\n          backgroundColor: 'transparent',\n          borderWidth: 2.5,\n          pointBackgroundColor: '#0a1f44',\n          pointRadius: 4,\n          tension: 0.2,\n          yAxisID: 'y1',\n          order: 1\n        }\n      ]\n    },\n    options: {\n      animation: false,\n      maintainAspectRatio: false,\n      plugins: {\n        legend: {\n          position: 'top',\n          labels: {\n            font: { family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\", size: 12 },\n            usePointStyle: true,\n            pointStyle: 'circle'\n          }\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              if (context.dataset.label === 'Funding ($B)') return 'Funding: $' + context.parsed.y + 'B';\n              return 'Deals: ' + context.parsed.y.toLocaleString();\n            }\n          }\n        }\n      },\n      scales: {\n        y: {\n          position: 'left',\n          beginAtZero: true,\n          max: 250,\n          ticks: {\n            callback: function(v) { return '$' + v + 'B'; },\n            font: { size: 11 }\n          },\n          grid: { color: '#e2e8f0' },\n          title: { display: true, text: 'Funding ($B)', font: { size: 12 } }\n        },\n        y1: {\n          position: 'right',\n          beginAtZero: true,\n          max: 8000,\n          ticks: {\n            callback: function(v) { return v.toLocaleString(); },\n            font: { size: 11 }\n          },\n          grid: { drawOnChartArea: false },\n          title: { display: true, text: 'Deals', font: { size: 12 } }\n        },\n        x: {\n          grid: { display: false },\n          ticks: { font: { size: 12, weight: '600' } }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "The Money Flood",
+      "paragraphs": [
+        "Global AI funding reached $225.8B in 2025. That is not a typo, and it is not an annualised projection. Private AI companies raised almost double the $114.4B they collected the year before. To put the figure in context: it exceeds the total AI funding for 2022 and 2023 combined, with room to spare.",
+        "The surge was driven overwhelmingly by a handful of colossal rounds. Mega-rounds (deals worth $100M or more) accounted for 79% of total funding, up from 67% a year earlier. LLM developers alone captured $93.1B (41% of total AI funding), with OpenAI ($41.0B), Anthropic ($32.5B), and xAI ($12.8B) responsible for the majority of that haul. In Q4 2025, mega-rounds hit 86% of quarterly funding. The industry's capital structure now resembles a power law so steep it is almost vertical.",
+        "Deal counts tell a different story. The full-year total of 6,913 deals was roughly flat against 2024's 6,934. Activity peaked at 1,937 deals in Q2 2025 before sliding to 1,550 in Q4. Investors wrote bigger cheques to fewer companies. The global median deal size climbed to $4.1M (from $3.0M in 2024), and the average deal size hit $44.8M, nearly double the prior year's $24.6M. At every stage, from seed to late, median round sizes grew."
+      ],
+      "paragraphs_html": [
+        "Global AI funding reached <strong>$225.8B</strong> in 2025. That is not a typo, and it is not an annualised projection. Private AI companies raised almost double the $114.4B they collected the year before. To put the figure in context: it exceeds the total AI funding for 2022 and 2023 combined, with room to spare.",
+        "The surge was driven overwhelmingly by a handful of colossal rounds. <strong>Mega-rounds</strong> (deals worth $100M or more) accounted for 79% of total funding, up from 67% a year earlier. LLM developers alone captured $93.1B (41% of total AI funding), with OpenAI ($41.0B), Anthropic ($32.5B), and xAI ($12.8B) responsible for the majority of that haul. In Q4 2025, mega-rounds hit 86% of quarterly funding. The industry's capital structure now resembles a power law so steep it is almost vertical.",
+        "Deal counts tell a different story. The full-year total of 6,913 deals was roughly flat against 2024's 6,934. Activity peaked at 1,937 deals in Q2 2025 before sliding to 1,550 in Q4. Investors wrote bigger cheques to fewer companies. The global median deal size climbed to $4.1M (from $3.0M in 2024), and the average deal size hit $44.8M, nearly double the prior year's $24.6M. At every stage, from seed to late, median round sizes grew."
+      ]
+    },
+    {
+      "label": "Robotics Rises, Acquisitions Spike",
+      "paragraphs": [
+        "Among industry verticals, robotics claimed the top spot for AI deal share for the first time, capturing 11.4% of all AI equity deals in 2025. It pushed digital health (8.3%) into second place, a sector that had held the number-one ranking in 2021 and 2022. The shift reflects real advances in autonomous driving, humanoid applications, and defence robotics, all of which attracted record funding.",
+        "Exit activity spiked. There were 782 M&A transactions involving private AI companies in 2025, up from 484 in 2024. AI now represents 7.5% of all venture M&A exits, up from 4.9% a year ago. Roughly 10% of those acquisitions involved AI agents and infrastructure, including Meta's $3B purchase of Singapore-based Manus and Workday's $1.1B deal for Sana Labs. Two-thirds of acquired AI companies had fewer than 50 employees, confirming that the acqui-hire model remains the dominant acquisition playbook.",
+        "IPOs ticked up modestly to 40 from 33 in 2024. The market remains cautious about public listings, with BETA Technologies ($7.6B) and Chinese chipmaker Moore Threads ($7.6B) the standout AI-adjacent IPOs in Q4."
+      ],
+      "paragraphs_html": [
+        "Among industry verticals, <strong>robotics</strong> claimed the top spot for AI deal share for the first time, capturing 11.4% of all AI equity deals in 2025. It pushed digital health (8.3%) into second place, a sector that had held the number-one ranking in 2021 and 2022. The shift reflects real advances in autonomous driving, humanoid applications, and defence robotics, all of which attracted record funding.",
+        "Exit activity spiked. There were <strong>782 M&A transactions</strong> involving private AI companies in 2025, up from 484 in 2024. AI now represents 7.5% of all venture M&A exits, up from 4.9% a year ago. Roughly 10% of those acquisitions involved AI agents and infrastructure, including Meta's $3B purchase of Singapore-based Manus and Workday's $1.1B deal for Sana Labs. Two-thirds of acquired AI companies had fewer than 50 employees, confirming that the acqui-hire model remains the dominant acquisition playbook.",
+        "IPOs ticked up modestly to 40 from 33 in 2024. The market remains cautious about public listings, with BETA Technologies ($7.6B) and Chinese chipmaker Moore Threads ($7.6B) the standout AI-adjacent IPOs in Q4."
+      ]
+    },
+    {
+      "label": "Unicorns Go Commercial",
+      "paragraphs": [
+        "AI startups minted 75 new unicorns in 2025, accounting for 61% of all new billion-dollar private companies globally. The US dominated, adding 54 new AI unicorns, with Europe contributing 12 and Asia adding a handful. By the end of Q4 2025, there were 360 AI unicorns worldwide, up from 298 at the start of the year.",
+        "The composition of these unicorns has changed sharply. In 2024, only 23% of new AI unicorns were at CB Insights' Commercial Maturity level 4 (\"Scaling\"). In 2025, that figure jumped to 63% . Just 8% were still in the Emerging or Validating stages, down from 27% in 2024. AI companies are reaching unicorn status later in their commercial lifecycle, which means they are actually selling products at scale rather than running on research promise alone. That is a structural shift.",
+        "The headcount data reinforces this maturation. The fastest-growing AI market segments by year-over-year headcount growth were AI agent browser infrastructure (87.2%), voice AI development platforms (54.1%), and defence AI copilots (52.9%). These are applied categories, not research labs. The hiring is happening where the revenue is."
+      ],
+      "paragraphs_html": [
+        "AI startups minted 75 new unicorns in 2025, accounting for 61% of all new billion-dollar private companies globally. The US dominated, adding 54 new AI unicorns, with Europe contributing 12 and Asia adding a handful. By the end of Q4 2025, there were 360 AI unicorns worldwide, up from 298 at the start of the year.",
+        "The composition of these unicorns has changed sharply. In 2024, only 23% of new AI unicorns were at CB Insights' Commercial Maturity level 4 (\"Scaling\"). In 2025, that figure jumped to <strong>63%</strong>. Just 8% were still in the Emerging or Validating stages, down from 27% in 2024. AI companies are reaching unicorn status later in their commercial lifecycle, which means they are actually selling products at scale rather than running on research promise alone. That is a structural shift.",
+        "The headcount data reinforces this maturation. The fastest-growing AI market segments by year-over-year headcount growth were AI agent browser infrastructure (87.2%), voice AI development platforms (54.1%), and defence AI copilots (52.9%). These are applied categories, not research labs. The hiring is happening where the revenue is."
+      ]
+    },
+    {
+      "label": "Geography: The US Pulls Away",
+      "paragraphs": [
+        "The United States captured $188.8B of the $225.8B global total, an 84% share of funding despite accounting for roughly half (51%) of global AI deals. In Q4 2025 alone, the US attracted $71.3B across 794 deals. Silicon Valley's share was staggering: $59.2B in Q4, driven by OpenAI's $22.5B SoftBank investment, Anthropic's $15B Series G, and xAI's $7.5B Series D.",
+        "Europe's AI sector grew meaningfully, with full-year funding reaching $21.1B (up from $12.6B in 2024) across 1,494 deals. The UK led with notable rounds for Kraken ($1B) and Nscale ($433M). Germany contributed strong performance from Quantum Systems ($209M) and the workflow-automation platform n8n ($180M). Asia held steady at $12.2B in annual funding across 1,417 deals, with China's robotics and autonomous-driving sectors commanding the largest rounds.",
+        "Valuation per employee figures illustrate just how dislocated AI pricing has become. OpenEvidence reached $173.9M per employee on a $12B valuation with only 69 staff. Anthropic, with 2,671 employees, valued at $350B, works out to $131M per head. These numbers are historically unprecedented in venture capital."
+      ]
+    }
+  ],
+  "references": [
+    "CB Insights. (2026). <em>State of AI: Global 2025 Recap</em>. CB Insights. <a href=\"https://www.cbinsights.com/research/report/artificial-intelligence-trends/\" target=\"_blank\" rel=\"noopener\">https://www.cbinsights.com/research/report/artificial-intelligence-trends/</a>"
+  ]
+}

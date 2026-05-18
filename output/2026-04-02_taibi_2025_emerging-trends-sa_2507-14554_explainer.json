@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Software Architecture Trends: Su et al. (2025)",
+    "eyebrow": "Research Explainer · Su et al. (2025)",
+    "date_created": "2026-04-02",
+    "filename_slug": "2026-04-02_taibi_2025_emerging-trends-sa_2507-14554_explainer"
+  },
+  "hero": {
+    "headline": "Kubernetes dominates five years of practitioner talks; while planning and coding get almost no attention",
+    "headline_html": "Kubernetes dominates five years of practitioner talks; <span>while planning and coding get almost no attention</span>",
+    "subtitle": "An analysis of 5,677 talks from eight major industry conferences (2020–2024) reveals that a tiny cluster of technologies shapes modern software architecture, most tools serve late DevOps stages, and early design phases remain a blind spot."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Table 9 in Su et al. (2025). Each technology can map to multiple DevOps phases. Plan, Code, and Release collectively account for under 11% of tool coverage.",
+    "config_json": null,
+    "config_raw": "(function() {\n  const ctx = document.getElementById('devopsChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: ['Plan', 'Code', 'Build', 'Test', 'Release', 'Deploy', 'Operate', 'Monitor'],\n      datasets: [{\n        label: '% of 450 technologies',\n        data: [2.89, 3.11, 81.11, 15.33, 5.11, 94.22, 96, 99.11],\n        backgroundColor: [\n          '#ff6b6b', '#ff6b6b', '#4dabf7', '#f6ad55', '#ff6b6b', '#4dabf7', '#4dabf7', '#51cf66'\n        ],\n        borderRadius: 6,\n        borderSkipped: false\n      }]\n    },\n    options: {\n      animation: false,\n      responsive: true,\n      maintainAspectRatio: true,\n      plugins: {\n        legend: { display: false },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              return context.parsed.y + '%';\n            }\n          }\n        }\n      },\n      scales: {\n        y: {\n          beginAtZero: true,\n          max: 110,\n          ticks: {\n            callback: function(value) { return value + '%'; },\n            font: { size: 12 },\n            color: '#718096'\n          },\n          grid: { color: '#e2e8f0' }\n        },\n        x: {\n          ticks: {\n            font: { size: 12, weight: '600' },\n            color: '#4a5568'\n          },\n          grid: { display: false }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "What They Did",
+      "paragraphs": [
+        "The researchers gathered every available talk title from eight of the largest practitioner-oriented software conferences (KubeCon, AWS re:Invent, QCon, Google Cloud Next, and four others) between 2020 and 2024. From an initial pool of 16,778 titles, they filtered down to 5,677 that genuinely addressed software architecture, using inclusion criteria validated by multiple reviewers.",
+        "They then used a pipeline of large language models to extract three things from each title: the technology mentioned, the purpose of the talk, and the context in which the technology was applied. A \"large reasoning model\" (Marco-o1) did the initial extraction, and three separate validation models (Mistral, Qwen, Llama) independently checked its output. Human experts reviewed disagreements, achieving over 90% overall accuracy for the primary extractor across all dimensions.",
+        "After de-duplicating and cleaning, the team identified 450 distinct technologies, 232 usage contexts, and 11 purpose categories. They then classified each technology by its DevOps phase, deployment environment (cloud, on-premise, or both), and cloud provider. Finally, they built co-occurrence networks using Gephi, calculated centrality metrics, and ran community detection to find natural technology clusters."
+      ],
+      "paragraphs_html": [
+        "The researchers gathered every available talk title from eight of the largest practitioner-oriented software conferences (KubeCon, AWS re:Invent, QCon, Google Cloud Next, and four others) between 2020 and 2024. From an initial pool of 16,778 titles, they filtered down to 5,677 that genuinely addressed software architecture, using inclusion criteria validated by multiple reviewers.",
+        "They then used a pipeline of large language models to extract three things from each title: the <strong>technology</strong> mentioned, the <strong>purpose</strong> of the talk, and the <strong>context</strong> in which the technology was applied. A \"large reasoning model\" (Marco-o1) did the initial extraction, and three separate validation models (Mistral, Qwen, Llama) independently checked its output. Human experts reviewed disagreements, achieving over 90% overall accuracy for the primary extractor across all dimensions.",
+        "After de-duplicating and cleaning, the team identified 450 distinct technologies, 232 usage contexts, and 11 purpose categories. They then classified each technology by its DevOps phase, deployment environment (cloud, on-premise, or both), and cloud provider. Finally, they built co-occurrence networks using Gephi, calculated centrality metrics, and ran community detection to find natural technology clusters."
+      ]
+    },
+    {
+      "label": "What They Found",
+      "paragraphs": [
+        "Four technologies sit at the absolute centre of everything: Kubernetes (1,054 mentions), Cloud Native (584), Serverless (325), and Containers (203). These four connect to over 80% of all other technologies in the co-occurrence network. Kubernetes alone has 64 direct connections and the highest scores on every centrality measure the team computed, whether that is weighted degree, closeness, or betweenness.",
+        "The DevOps phase distribution tells a stark story. Technologies cluster overwhelmingly around Build (81%), Deploy (94%), Operate (96%), and Monitor (99%). The Plan phase has just 2.89% coverage. Code sits at 3.11%. Release manages 5.11%. The industry has invested enormously in the right side of the pipeline and left early architectural phases comparatively bare.",
+        "Community detection revealed five coherent technology clusters: (1) deployment automation and infrastructure-as-code, centred on AWS EKS, GitOps, and CI/CD; (2) service communication, with Microservices, Service Mesh, and Istio; (3) cloud AI and serverless computing, where Generative AI appeared as the second-most-central node; (4) observability, security, and performance, led by OpenTelemetry and eBPF; and (5) cross-cloud and cloud-edge collaboration, anchored by Multi-Cloud and Hybrid-Cloud.",
+        "AI's arrival is late but accelerating. It had zero mentions in the top-10 before 2023, then jumped to 34 mentions that year and 54 in 2024. Generative AI ranked high on betweenness centrality, acting as a bridge between previously disconnected technology domains rather than becoming a hub in its own right."
+      ],
+      "paragraphs_html": [
+        "Four technologies sit at the absolute centre of everything: <strong>Kubernetes</strong> (1,054 mentions), <strong>Cloud Native</strong> (584), <strong>Serverless</strong> (325), and <strong>Containers</strong> (203). These four connect to over 80% of all other technologies in the co-occurrence network. Kubernetes alone has 64 direct connections and the highest scores on every centrality measure the team computed, whether that is weighted degree, closeness, or betweenness.",
+        "The DevOps phase distribution tells a stark story. Technologies cluster overwhelmingly around <strong>Build</strong> (81%), <strong>Deploy</strong> (94%), <strong>Operate</strong> (96%), and <strong>Monitor</strong> (99%). The Plan phase has just 2.89% coverage. Code sits at 3.11%. Release manages 5.11%. The industry has invested enormously in the right side of the pipeline and left early architectural phases comparatively bare.",
+        "Community detection revealed five coherent technology clusters: (1) deployment automation and infrastructure-as-code, centred on AWS EKS, GitOps, and CI/CD; (2) service communication, with Microservices, Service Mesh, and Istio; (3) cloud AI and serverless computing, where Generative AI appeared as the second-most-central node; (4) observability, security, and performance, led by OpenTelemetry and eBPF; and (5) cross-cloud and cloud-edge collaboration, anchored by Multi-Cloud and Hybrid-Cloud.",
+        "AI's arrival is late but accelerating. It had zero mentions in the top-10 before 2023, then jumped to 34 mentions that year and 54 in 2024. Generative AI ranked high on betweenness centrality, acting as a bridge between previously disconnected technology domains rather than becoming a hub in its own right."
+      ]
+    },
+    {
+      "label": "The Purpose Gap",
+      "paragraphs": [
+        "Over half of all talks (2,945 out of 5,677) fell into the \"Introduction & Overview\" purpose category. Practitioners are primarily introducing tools and orienting audiences, not documenting architectural vision or migration strategy. Categories like Vision & Roadmapping (130 total mentions), Architecture & Infrastructure (173), and Migration & Modernisation (101) remain marginal, though each showed a clear upward trend from 2020 to 2024.",
+        "The researchers frame this bluntly: practitioner conferences provide \"a snapshot of the current use cases for technologies, more like a clue than a fundamental shake-up of the state-of-the-art.\" Architecture-related keywords (design, pattern, architecture) appear far less often than implementation and infrastructure terms (Docker, Kubernetes, CI/CD). Tooling may be mistaken for process maturity. The conference stage favours the shiny and deployable, not the strategic and structural."
+      ]
+    }
+  ],
+  "references": [
+    "Su, R., Ahmad, N., Esposito, M., Janes, A., Taibi, D., &amp; Lenarduzzi, V. (2025). Emerging trends in software architecture from the practitioner's perspective: A five-year review. <em>arXiv preprint</em>. <a href=\"https://arxiv.org/abs/2507.14554\">https://arxiv.org/abs/2507.14554</a>"
+  ]
+}

@@ -1,0 +1,417 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "LLM Inference Benchmarking: Chen et al. (2025)",
+    "eyebrow": "Research Explainer · Chen et al. (2025)",
+    "date_created": "2026-04-22",
+    "filename_slug": "2026-04-22_chen_inferencemax-benchmarking_explainer"
+  },
+  "hero": {
+    "headline": "Every GPU benchmark goes stale in days, so SemiAnalysis built one that runs every night",
+    "headline_html": "Every GPU benchmark goes stale in days, so SemiAnalysis built one that <span>runs every night</span>",
+    "subtitle": "InferenceMAX is an open-source, nightly benchmarking system that measures throughput, cost per token, and tokens per megawatt across NVIDIA and AMD GPUs using real inference workloads. The results reveal that neither vendor wins everywhere, and that software optimisation shifts the leaderboard weekly.",
+    "publication_date": "Published October 2025"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "~3x",
+        "description": "generational power-efficiency gain from CDNA3 (MI300X) to CDNA4 (MI355X) on GPT-OSS 120B MX4 reasoning workloads",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "4x",
+        "description": "better TCO per million tokens on GB200 NVL72 vs single-node systems for DeepSeek R1 FP8 at 35 tok/s/user",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "2-3x",
+        "description": "interactivity boost from enabling Multi-Token Prediction (MTP) on DeepSeek R1 at iso-cost",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "7 GPUs",
+        "description": "benchmarked nightly: H100, H200, B200, GB200 NVL72, MI300X, MI325X, MI355X, with TPU and Trainium planned",
+        "accent_color": "#fcc419"
+      }
+    ]
+  },
+  "charts": [
+    {
+      "title": "Generational Power Efficiency: Tokens/s per Provisioned MW (GPT-OSS 120B MX4, Reasoning, 90 tok/s/user)",
+      "caption": "Source: SemiAnalysis InferenceMAX nightly run, Oct 7 2025. All-in provisioned utility MW, not Critical IT MW. AMD CDNA3 to CDNA4 shows ~3.4x gain; NVIDIA Hopper to Blackwell shows ~3.1x gain.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "MI300X (CDNA3)",
+            "MI355X (CDNA4)",
+            "H100 (Hopper)",
+            "B200 (Blackwell)"
+          ],
+          "datasets": [
+            {
+              "label": "Tokens/s per provisioned MW (thousands)",
+              "data": [
+                750,
+                2550,
+                900,
+                2800
+              ],
+              "backgroundColor": [
+                "#ff6b6b",
+                "#e03131",
+                "#4dabf7",
+                "#1971c2"
+              ]
+            }
+          ]
+        },
+        "options": {
+          "indexAxis": "y",
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": false
+            },
+            "title": {
+              "display": false
+            }
+          },
+          "scales": {
+            "x": {
+              "title": {
+                "display": true,
+                "text": "Tokens/s per all-in provisioned utility MW (thousands)"
+              },
+              "beginAtZero": true
+            },
+            "y": {
+              "title": {
+                "display": false
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"MI300X (CDNA3)\",\"MI355X (CDNA4)\",\"H100 (Hopper)\",\"B200 (Blackwell)\"],\"datasets\":[{\"label\":\"Tokens/s per provisioned MW (thousands)\",\"data\":[750,2550,900,2800],\"backgroundColor\":[\"#ff6b6b\",\"#e03131\",\"#4dabf7\",\"#1971c2\"]}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"title\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":true,\"text\":\"Tokens/s per all-in provisioned utility MW (thousands)\"},\"beginAtZero\":true},\"y\":{\"title\":{\"display\":false}}}}}"
+    },
+    {
+      "title": "MTP On vs Off: DeepSeek R1 on GB200 NVL72 (8K in / 1K out, Summarisation)",
+      "caption": "Source: SemiAnalysis InferenceMAX nightly run, Oct 7 2025. Multi-Token Prediction delivers 2-3x throughput at the same interactivity level across the 70-140 tok/s/user range. MTP = Multi-Token Prediction.",
+      "config_json": {
+        "type": "line",
+        "data": {
+          "labels": [
+            "70",
+            "80",
+            "90",
+            "100",
+            "110",
+            "120",
+            "130",
+            "140"
+          ],
+          "datasets": [
+            {
+              "label": "MTP Off (tok/s/GPU)",
+              "data": [
+                2800,
+                2400,
+                2000,
+                1700,
+                1400,
+                1100,
+                900,
+                700
+              ],
+              "borderColor": "#868e96",
+              "backgroundColor": "rgba(134,142,150,0.1)",
+              "fill": false,
+              "tension": 0.3,
+              "pointRadius": 4
+            },
+            {
+              "label": "MTP On (tok/s/GPU)",
+              "data": [
+                7000,
+                6200,
+                5400,
+                4600,
+                3800,
+                3100,
+                2500,
+                2000
+              ],
+              "borderColor": "#51cf66",
+              "backgroundColor": "rgba(81,207,102,0.1)",
+              "fill": false,
+              "tension": 0.3,
+              "pointRadius": 4
+            }
+          ]
+        },
+        "options": {
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": true,
+              "position": "top"
+            },
+            "title": {
+              "display": false
+            }
+          },
+          "scales": {
+            "x": {
+              "title": {
+                "display": true,
+                "text": "Interactivity (tok/s/user)"
+              }
+            },
+            "y": {
+              "title": {
+                "display": true,
+                "text": "Throughput (tok/s/GPU)"
+              },
+              "beginAtZero": true
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"line\",\"data\":{\"labels\":[\"70\",\"80\",\"90\",\"100\",\"110\",\"120\",\"130\",\"140\"],\"datasets\":[{\"label\":\"MTP Off (tok/s/GPU)\",\"data\":[2800,2400,2000,1700,1400,1100,900,700],\"borderColor\":\"#868e96\",\"backgroundColor\":\"rgba(134,142,150,0.1)\",\"fill\":false,\"tension\":0.3,\"pointRadius\":4},{\"label\":\"MTP On (tok/s/GPU)\",\"data\":[7000,6200,5400,4600,3800,3100,2500,2000],\"borderColor\":\"#51cf66\",\"backgroundColor\":\"rgba(81,207,102,0.1)\",\"fill\":false,\"tension\":0.3,\"pointRadius\":4}]},\"options\":{\"responsive\":true,\"plugins\":{\"legend\":{\"display\":true,\"position\":\"top\"},\"title\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":true,\"text\":\"Interactivity (tok/s/user)\"}},\"y\":{\"title\":{\"display\":true,\"text\":\"Throughput (tok/s/GPU)\"},\"beginAtZero\":true}}}}"
+    },
+    {
+      "title": "TCO per Million Tokens: DeepSeek R1 FP8 at ~35 tok/s/user (Hyperscaler 4-Year Own)",
+      "caption": "Source: SemiAnalysis InferenceMAX nightly run, Oct 7 2025. GB200 NVL72 uses TRT-LLM Dynamo with disaggregated prefill, wide EP, and MTP. Lower is better. Relative values are approximate based on the article's stated 4x advantage for GB200 NVL72.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "GB200 NVL72\n(TRT-LLM Dynamo)",
+            "B200\n(SGLang)",
+            "H200\n(SGLang)",
+            "MI355X\n(SGLang)",
+            "MI325X\n(SGLang)"
+          ],
+          "datasets": [
+            {
+              "label": "Relative TCO / million tokens",
+              "data": [
+                1,
+                4,
+                5.2,
+                5.8,
+                6.5
+              ],
+              "backgroundColor": [
+                "#1971c2",
+                "#4dabf7",
+                "#74c0fc",
+                "#ff6b6b",
+                "#e03131"
+              ]
+            }
+          ]
+        },
+        "options": {
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": false
+            },
+            "title": {
+              "display": false
+            }
+          },
+          "scales": {
+            "x": {
+              "title": {
+                "display": false
+              }
+            },
+            "y": {
+              "title": {
+                "display": true,
+                "text": "Relative TCO per million tokens (lower is better)"
+              },
+              "beginAtZero": true
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"GB200 NVL72\\n(TRT-LLM Dynamo)\",\"B200\\n(SGLang)\",\"H200\\n(SGLang)\",\"MI355X\\n(SGLang)\",\"MI325X\\n(SGLang)\"],\"datasets\":[{\"label\":\"Relative TCO / million tokens\",\"data\":[1,4,5.2,5.8,6.5],\"backgroundColor\":[\"#1971c2\",\"#4dabf7\",\"#74c0fc\",\"#ff6b6b\",\"#e03131\"]}]},\"options\":{\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"title\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":false}},\"y\":{\"title\":{\"display\":true,\"text\":\"Relative TCO per million tokens (lower is better)\"},\"beginAtZero\":true}}}}"
+    }
+  ],
+  "sections": [
+    {
+      "label": "Why benchmarks expire faster than milk",
+      "paragraphs": [
+        "LLM inference performance depends on two things that move at completely different speeds. Hardware arrives in annual step jumps: a new GPU generation, a new rack-scale system, a new interconnect. Software, on the other hand, ships kernel optimisations, scheduling tricks, and parallelism strategies in incremental releases that can land days apart. A benchmark taken on Tuesday can be outdated by Friday.",
+        "InferenceMAX tackles this by running its full benchmark suite every night across hundreds of chips. It tests three open-source inference frameworks (vLLM, SGLang, and TensorRT-LLM) on seven GPU types spanning two vendor generations from both NVIDIA and AMD. The results are posted to a public dashboard at inferencemax.ai, giving anyone a live view of where the Pareto frontier sits today.",
+        "The project is backed by endorsements from the CEOs of both AMD and NVIDIA, plus leaders at OpenAI, Microsoft Azure, CoreWeave, and the PyTorch Foundation. Google TPU and AWS Trainium support are planned within two months of launch."
+      ],
+      "paragraphs_html": [
+        "LLM inference performance depends on two things that move at completely different speeds. Hardware arrives in annual step jumps: a new GPU generation, a new rack-scale system, a new interconnect. Software, on the other hand, ships kernel optimisations, scheduling tricks, and parallelism strategies in incremental releases that can land <strong>days apart</strong>. A benchmark taken on Tuesday can be outdated by Friday.",
+        "InferenceMAX tackles this by running its full benchmark suite <strong>every night</strong> across hundreds of chips. It tests three open-source inference frameworks (<a href=\"https://github.com/vllm-project/vllm\" target=\"_blank\" rel=\"noopener noreferrer\">vLLM</a>, <a href=\"https://github.com/sgl-project/sglang\" target=\"_blank\" rel=\"noopener noreferrer\">SGLang</a>, and TensorRT-LLM) on seven GPU types spanning two vendor generations from both NVIDIA and AMD. The results are posted to a public dashboard at <a href=\"https://inferencemax.ai/\" target=\"_blank\" rel=\"noopener noreferrer\">inferencemax.ai</a>, giving anyone a live view of where the Pareto frontier sits today.",
+        "The project is backed by endorsements from the CEOs of both AMD and NVIDIA, plus leaders at OpenAI, Microsoft Azure, CoreWeave, and the PyTorch Foundation. Google TPU and AWS Trainium support are planned within two months of launch."
+      ]
+    },
+    {
+      "label": "The throughput-latency trade-off, explained with a bus and a Ferrari",
+      "paragraphs": [
+        "Every LLM deployment faces the same tension: throughput (tokens per second per GPU) versus interactivity (tokens per second per user). You can serve many users simultaneously and maximise total throughput, or you can serve fewer users and give each one blazing-fast responses. You cannot have both.",
+        "The mechanism behind this is batching. LLM inference relies on matrix multiplications that become more efficient when many requests are processed together. Large batches fill the GPU's compute units but split resources across more users, slowing each one. Small batches concentrate the hardware on fewer requests but leave GPU capacity idle. SemiAnalysis uses the analogy of a metro bus versus a Ferrari: similar total cost, but the bus amortises it over dozens of passengers while the Ferrari delivers a premium experience to one.",
+        "The practical implication is that interactivity directly sets cost per token. A fixed $/hour GPU rental means fewer tokens processed at high interactivity, pushing cost per million tokens up. InferenceMAX sweeps the entire curve, from low-concurrency, high-interactivity settings to high-concurrency, throughput-maximising configurations, so users can find the Pareto-optimal point for their specific use case."
+      ],
+      "paragraphs_html": [
+        "Every LLM deployment faces the same tension: <strong>throughput</strong> (tokens per second per GPU) versus <strong>interactivity</strong> (tokens per second per user). You can serve many users simultaneously and maximise total throughput, or you can serve fewer users and give each one blazing-fast responses. You cannot have both.",
+        "The mechanism behind this is batching. LLM inference relies on matrix multiplications that become more efficient when many requests are processed together. Large batches fill the GPU's compute units but split resources across more users, slowing each one. Small batches concentrate the hardware on fewer requests but leave GPU capacity idle. SemiAnalysis uses the analogy of a metro bus versus a Ferrari: similar total cost, but the bus amortises it over dozens of passengers while the Ferrari delivers a premium experience to one.",
+        "The practical implication is that interactivity directly sets cost per token. A fixed $/hour GPU rental means fewer tokens processed at high interactivity, pushing cost per million tokens up. InferenceMAX sweeps the entire curve, from low-concurrency, high-interactivity settings to high-concurrency, throughput-maximising configurations, so users can find the Pareto-optimal point for their specific use case."
+      ]
+    },
+    {
+      "label": "What gets benchmarked and how",
+      "paragraphs": [
+        "InferenceMAX v1 uses three models chosen to represent distinct deployment profiles. Llama 3 70B stands in for dense enterprise workloads. DeepSeek V3/R1 670B, a sparse mixture-of-experts model, was selected because its architecture most closely approximates the arithmetic intensity and memory access patterns of frontier closed models like OpenAI's GPT-4o/5. GPT-OSS 120B MoE represents a smaller 'mini' frontier model similar to GPT-5 mini.",
+        "Three input/output length combinations cover the most common real-world scenarios: 1K/1K for chat, 1K/8K for reasoning, and 8K/1K for summarisation. Input lengths are randomly varied from 80% to 100% of the target to mimic natural variation. Prefix caching is deliberately excluded for now because representative prefix ratios require a separate workload survey.",
+        "The benchmark sweeps across max concurrency (4 to 64+) and parallelism strategies (TP, DP, EP) to plot the full throughput-latency curve. To avoid reigniting the SGLang-vs-vLLM benchmark wars, each model is assigned a single default engine: SGLang for DeepSeek, vLLM for Llama and GPT-OSS."
+      ],
+      "paragraphs_html": [
+        "InferenceMAX v1 uses three models chosen to represent distinct deployment profiles. <strong>Llama 3 70B</strong> stands in for dense enterprise workloads. <strong>DeepSeek V3/R1 670B</strong>, a sparse mixture-of-experts model, was selected because its architecture most closely approximates the arithmetic intensity and memory access patterns of frontier closed models like OpenAI's GPT-4o/5. <strong>GPT-OSS 120B MoE</strong> represents a smaller 'mini' frontier model similar to GPT-5 mini.",
+        "Three input/output length combinations cover the most common real-world scenarios: 1K/1K for chat, 1K/8K for reasoning, and 8K/1K for summarisation. Input lengths are randomly varied from 80% to 100% of the target to mimic natural variation. Prefix caching is deliberately excluded for now because representative prefix ratios require a separate workload survey.",
+        "The benchmark sweeps across max concurrency (4 to 64+) and parallelism strategies (TP, DP, EP) to plot the full throughput-latency curve. To avoid reigniting the SGLang-vs-vLLM benchmark wars, each model is assigned a single default engine: SGLang for DeepSeek, vLLM for Llama and GPT-OSS."
+      ],
+      "list": {
+        "ordered": true,
+        "style": "steps",
+        "intro": "The benchmark methodology covers six configuration dimensions:",
+        "items": [
+          {
+            "label": "Model",
+            "body": "Llama 3 70B (dense), DeepSeek R1 670B (large MoE), GPT-OSS 120B (small MoE)."
+          },
+          {
+            "label": "Precision",
+            "body": "FP8, FP4, and MXFP4 weights, depending on hardware support."
+          },
+          {
+            "label": "GPU",
+            "body": "H100, H200, B200, GB200 NVL72, MI300X, MI325X, MI355X."
+          },
+          {
+            "label": "Framework",
+            "body": "vLLM, SGLang, or TensorRT-LLM, assigned per model."
+          },
+          {
+            "label": "Parallelism",
+            "body": "Tensor parallel, data parallel, expert parallel, and combinations thereof."
+          },
+          {
+            "label": "Concurrency",
+            "body": "4, 8, 16, 32, 64, and beyond, to sweep the full Pareto curve."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Key results: nobody wins everywhere",
+      "paragraphs": [
+        "The headline finding is that vendor advantage is workload-dependent and interactivity-dependent. On Llama 3 70B FP8 reasoning tasks, AMD's MI300X outperforms the H100 at low interactivity (20-30 tok/s/user) thanks to superior memory bandwidth. But on the same model in FP4, NVIDIA's B200 significantly outperforms the MI355X across all three workload types, suggesting AMD's FP4 kernels need more optimisation.",
+        "Cost per million tokens, not raw throughput, is what SemiAnalysis calls the 'true north star.' When normalised by total cost of ownership for a hyperscaler owning chips over a 4-year lifespan, surprising inversions appear. The MI325X on vLLM beats the H200 on vLLM at all interactivity levels for GPT-OSS 120B MX4. But the H200 on TRT-LLM claws that lead back. For GPT-OSS 120B FP4 summarisation, the MI355X actually beats both B200 vLLM and B200 TRT-LLM when interactivity stays below 225 tok/s/user.",
+        "The GB200 NVL72 stands apart for large MoE models. At 35 tok/s/user on DeepSeek R1 FP8, it delivers roughly 4x better TCO per million tokens than any single-node 8-GPU server. Multi-Token Prediction (MTP) provides a further 2-3x interactivity boost at the same cost. Most frontier labs already run MTP in production.",
+        "Power efficiency shows clean generational gains on both sides: roughly 3x from CDNA3 to CDNA4 and from Hopper to Blackwell. Blackwell holds about a 20% power-efficiency edge over CDNA4 at the same generation, partly because the MI355X's TDP sits at 1.4 kW per GPU versus 1.0 kW for the B200. But power is less than 20% of total cost, so this gap translates to under 4% of TCO. The dominant cost factor is the GPU vendor's gross margin."
+      ],
+      "paragraphs_html": [
+        "The headline finding is that vendor advantage is <strong>workload-dependent and interactivity-dependent</strong>. On Llama 3 70B FP8 reasoning tasks, AMD's MI300X outperforms the H100 at low interactivity (20-30 tok/s/user) thanks to superior memory bandwidth. But on the same model in FP4, NVIDIA's B200 significantly outperforms the MI355X across all three workload types, suggesting AMD's FP4 kernels need more optimisation.",
+        "Cost per million tokens, not raw throughput, is what SemiAnalysis calls the <strong>'true north star.'</strong> When normalised by total cost of ownership for a hyperscaler owning chips over a 4-year lifespan, surprising inversions appear. The MI325X on vLLM beats the H200 on vLLM at all interactivity levels for GPT-OSS 120B MX4. But the H200 on TRT-LLM claws that lead back. For GPT-OSS 120B FP4 summarisation, the MI355X actually beats both B200 vLLM and B200 TRT-LLM when interactivity stays below 225 tok/s/user.",
+        "The GB200 NVL72 stands apart for large MoE models. At 35 tok/s/user on DeepSeek R1 FP8, it delivers roughly <strong>4x better TCO per million tokens</strong> than any single-node 8-GPU server. Multi-Token Prediction (MTP) provides a further 2-3x interactivity boost at the same cost. Most frontier labs already run MTP in production.",
+        "Power efficiency shows clean generational gains on both sides: roughly 3x from CDNA3 to CDNA4 and from Hopper to Blackwell. Blackwell holds about a 20% power-efficiency edge over CDNA4 at the same generation, partly because the MI355X's TDP sits at 1.4 kW per GPU versus 1.0 kW for the B200. But power is less than 20% of total cost, so this gap translates to <strong>under 4% of TCO</strong>. The dominant cost factor is the GPU vendor's gross margin."
+      ]
+    },
+    {
+      "label": "The bugs that come with running 2,000 GPU jobs a night",
+      "paragraphs": [
+        "Some of the most revealing content in the report is the debugging war stories. On the NVIDIA side, the team discovered that vLLM's Blackwell container was stalling for up to 30 minutes on startup because NCCL 2.26 on CUDA 12 didn't ship precompiled Blackwell (SM100) machine code. The system was JIT-compiling Hopper PTX to Blackwell SASS on every launch, a process that happened to be cached on other users' clusters via a shared home directory, which is why nobody else could reproduce the bug.",
+        "A separate resource leak in NCCL's user buffer feature, triggered by the hundreds of container starts and stops each night, would eventually crash the entire NVIDIA driver. The temporary fix was to disable the zero-copy user buffer until NCCL 2.28 ships the permanent patch. A third bug involved FlashInfer downloading compiled kernels at launch time in a non-process-safe manner, creating file lock race conditions across 8 GPU processes per node.",
+        "On the AMD side, bugs were fewer and generally simpler: a pattern-matching failure in AITER that didn't handle architecture suffixes, a chunked prefill size set too high that caused 1 TB core dump files, and a Docker image permissions conflict that crashed SLURM's pyxis integration. The SemiAnalysis team recommends both vendors reduce the number of flags needed for reasonable performance and enable optimised defaults out of the box.",
+        "GitHub Actions itself buckled under the combinatorial explosion. With 3 models, 7 GPUs, 3 sequence-length pairs, 2 precisions, and multiple parallelism and concurrency options, the worst-case config space hits over 2,000 jobs per workflow. The GitHub Actions DAG renderer times out after 10 seconds at that scale. The workaround: splitting the nightly run into three separate workflows."
+      ],
+      "paragraphs_html": [
+        "Some of the most revealing content in the report is the debugging war stories. On the NVIDIA side, the team discovered that vLLM's Blackwell container was stalling for <strong>up to 30 minutes on startup</strong> because NCCL 2.26 on CUDA 12 didn't ship precompiled Blackwell (SM100) machine code. The system was JIT-compiling Hopper PTX to Blackwell SASS on every launch, a process that happened to be cached on other users' clusters via a shared home directory, which is why nobody else could reproduce the bug.",
+        "A separate resource leak in NCCL's user buffer feature, triggered by the hundreds of container starts and stops each night, would eventually <strong>crash the entire NVIDIA driver</strong>. The temporary fix was to disable the zero-copy user buffer until NCCL 2.28 ships the permanent patch. A third bug involved FlashInfer downloading compiled kernels at launch time in a non-process-safe manner, creating file lock race conditions across 8 GPU processes per node.",
+        "On the AMD side, bugs were fewer and generally simpler: a pattern-matching failure in AITER that didn't handle architecture suffixes, a chunked prefill size set too high that caused 1 TB core dump files, and a Docker image permissions conflict that crashed SLURM's pyxis integration. The SemiAnalysis team recommends both vendors <strong>reduce the number of flags needed for reasonable performance</strong> and enable optimised defaults out of the box.",
+        "GitHub Actions itself buckled under the combinatorial explosion. With 3 models, 7 GPUs, 3 sequence-length pairs, 2 precisions, and multiple parallelism and concurrency options, the worst-case config space hits over <strong>2,000 jobs per workflow</strong>. The GitHub Actions DAG renderer times out after 10 seconds at that scale. The workaround: splitting the nightly run into three separate workflows."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "BOTTOM LINE",
+    "body": "InferenceMAX demonstrates that no single GPU vendor or software stack wins across all models, interactivity levels, and cost metrics. The benchmark's nightly cadence means results shift weekly as software improves. For hyperscalers, the GB200 NVL72 delivers dominant TCO per token on large MoE models at moderate interactivity, while AMD's MI325X and MI355X are price-competitive on specific workloads when cost is normalised. The real north star is TCO per million tokens at your target interactivity level, and that number changes with every software release."
+  },
+  "references": [
+    "Chen, K., Patel, D., Nishball, D., et al. (2025). InferenceMAX: Open Source Inference Benchmarking. <em>SemiAnalysis</em>. <a href=\"https://newsletter.semianalysis.com/p/inferencemax-open-source-inference\" target=\"_blank\" rel=\"noopener noreferrer\">https://newsletter.semianalysis.com/p/inferencemax-open-source-inference</a>",
+    "InferenceMAX GitHub Repository. <a href=\"https://github.com/SemiAnalysis/inferencemax\" target=\"_blank\" rel=\"noopener noreferrer\">https://github.com/SemiAnalysis/inferencemax</a>",
+    "InferenceMAX Live Dashboard. <a href=\"https://inferencemax.ai/\" target=\"_blank\" rel=\"noopener noreferrer\">https://inferencemax.ai/</a>"
+  ],
+  "chart": {
+    "title": "Generational Power Efficiency: Tokens/s per Provisioned MW (GPT-OSS 120B MX4, Reasoning, 90 tok/s/user)",
+    "caption": "Source: SemiAnalysis InferenceMAX nightly run, Oct 7 2025. All-in provisioned utility MW, not Critical IT MW. AMD CDNA3 to CDNA4 shows ~3.4x gain; NVIDIA Hopper to Blackwell shows ~3.1x gain.",
+    "config_json": {
+      "type": "bar",
+      "data": {
+        "labels": [
+          "MI300X (CDNA3)",
+          "MI355X (CDNA4)",
+          "H100 (Hopper)",
+          "B200 (Blackwell)"
+        ],
+        "datasets": [
+          {
+            "label": "Tokens/s per provisioned MW (thousands)",
+            "data": [
+              750,
+              2550,
+              900,
+              2800
+            ],
+            "backgroundColor": [
+              "#ff6b6b",
+              "#e03131",
+              "#4dabf7",
+              "#1971c2"
+            ]
+          }
+        ]
+      },
+      "options": {
+        "indexAxis": "y",
+        "responsive": true,
+        "plugins": {
+          "legend": {
+            "display": false
+          },
+          "title": {
+            "display": false
+          }
+        },
+        "scales": {
+          "x": {
+            "title": {
+              "display": true,
+              "text": "Tokens/s per all-in provisioned utility MW (thousands)"
+            },
+            "beginAtZero": true
+          },
+          "y": {
+            "title": {
+              "display": false
+            }
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"MI300X (CDNA3)\",\"MI355X (CDNA4)\",\"H100 (Hopper)\",\"B200 (Blackwell)\"],\"datasets\":[{\"label\":\"Tokens/s per provisioned MW (thousands)\",\"data\":[750,2550,900,2800],\"backgroundColor\":[\"#ff6b6b\",\"#e03131\",\"#4dabf7\",\"#1971c2\"]}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"title\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":true,\"text\":\"Tokens/s per all-in provisioned utility MW (thousands)\"},\"beginAtZero\":true},\"y\":{\"title\":{\"display\":false}}}}}"
+  }
+}

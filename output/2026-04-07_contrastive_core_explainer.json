@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "CoRE: Contrastive RAG on Experience — Gu et al. (2025)",
+    "eyebrow": "Research Explainer · Gu et al. (2025)",
+    "date_created": "2026-04-07",
+    "filename_slug": "2026-04-07_contrastive_core_explainer"
+  },
+  "hero": {
+    "headline": "LLMs struggle with tables and databases, but showing them both right and wrong examples closes the gap",
+    "headline_html": "LLMs struggle with tables and databases, but showing them both right and wrong examples <span>closes the gap</span>",
+    "subtitle": "CoRE uses Monte Carlo Tree Search to build a memory of successful and failed reasoning attempts, then retrieves contrastive examples at inference time to boost structured knowledge reasoning by up to 17.2% on the hardest queries."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Table 1 in Gu et al. (2025). All baselines use a 2-shot setting. EX = Execution Accuracy. DIN-SQL and DAIL-SQL use LLaMA-3-70b; MAC-SQL (GPT-4) uses GPT-4. DAIL-SQL (SC) result is omitted because self-consistency voting conflicted with CoRE's contrastive context.",
+    "config_json": null,
+    "config_raw": "(function(){\n  const ctx = document.getElementById('mainChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: ['DIN-SQL', 'DAIL-SQL', 'MAC-SQL', 'MAC-SQL\\n(GPT-4)'],\n      datasets: [\n        {\n          label: 'Baseline',\n          data: [30.5, 31.6, 34.9, 46.6],\n          backgroundColor: '#f6ad55',\n          borderRadius: 4,\n          barPercentage: 0.7,\n          categoryPercentage: 0.65\n        },\n        {\n          label: 'Baseline + CoRE',\n          data: [34.0, 35.2, 40.8, 51.6],\n          backgroundColor: '#4dabf7',\n          borderRadius: 4,\n          barPercentage: 0.7,\n          categoryPercentage: 0.65\n        }\n      ]\n    },\n    options: {\n      animation: false,\n      maintainAspectRatio: false,\n      responsive: true,\n      scales: {\n        y: {\n          beginAtZero: true,\n          max: 60,\n          ticks: {\n            callback: function(v) { return v + '%'; },\n            color: '#718096',\n            font: { size: 12 }\n          },\n          grid: { color: '#e2e8f0' },\n          title: {\n            display: true,\n            text: 'Execution Accuracy (%)',\n            color: '#718096',\n            font: { size: 12 }\n          }\n        },\n        x: {\n          ticks: {\n            color: '#4a5568',\n            font: { size: 12 }\n          },\n          grid: { display: false }\n        }\n      },\n      plugins: {\n        legend: {\n          position: 'top',\n          labels: {\n            color: '#4a5568',\n            font: { size: 12 },\n            usePointStyle: true,\n            pointStyle: 'rectRounded',\n            padding: 16\n          }\n        }\n      }\n    }\n  });\n})();"
+  },
+  "sections": [
+    {
+      "label": "The Problem",
+      "paragraphs": [
+        "Large language models handle free-form text with impressive fluency, yet hand them a relational database schema or a complex table and performance drops. Two forces explain the shortfall: pre-training corpora contain far less structured data than plain prose, so models have thin coverage of schemas and join logic; and transferring reasoning habits built on running text to the rigid grammar of tables or SQL is a genuinely different cognitive task.",
+        "Retrieval-Augmented Generation (RAG) is the standard remedy for knowledge gaps. Fetch relevant documents, inject them into the prompt, let the model fill in its blind spots. For text-heavy tasks this works. For structured reasoning it often makes things worse, because retrieving disconnected schema fragments or sub-tables without context about how they relate to each other can disrupt the model's reasoning chain rather than support it."
+      ]
+    },
+    {
+      "label": "How CoRE Works",
+      "paragraphs": [
+        "CoRE (Contrastive Retrieval-Augmented Generation on Experience) borrows its central metaphor from cognitive science: deliberate practice . Human experts get better by studying both their successes and their failures, not just memorising correct answers. CoRE applies that logic to LLMs across three modules.",
+        "First, the Experience Memory Builder runs Monte Carlo Tree Search over training examples. Each question gets decomposed into sub-questions, and MCTS explores multiple reasoning paths through selection, expansion, simulation, and backpropagation. Every intermediate step receives a reward label between 0 and 1 indicating its likelihood of leading to a correct final answer. The result is a database that is 8–9 times larger than the original training set, rich with both high-reward (successful) and low-reward (failed) trajectories.",
+        "Second, the Retriever finds cases relevant to a new query by embedding similarity, then re-ranks them by reward label. This produces two ranked lists: one prioritising the most successful examples, another surfacing the most instructive failures. The top entries from each list become the positive and negative shots fed into the prompt.",
+        "Third, the Contrastive Thinker is the LLM itself, prompted to \"solve the new case using the successful experience and avoid repeating the errors from the failed experience.\" No weights are updated. The entire mechanism is training-free, plug-and-play, and works across different backbone models including LLaMA-3-70b and GPT-4."
+      ],
+      "paragraphs_html": [
+        "CoRE (Contrastive Retrieval-Augmented Generation on Experience) borrows its central metaphor from cognitive science: <em>deliberate practice</em>. Human experts get better by studying both their successes and their failures, not just memorising correct answers. CoRE applies that logic to LLMs across three modules.",
+        "First, the <strong>Experience Memory Builder</strong> runs Monte Carlo Tree Search over training examples. Each question gets decomposed into sub-questions, and MCTS explores multiple reasoning paths through selection, expansion, simulation, and backpropagation. Every intermediate step receives a reward label between 0 and 1 indicating its likelihood of leading to a correct final answer. The result is a database that is 8–9 times larger than the original training set, rich with both high-reward (successful) and low-reward (failed) trajectories.",
+        "Second, the <strong>Retriever</strong> finds cases relevant to a new query by embedding similarity, then re-ranks them by reward label. This produces two ranked lists: one prioritising the most successful examples, another surfacing the most instructive failures. The top entries from each list become the positive and negative shots fed into the prompt.",
+        "Third, the <strong>Contrastive Thinker</strong> is the LLM itself, prompted to \"solve the new case using the successful experience and avoid repeating the errors from the failed experience.\" No weights are updated. The entire mechanism is training-free, plug-and-play, and works across different backbone models including LLaMA-3-70b and GPT-4."
+      ]
+    },
+    {
+      "label": "What They Found",
+      "paragraphs": [
+        "On the Bird Text-to-SQL benchmark, CoRE improved every baseline it was plugged into. DIN-SQL gained 3.5 percentage points, DAIL-SQL gained 3.6, and MAC-SQL jumped 5.9 points (from 34.9% to 40.8%). The GPT-4 version of MAC-SQL climbed from 46.6% to 51.6%. The single exception was DAIL-SQL combined with self-consistency voting, where the extra contrastive context introduced noise that high-temperature sampling amplified. The lesson: stacking prompting strategies does not always compound.",
+        "On TableQA (WikiTQ and FinQA), CoRE delivered average gains of 3.4% and 4.25% respectively. The biggest lift appeared on Dater, whose evidence decomposer pre-filters noisy table rows before CoRE's contrastive context is applied. Cleaner grounding, in other words, lets CoRE's contrastive in-context learning shine more brightly.",
+        "The difficulty breakdown tells the sharpest story. On challenging Bird queries, CoRE nearly doubled MAC-SQL's accuracy, reaching about 40% where the baseline sat around 23%. On complex WikiTQ questions, gains were similarly concentrated at the hard end. Easy questions saw smaller lifts, suggesting CoRE adds most value exactly where models need it: multi-step, knowledge-intensive reasoning over unfamiliar schemas."
+      ],
+      "paragraphs_html": [
+        "On the <strong>Bird</strong> Text-to-SQL benchmark, CoRE improved every baseline it was plugged into. DIN-SQL gained 3.5 percentage points, DAIL-SQL gained 3.6, and MAC-SQL jumped 5.9 points (from 34.9% to 40.8%). The GPT-4 version of MAC-SQL climbed from 46.6% to 51.6%. The single exception was DAIL-SQL combined with self-consistency voting, where the extra contrastive context introduced noise that high-temperature sampling amplified. The lesson: stacking prompting strategies does not always compound.",
+        "On <strong>TableQA</strong> (WikiTQ and FinQA), CoRE delivered average gains of 3.4% and 4.25% respectively. The biggest lift appeared on Dater, whose evidence decomposer pre-filters noisy table rows before CoRE's contrastive context is applied. Cleaner grounding, in other words, lets CoRE's contrastive in-context learning shine more brightly.",
+        "The difficulty breakdown tells the sharpest story. On challenging Bird queries, CoRE nearly doubled MAC-SQL's accuracy, reaching about 40% where the baseline sat around 23%. On complex WikiTQ questions, gains were similarly concentrated at the hard end. Easy questions saw smaller lifts, suggesting CoRE adds most value exactly where models need it: multi-step, knowledge-intensive reasoning over unfamiliar schemas."
+      ]
+    },
+    {
+      "label": "Why Contrastive Examples Beat Fixed Few-Shot",
+      "paragraphs": [
+        "An extensive ablation study with GPT-4 tested every combination of positive and negative shots. Positive-only pairs outperformed fixed examples (ones without reward signals), confirming that dynamic retrieval from a diverse memory beats static templates. Negative-only pairs, however, actively hurt performance. Models imitate what they see in the context, and feeding them only errors, even clearly labelled ones, leads them to reproduce those errors.",
+        "The best results came from contrastive pairs: one positive and one negative example together, either in a single prompt turn or split across two turns. The two-turn approach (positive first, then negative for correction) achieved gains up to 3.26% in structured reasoning, while the single-turn approach reached 2.84%. The difference was small enough that practitioners can choose whichever fits their token budget. CoRE also supports bootstrapping , repeatedly applying contrastive retrieval in multi-turn dialogues, pushing MAC-SQL from 30.9% to 45.8% at the cost of additional inference rounds."
+      ],
+      "paragraphs_html": [
+        "An extensive ablation study with GPT-4 tested every combination of positive and negative shots. Positive-only pairs outperformed fixed examples (ones without reward signals), confirming that dynamic retrieval from a diverse memory beats static templates. Negative-only pairs, however, actively hurt performance. Models imitate what they see in the context, and feeding them only errors, even clearly labelled ones, leads them to reproduce those errors.",
+        "The best results came from contrastive pairs: one positive and one negative example together, either in a single prompt turn or split across two turns. The two-turn approach (positive first, then negative for correction) achieved gains up to 3.26% in structured reasoning, while the single-turn approach reached 2.84%. The difference was small enough that practitioners can choose whichever fits their token budget. CoRE also supports <strong>bootstrapping</strong>, repeatedly applying contrastive retrieval in multi-turn dialogues, pushing MAC-SQL from 30.9% to 45.8% at the cost of additional inference rounds."
+      ]
+    }
+  ],
+  "references": [
+    "Gu, J., Xian, Z., Xie, Y., Liu, Y., Liu, E., Zhong, R., Gao, M., Tan, Y., Hu, B., & Li, Z. (2025). Toward structured knowledge reasoning: Contrastive retrieval-augmented generation on experience. <em>Findings of the Association for Computational Linguistics: ACL 2025</em>, 23891–23910. <a href=\"https://github.com/Kuvvius/CoRE\" target=\"_blank\">https://github.com/Kuvvius/CoRE</a>"
+  ]
+}

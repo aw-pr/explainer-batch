@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Copy to op-refs.local.sh (gitignored) and set your real 1Password refs.
+# Format: op://<vault>/<item>/<field>. These are pointers, not secrets, but
+# keeping your private vault/item names out of the committed tree is cleaner.
+#
+# Only needed if you use the 1Password auth route. No 1Password? Use .env.
+export OP_REF_OPENAI_API_KEY="op://YOUR_VAULT/openai-api-key/credential"
+export OP_REF_ANTHROPIC_API_KEY="op://YOUR_VAULT/anthropic-api-key/credential"
+export OP_REF_CLAUDE_CODE_OAUTH_TOKEN="op://YOUR_VAULT/claude-oauth-token/credential"

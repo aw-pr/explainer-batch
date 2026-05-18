@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "GenAI in Agile Teams: Herda (2025)",
+    "eyebrow": "Research Explainer · Herda (2025)",
+    "date_created": "2026-04-14",
+    "filename_slug": "2026-04-14_herda_ai-agile-roadmap_explainer"
+  },
+  "hero": {
+    "headline": "Agile teams can get local gains from GenAI, but the real blockers are social and organisational",
+    "headline_html": "Agile teams can get local gains from GenAI, but <span>the real blockers are social and organisational</span>",
+    "subtitle": "This XP2025 workshop summary turns one day of practitioner and researcher discussion into a research roadmap for GenAI in agile software development. Its main claim is plain enough: tooling matters, but prompting skill, governance, trust, and workflow fit matter more.",
+    "publication_date": "Published October 2025"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "78.6%",
+        "description": "of votes in the prompting category went to lack of prompting skills or best practices",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "75.0%",
+        "description": "of creativity-category votes said AI outputs were bland or unoriginal",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "73.3%",
+        "description": "of tooling-category votes focused on too many tools and no clear choice rule",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "charts": [
+    {
+      "title": "What workshop participants prioritised as the main frustrations",
+      "caption": "Recreated from Herda et al. (2025), Table 1. Percentages show the vote share for the top sub-challenge within each frustration category.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "F1 Tooling",
+            "F2 Governance",
+            "F3 Team fit",
+            "F4 Quality",
+            "F5 Prompting",
+            "F6 Creativity"
+          ],
+          "datasets": [
+            {
+              "label": "Top sub-challenge vote share (%)",
+              "data": [
+                73.3,
+                53.3,
+                52.9,
+                66.7,
+                78.6,
+                75
+              ],
+              "backgroundColor": [
+                "#51cf66",
+                "#fab005",
+                "#f6ad55",
+                "#ff6b6b",
+                "#4dabf7",
+                "#9775fa"
+              ],
+              "borderColor": [
+                "#51cf66",
+                "#fab005",
+                "#f6ad55",
+                "#ff6b6b",
+                "#4dabf7",
+                "#9775fa"
+              ],
+              "borderWidth": 1
+            }
+          ]
+        },
+        "options": {
+          "animation": false,
+          "responsive": true,
+          "maintainAspectRatio": false,
+          "plugins": {
+            "legend": {
+              "display": false
+            },
+            "tooltip": {
+              "enabled": true
+            }
+          },
+          "scales": {
+            "y": {
+              "beginAtZero": true,
+              "max": 100,
+              "title": {
+                "display": true,
+                "text": "Vote share (%)"
+              },
+              "grid": {
+                "color": "#e2e8f0"
+              }
+            },
+            "x": {
+              "grid": {
+                "display": false
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"F1 Tooling\",\"F2 Governance\",\"F3 Team fit\",\"F4 Quality\",\"F5 Prompting\",\"F6 Creativity\"],\"datasets\":[{\"label\":\"Top sub-challenge vote share (%)\",\"data\":[73.3,53.3,52.9,66.7,78.6,75],\"backgroundColor\":[\"#51cf66\",\"#fab005\",\"#f6ad55\",\"#ff6b6b\",\"#4dabf7\",\"#9775fa\"],\"borderColor\":[\"#51cf66\",\"#fab005\",\"#f6ad55\",\"#ff6b6b\",\"#4dabf7\",\"#9775fa\"],\"borderWidth\":1}]},\"options\":{\"animation\":false,\"responsive\":true,\"maintainAspectRatio\":false,\"plugins\":{\"legend\":{\"display\":false},\"tooltip\":{\"enabled\":true}},\"scales\":{\"y\":{\"beginAtZero\":true,\"max\":100,\"title\":{\"display\":true,\"text\":\"Vote share (%)\"},\"grid\":{\"color\":\"#e2e8f0\"}},\"x\":{\"grid\":{\"display\":false}}}}}"
+    }
+  ],
+  "sections": [
+    {
+      "label": "What this paper actually is",
+      "paragraphs": [
+        "This is not a controlled experiment and it is not pretending to be one. Herda and colleagues summarise a full-day XP2025 workshop in Brugg-Windisch, where more than 30 researchers and practitioners compared notes on what happens when GenAI lands inside agile software development.",
+        "The workshop used breakout sessions, a retrospective, clustering, and a Padlet voting exercise to turn more than 120 reported pain points into six categories. The chapter then pushes those categories into a research roadmap with short-term fixes and longer-term bets. Useful, yes. Settled science, no."
+      ],
+      "paragraphs_html": [
+        "This is not a controlled experiment and it is not pretending to be one. <strong>Herda and colleagues summarise a full-day XP2025 workshop</strong> in Brugg-Windisch, where more than 30 researchers and practitioners compared notes on what happens when GenAI lands inside agile software development.",
+        "The workshop used breakout sessions, a retrospective, clustering, and a Padlet voting exercise to turn <strong>more than 120 reported pain points into six categories</strong>. The chapter then pushes those categories into a research roadmap with short-term fixes and longer-term bets. Useful, yes. Settled science, no."
+      ]
+    },
+    {
+      "label": "What people were complaining about",
+      "paragraphs": [
+        "The strongest signal was not that teams hated AI. It was that they were struggling to use it well. The most-voted issue in the whole workshop was the prompting gap: 78.6% of votes in that category went to lack of prompting skills or best practices. Right behind it came creativity, where 75.0% of votes said AI tended to produce bland, derivative work.",
+        "Tool sprawl was close behind at 73.3%, followed by hallucinations and unreliable outputs at 66.7%. Governance worries and workflow misalignment also mattered, with privacy boundaries at 53.3% and failed value realisation at 52.9%. The pattern is hard to miss: most of the friction sits at the boundary between people, process, and tools, not inside the model weights alone."
+      ],
+      "paragraphs_html": [
+        "The strongest signal was not that teams hated AI. It was that they were struggling to use it well. The most-voted issue in the whole workshop was the <strong>prompting gap</strong>: 78.6% of votes in that category went to lack of prompting skills or best practices. Right behind it came creativity, where 75.0% of votes said AI tended to produce bland, derivative work.",
+        "Tool sprawl was close behind at 73.3%, followed by <strong>hallucinations and unreliable outputs</strong> at 66.7%. Governance worries and workflow misalignment also mattered, with privacy boundaries at 53.3% and failed value realisation at 52.9%. The pattern is hard to miss: most of the friction sits at the boundary between people, process, and tools, not inside the model weights alone."
+      ],
+      "list": {
+        "ordered": false,
+        "style": "list",
+        "intro": "The six frustration categories prioritised in Table 1 were:",
+        "intro_html": "The six frustration categories prioritised in <strong>Table 1</strong> were:",
+        "items": [
+          {
+            "label": "F1",
+            "body": "Tooling challenges, especially too many tools and no clear guidance on which one to use."
+          },
+          {
+            "label": "F2",
+            "body": "Governance and compliance, centred on unclear privacy and protection boundaries."
+          },
+          {
+            "label": "F3",
+            "body": "Team and process misalignment, where AI use failed to produce valuable outcomes."
+          },
+          {
+            "label": "F4",
+            "body": "Data and model quality issues, especially hallucinations and unreliable outputs."
+          },
+          {
+            "label": "F5",
+            "body": "Knowledge and prompting gaps, led by weak prompting practice and limited AI literacy."
+          },
+          {
+            "label": "F6",
+            "body": "Creativity concerns, where AI was seen as competent but tediously mean-reverting."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Why the roadmap matters",
+      "paragraphs": [
+        "The paper's best move is to frame GenAI in agile as a socio-technical problem. That means teams do not get very far by buying a shiny copilot and hoping culture, governance, and judgement sort themselves out later. The workshop evidence points the other way: shared mental models, training, and workflow design are prerequisites, not polishing steps.",
+        "That stance also helps explain an awkward split in the wider evidence base. Industry studies cited by the paper report 20-50% productivity gains on familiar tasks such as unit-test generation or boilerplate coding. But those are task-local wins. They do not tell you whether teams collaborate better, trust outputs appropriately, distribute knowledge fairly, or create sustained value over time."
+      ],
+      "paragraphs_html": [
+        "The paper's best move is to frame GenAI in agile as a <strong>socio-technical problem</strong>. That means teams do not get very far by buying a shiny copilot and hoping culture, governance, and judgement sort themselves out later. The workshop evidence points the other way: shared mental models, training, and workflow design are prerequisites, not polishing steps.",
+        "That stance also helps explain an awkward split in the wider evidence base. Industry studies cited by the paper report <strong>20-50% productivity gains</strong> on familiar tasks such as unit-test generation or boilerplate coding. But those are task-local wins. They do not tell you whether teams collaborate better, trust outputs appropriately, distribute knowledge fairly, or create sustained value over time."
+      ]
+    },
+    {
+      "label": "What the authors want next",
+      "paragraphs": [
+        "The roadmap is practical in the near term. It calls for role-specific AI literacy, prompt training, safer evaluation setups, and clearer guidance on GDPR, intellectual property, and AI Act obligations inside ordinary agile work. It also argues for shared infrastructure such as open datasets, benchmark suites, prompt libraries, and case-study repositories, which is a less glamorous idea than another demo agent and probably more useful.",
+        "The longer-term vision stays explicitly human-centred. The chapter talks about partnership models, shadow agents, and co-creative workflows that support team cognition without hollowing out human oversight. Still, the authors are candid about the evidence gap: the workshop was small, time-bounded, and exploratory, so the roadmap now needs follow-up surveys, interviews, cross-team comparisons, and longitudinal case studies in real agile environments."
+      ],
+      "paragraphs_html": [
+        "The roadmap is practical in the near term. It calls for <strong>role-specific AI literacy</strong>, prompt training, safer evaluation setups, and clearer guidance on GDPR, intellectual property, and AI Act obligations inside ordinary agile work. It also argues for shared infrastructure such as open datasets, benchmark suites, prompt libraries, and case-study repositories, which is a less glamorous idea than another demo agent and probably more useful.",
+        "The longer-term vision stays explicitly <strong>human-centred</strong>. The chapter talks about partnership models, shadow agents, and co-creative workflows that support team cognition without hollowing out human oversight. Still, the authors are candid about the evidence gap: the workshop was small, time-bounded, and exploratory, so the roadmap now needs follow-up surveys, interviews, cross-team comparisons, and longitudinal case studies in real agile environments."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "KEY CONTRIBUTION",
+    "body": "Herda et al. turn a workshop into a usable agenda for research and practice. The central lesson is that GenAI adoption in agile teams fails less often because the model is weak than because the surrounding system is underdesigned: training is thin, governance is vague, tools are fragmented, and teams lack a shared way to judge value."
+  },
+  "references": [
+    "Herda, T., Pichler, V., Zhang, Z., Abrahamsson, P., & Hanssen, G. K. (2025). AI and Agile Software Development: From Frustration to Success XP2025 Workshop Summary. In <em>Agile Processes in Software Engineering and Extreme Programming - Workshops</em> (pp. 3-13). Springer. <a href=\"https://doi.org/10.1007/978-3-032-05799-0_1\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1007/978-3-032-05799-0_1</a>"
+  ],
+  "chart": {
+    "title": "What workshop participants prioritised as the main frustrations",
+    "caption": "Recreated from Herda et al. (2025), Table 1. Percentages show the vote share for the top sub-challenge within each frustration category.",
+    "config_json": {
+      "type": "bar",
+      "data": {
+        "labels": [
+          "F1 Tooling",
+          "F2 Governance",
+          "F3 Team fit",
+          "F4 Quality",
+          "F5 Prompting",
+          "F6 Creativity"
+        ],
+        "datasets": [
+          {
+            "label": "Top sub-challenge vote share (%)",
+            "data": [
+              73.3,
+              53.3,
+              52.9,
+              66.7,
+              78.6,
+              75
+            ],
+            "backgroundColor": [
+              "#51cf66",
+              "#fab005",
+              "#f6ad55",
+              "#ff6b6b",
+              "#4dabf7",
+              "#9775fa"
+            ],
+            "borderColor": [
+              "#51cf66",
+              "#fab005",
+              "#f6ad55",
+              "#ff6b6b",
+              "#4dabf7",
+              "#9775fa"
+            ],
+            "borderWidth": 1
+          }
+        ]
+      },
+      "options": {
+        "animation": false,
+        "responsive": true,
+        "maintainAspectRatio": false,
+        "plugins": {
+          "legend": {
+            "display": false
+          },
+          "tooltip": {
+            "enabled": true
+          }
+        },
+        "scales": {
+          "y": {
+            "beginAtZero": true,
+            "max": 100,
+            "title": {
+              "display": true,
+              "text": "Vote share (%)"
+            },
+            "grid": {
+              "color": "#e2e8f0"
+            }
+          },
+          "x": {
+            "grid": {
+              "display": false
+            }
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"F1 Tooling\",\"F2 Governance\",\"F3 Team fit\",\"F4 Quality\",\"F5 Prompting\",\"F6 Creativity\"],\"datasets\":[{\"label\":\"Top sub-challenge vote share (%)\",\"data\":[73.3,53.3,52.9,66.7,78.6,75],\"backgroundColor\":[\"#51cf66\",\"#fab005\",\"#f6ad55\",\"#ff6b6b\",\"#4dabf7\",\"#9775fa\"],\"borderColor\":[\"#51cf66\",\"#fab005\",\"#f6ad55\",\"#ff6b6b\",\"#4dabf7\",\"#9775fa\"],\"borderWidth\":1}]},\"options\":{\"animation\":false,\"responsive\":true,\"maintainAspectRatio\":false,\"plugins\":{\"legend\":{\"display\":false},\"tooltip\":{\"enabled\":true}},\"scales\":{\"y\":{\"beginAtZero\":true,\"max\":100,\"title\":{\"display\":true,\"text\":\"Vote share (%)\"},\"grid\":{\"color\":\"#e2e8f0\"}},\"x\":{\"grid\":{\"display\":false}}}}}"
+  }
+}

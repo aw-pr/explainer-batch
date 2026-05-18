@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "The Agentic Organization: Sukharevsky et al. (2025)",
+    "eyebrow": "Research Explainer · Sukharevsky, Krivkovich, Gast et al. (2025)",
+    "date_created": "2026-04-06",
+    "filename_slug": "2026-04-06_sukharevsky_the-agentic-organization_explainer"
+  },
+  "hero": {
+    "headline": "McKinsey says the org chart is dead, but only 1% of companies have noticed",
+    "headline_html": "McKinsey says the org chart is dead, but <span>only 1% of companies have noticed</span>",
+    "subtitle": "A framework for the \"agentic organization\" argues that small human teams will supervise armies of AI agents, replacing functional hierarchies with flat, outcome-driven networks. The catch: 89% of companies still run industrial-era operating models."
+  },
+  "top_block": {
+    "kind": "takeaway",
+    "label": "Key Contribution",
+    "body": "This paper proposes a five-pillar framework for the \"agentic organization,\" in which humans and AI agents (both virtual and physical) work together at scale. It draws on McKinsey's consulting engagements with early adopters to argue that companies must redesign their business models, operating structures, governance, workforce, and technology stacks around AI-first workflows, with humans positioned \"above the loop\" for strategic oversight rather than task execution."
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Sukharevsky et al. (2025). Values drawn from the paper's reported organizational paradigm distribution (p. 11). \"Agentic/network\" refers to decentralized network models.",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('adoptionChart').getContext('2d');\n  new Chart(ctx, {\n    type: 'bar',\n    data: {\n      labels: [\n        'Industrial-era\\noperating model',\n        'Digital-era\\n(agile / product & platform)',\n        'Decentralised\\nnetwork'\n      ],\n      datasets: [{\n        label: '% of organisations',\n        data: [89, 9, 1],\n        backgroundColor: ['#f6ad55', '#4dabf7', '#51cf66'],\n        borderRadius: 6,\n        barThickness: 64\n      }]\n    },\n    options: {\n      animation: false,\n      responsive: true,\n      maintainAspectRatio: true,\n      plugins: {\n        legend: { display: false },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              return context.parsed.y + '%';\n            }\n          }\n        }\n      },\n      scales: {\n        y: {\n          beginAtZero: true,\n          max: 100,\n          ticks: {\n            callback: function(value) { return value + '%'; },\n            font: { size: 12 },\n            color: '#4a5568'\n          },\n          grid: { color: '#e2e8f0' },\n          title: {\n            display: true,\n            text: 'Share of organisations',\n            font: { size: 12, weight: 'bold' },\n            color: '#4a5568'\n          }\n        },\n        x: {\n          ticks: {\n            font: { size: 11 },\n            color: '#4a5568',\n            maxRotation: 0\n          },\n          grid: { display: false }\n        }\n      }\n    }\n  });"
+  },
+  "sections": [
+    {
+      "label": "What the Paper Proposes",
+      "paragraphs": [
+        "McKinsey positions the agentic organization as the fourth major paradigm in how companies structure themselves, following the agricultural, industrial, and digital eras. The core thesis is straightforward: AI agents (software that can plan and execute multi-step tasks autonomously) will soon handle enough of the work that companies need to completely rethink how they organise, govern, and staff.",
+        "The paper structures this argument around five pillars. On the business model side, companies gain advantage by deploying AI-native customer channels (think personal AI concierges rather than apps), driving marginal costs toward the cost of compute through AI-first workflows, and building proprietary data moats. On the operating model side, the authors envision flat networks of small \"agentic teams,\" where two to five humans supervise 50 to 100 specialised AI agents running end-to-end processes like customer onboarding or product launches. The org chart, they argue, becomes a \"work chart\" of exchanged tasks and outcomes.",
+        "The remaining three pillars cover governance (real-time, embedded, with \"critic agents\" policing other agents), workforce (new role archetypes replacing existing ones), and technology (an \"agentic AI mesh\" with agent-to-agent protocols replacing traditional middleware). None of these claims are empirically tested. The paper is a framework document backed by case anecdotes, not a study."
+      ],
+      "paragraphs_html": [
+        "McKinsey positions the agentic organization as the fourth major paradigm in how companies structure themselves, following the agricultural, industrial, and digital eras. The core thesis is straightforward: AI agents (software that can plan and execute multi-step tasks autonomously) will soon handle enough of the work that companies need to completely rethink how they organise, govern, and staff.",
+        "The paper structures this argument around five pillars. On the <strong>business model</strong> side, companies gain advantage by deploying AI-native customer channels (think personal AI concierges rather than apps), driving marginal costs toward the cost of compute through AI-first workflows, and building proprietary data moats. On the <strong>operating model</strong> side, the authors envision flat networks of small \"agentic teams,\" where two to five humans supervise 50 to 100 specialised AI agents running end-to-end processes like customer onboarding or product launches. The org chart, they argue, becomes a \"work chart\" of exchanged tasks and outcomes.",
+        "The remaining three pillars cover <strong>governance</strong> (real-time, embedded, with \"critic agents\" policing other agents), <strong>workforce</strong> (new role archetypes replacing existing ones), and <strong>technology</strong> (an \"agentic AI mesh\" with agent-to-agent protocols replacing traditional middleware). None of these claims are empirically tested. The paper is a framework document backed by case anecdotes, not a study."
+      ]
+    },
+    {
+      "label": "What Counts as Evidence Here",
+      "paragraphs": [
+        "The paper draws on McKinsey's consulting engagements, naming a handful of concrete cases without identifying the companies. A European utility provider deployed a multimodal AI assistant to three million customers and saw reduced handling times. A global bank's \"agent factory\" used ten agent squads for know-your-customer processes. Another bank used humans overseeing AI agent squads to modernise legacy systems, reportedly cutting time and effort by up to 50%.",
+        "These are illustrative anecdotes, not controlled studies. The paper provides no before-and-after metrics, no sample sizes, and no confidence intervals. The most empirically grounded claim comes from a third-party source: METR's finding that the length of tasks AI can reliably complete doubled roughly every seven months since 2019 (and every four months since 2024), reaching about two hours at time of writing. If that trend holds, AI systems could potentially handle four days of unsupervised work by 2027. That is a genuinely startling projection, if a big \"if.\"",
+        "The organisational distribution data (89% industrial-era, 9% digital-era, 1% decentralised network) is stated without sourcing methodology. It is useful as a rough benchmark for how far most companies have to travel, even if the precision is uncertain."
+      ]
+    },
+    {
+      "label": "Why It Matters (and What to Question)",
+      "paragraphs": [
+        "The framing is compelling because it tackles the right question at the right moment. Most AI strategy discussions focus on which tools to deploy or how to prompt a chatbot. This paper asks what happens to the company itself when the tools become autonomous colleagues. The vision of two to five humans steering 50 to 100 specialised agents is a provocative thought experiment that forces executives to reconsider assumptions about team size, middle management, and functional boundaries.",
+        "The five-pillar framework is also genuinely useful as a checklist. Organisations that focus only on the technology pillar (buying agents) while ignoring governance (who is accountable when agents fail?) or workforce (what happens to the people?) are setting themselves up for the \"more pilots than Lufthansa\" failure mode the authors warn about. The paper's insistence that culture becomes \"both the operating glue and the ethical compass\" is the kind of claim that sounds soft until you watch an AI system optimise for a metric nobody intended.",
+        "The scepticism should be proportional to the ambition. This is a consulting framework paper, not peer-reviewed research. The pace-of-adoption figures are extrapolations. The case studies are anonymous. And the guidance (\"think boldly, move fast, go deep\") is the sort of advice that sells workshops, not the sort that tells you which specific workflow to automate first. The real test will arrive in the next two years, when the early adopters referenced here either demonstrate genuine agentic operating models at scale, or quietly revert to the digital-era playbook with AI bolted on top."
+      ]
+    }
+  ],
+  "references": [
+    "Sukharevsky, A., Krivkovich, A., Gast, A., Storozhev, A., Maor, D., Mahadevan, D., Hämäläinen, L., & Durth, S. (2025). <em>The agentic organization: Contours of the next paradigm for the AI era</em>. McKinsey & Company. <a href=\"https://www.mckinsey.com/capabilities/people-and-organizational-performance/our-insights/the-agentic-organization-contours-of-the-next-paradigm-for-the-ai-era\" target=\"_blank\" rel=\"noopener\">https://www.mckinsey.com/capabilities/people-and-organizational-performance/our-insights/the-agentic-organization-contours-of-the-next-paradigm-for-the-ai-era</a>"
+  ]
+}

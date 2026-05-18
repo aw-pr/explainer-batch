@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "The Agentic Organization: Sukharevsky et al. (2025)",
+    "eyebrow": "Research Explainer · Sukharevsky et al., McKinsey (2025)",
+    "date_created": "2026-04-06",
+    "filename_slug": "2026-04-06_sukharevsky_agentic-organization_explainer"
+  },
+  "hero": {
+    "headline": "AI agents are doubling in capability every four months, but most organizations aren't designed for them",
+    "headline_html": "AI agents are doubling in capability every four months, but <span class=\"amber\">most organizations aren't designed for them</span>",
+    "subtitle": "McKinsey's framework for the agentic organization argues that the shift from AI-assisted work to AI-executed work requires a structural redesign of how companies allocate authority, define roles, and coordinate across human-agent teams, not just better tooling."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "sections": [],
+  "references": []
+}

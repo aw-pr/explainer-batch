@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "AgentSLA: Service Level Agreements for AI Agents · Jouneaux & Cabot (2025)",
+    "eyebrow": "Research Explainer · Jouneaux & Cabot (2025)",
+    "date_created": "2026-04-12",
+    "filename_slug": "2026-04-12_service_agentsla_explainer"
+  },
+  "hero": {
+    "headline": "AI agents need service contracts, but nobody has written the quality language to enforce them",
+    "headline_html": "AI agents need service contracts, but nobody has written <span>the quality language to enforce them</span>",
+    "subtitle": "This paper proposes a formal quality model for AI agents, extending the ISO/IEC 25010 standard with agent-specific dimensions like autonomy and sustainability, and introduces a JSON-based domain-specific language for writing machine-readable Service Level Agreements."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "sections": [
+    {
+      "label": "The Problem",
+      "paragraphs": [
+        "AI components have been creeping into software systems for years, first as Model-as-a-Service integrations (send a prompt, get a response) and now as full Agent-as-a-Service deployments where autonomous agents handle complex, multi-step tasks. This shift from passive model calls to active agent collaboration introduces a familiar engineering question: what quality of service can the consumer expect, and who is accountable when it drifts?",
+        "In traditional service-oriented architectures, the answer is a Service Level Agreement. SLAs specify measurable thresholds (response time under 50ms, availability above 99.9%) and both parties sign off. But AI agents complicate this. Their outputs are non-deterministic. Their context evolves mid-conversation. Their quality depends on dimensions like fairness, explainability, and sustainability that existing SLA languages simply do not model. Jouneaux and Cabot surveyed six papers that map AI quality attributes to the ISO/IEC 25010 standard and found none of them covering the full picture: only two addressed sustainability, two omitted explainability, and none discussed the autonomy level of the agent itself.",
+        "The gap is concrete. Right now, a team integrating an AI coding assistant through the A2A protocol has no formal way to state \"average Time-To-First-Token must stay below one second across a rolling window of ten messages.\" They have opinions, not contracts."
+      ]
+    },
+    {
+      "label": "What AgentSLA Proposes",
+      "paragraphs": [
+        "The paper delivers three interlocking pieces. First, a quality model that extends the ISO/IEC 25010 standard with characteristics specific to AI agents. The extension adds two entirely new top-level sections (Sustainability and Output Properties) and weaves additional sub-characteristics into existing sections. Autonomy goes under Interaction Capability. Fairness slots into Reliability. Understandability (encompassing interpretability, transparency, explainability, and accountability) extends the Security section. The result is a taxonomy of 11 characteristic families, each decomposed into measurable sub-characteristics.",
+        "Second, a core set of 30+ quality metrics mapped to these characteristics. These range from the conventional (Precision, Recall, F1 Score, AUC) to the agent-specific (TTFT, end-to-end response time, OversightLevel from Cihon et al.'s autonomy framework) to the sustainability-oriented (EnergyConsumption, WaterConsumption, CarbonEmissions, CarbonOffset). Fairness gets its own battery of bias-test ratios covering racism, sexism, ageism, religious, political, and xenophobia dimensions.",
+        "Third, the AgentSLA DSL itself . This is a domain-specific language with a formal metamodel (abstract syntax) and a JSON concrete syntax chosen for compatibility with protocols like Google's Agent2Agent. An SLA is composed of guarantee terms, each containing scopes (which agent, which model), qualifying conditions (preconditions that must hold for the SLOs to apply), and the SLOs themselves, expressed as boolean expressions over QoS metrics with defined thresholds and operators."
+      ],
+      "paragraphs_html": [
+        "The paper delivers three interlocking pieces. First, a <strong>quality model</strong> that extends the ISO/IEC 25010 standard with characteristics specific to AI agents. The extension adds two entirely new top-level sections (Sustainability and Output Properties) and weaves additional sub-characteristics into existing sections. Autonomy goes under Interaction Capability. Fairness slots into Reliability. Understandability (encompassing interpretability, transparency, explainability, and accountability) extends the Security section. The result is a taxonomy of 11 characteristic families, each decomposed into measurable sub-characteristics.",
+        "Second, a <strong>core set of 30+ quality metrics</strong> mapped to these characteristics. These range from the conventional (Precision, Recall, F1 Score, AUC) to the agent-specific (TTFT, end-to-end response time, OversightLevel from Cihon et al.'s autonomy framework) to the sustainability-oriented (EnergyConsumption, WaterConsumption, CarbonEmissions, CarbonOffset). Fairness gets its own battery of bias-test ratios covering racism, sexism, ageism, religious, political, and xenophobia dimensions.",
+        "Third, the <strong>AgentSLA DSL itself</strong>. This is a domain-specific language with a formal metamodel (abstract syntax) and a JSON concrete syntax chosen for compatibility with protocols like Google's Agent2Agent. An SLA is composed of guarantee terms, each containing scopes (which agent, which model), qualifying conditions (preconditions that must hold for the SLOs to apply), and the SLOs themselves, expressed as boolean expressions over QoS metrics with defined thresholds and operators."
+      ]
+    }
+  ],
+  "references": []
+}

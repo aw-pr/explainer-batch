@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "LLM Reasoning Failures: Song, Han & Goodman (2026)",
+    "eyebrow": "Research Explainer · Song, Han & Goodman (2026)",
+    "date_created": "2026-04-09",
+    "filename_slug": "2026-04-09_song_llm-reasoning-failures_explainer"
+  },
+  "hero": {
+    "headline": "LLMs ace reasoning benchmarks, but they keep failing in ways that should be embarrassingly easy",
+    "headline_html": "LLMs ace reasoning benchmarks, but <span>they keep failing in ways that should be embarrassingly easy</span>",
+    "subtitle": "The first comprehensive survey of LLM reasoning failures catalogues every known way these models break down, from reversing simple facts to misjudging whether a house fits inside a light bulb, and maps the root causes to a two-axis taxonomy of reasoning type versus failure type."
+  },
+  "top_block": {
+    "kind": "takeaway",
+    "label": "Key Contribution",
+    "body": "This paper introduces a structured two-axis framework for understanding LLM reasoning failures: one axis classifies the type of reasoning (informal/intuitive, formal/logical, and embodied/physical), while the other classifies the type of failure (fundamental architectural limits, application-specific limitations, and robustness issues from minor input variations). By unifying hundreds of fragmented studies under this single taxonomy, the survey reveals that many seemingly unrelated failures share the same root causes, and that current mitigations remain shallow and domain-specific."
+  },
+  "sections": [
+    {
+      "label": "What the survey covers",
+      "paragraphs": [
+        "LLMs have racked up record scores on mathematical olympiads, coding competitions, and scientific reasoning benchmarks. The headline numbers look commanding. The trouble starts when you ask these same models to do something a five-year-old manages without thinking: count letters in a word, reverse a known fact, or predict that a person who clearly sees popcorn in a transparent bag will not believe it contains chocolate.",
+        "Song, Han, and Goodman surveyed the entire landscape of these reasoning failures, pulling together research that had been published piecemeal across cognitive science, formal logic, mathematics, coding, and robotics. Their goal was not to settle whether LLMs \"truly reason\" (that debate rages on) but to build a map of where reasoning breaks, why it breaks, and what has been tried to fix it. The result is a two-axis taxonomy. The first axis sorts reasoning into informal (intuitive, social), formal (logic, maths, code), and embodied (physical-world interaction). The second axis sorts failures into fundamental (baked into the architecture), application-specific (showing up in particular domains), and robustness (performance collapses under trivial rephrasing)."
+      ],
+      "paragraphs_html": [
+        "LLMs have racked up record scores on mathematical olympiads, coding competitions, and scientific reasoning benchmarks. The headline numbers look commanding. The trouble starts when you ask these same models to do something a five-year-old manages without thinking: count letters in a word, reverse a known fact, or predict that a person who clearly sees popcorn in a transparent bag will not believe it contains chocolate.",
+        "Song, Han, and Goodman surveyed the entire landscape of these reasoning failures, pulling together research that had been published piecemeal across cognitive science, formal logic, mathematics, coding, and robotics. Their goal was not to settle whether LLMs \"truly reason\" (that debate rages on) but to build a map of where reasoning breaks, why it breaks, and what has been tried to fix it. The result is a two-axis taxonomy. The first axis sorts reasoning into <strong>informal</strong> (intuitive, social), <strong>formal</strong> (logic, maths, code), and <strong>embodied</strong> (physical-world interaction). The second axis sorts failures into <strong>fundamental</strong> (baked into the architecture), <strong>application-specific</strong> (showing up in particular domains), and <strong>robustness</strong> (performance collapses under trivial rephrasing)."
+      ]
+    },
+    {
+      "label": "The anatomy of failure",
+      "paragraphs": [
+        "The survey's sharpest insight is that the three failure types cut across all reasoning domains. Fundamental failures trace back to intrinsic architectural constraints. The reversal curse, for instance, stems from the unidirectional training objective of autoregressive Transformers: the model's weights encode \"A → B\" but create no symmetric path from B back to A. Scaling alone cannot fix this, because the asymmetry is structural, not statistical. Similarly, LLMs suffer from proactive interference in working memory (earlier context disrupts retrieval of newer information) far more severely than humans do, a limitation attributed to the self-attention mechanism's dispersal of focus under complex tasks.",
+        "Application-specific limitations cluster in predictable places. Theory of Mind remains brittle: GPT-4 can pass many standard ToM tests, yet minor rephrasing causes drastic performance drops. In embodied settings, models produce physically impossible action plans because they lack grounded representations of affordances and spatial dynamics. In mathematics, LLMs solve individual sub-problems correctly but fail the composed version, revealing that what looks like mathematical competence is often shallow pattern-matching across isolated steps.",
+        "Robustness issues are the most pervasive and, in practice, the most dangerous. Reordering multiple-choice options, renaming variables in code, swapping known and unknown quantities in a word problem, or adding irrelevant sentences to a prompt can all cause large, unpredictable shifts in model output. The survey finds that perturbation-based stress-testing has proved transferable across domains, making it a promising unified methodology for detecting hidden vulnerabilities."
+      ],
+      "paragraphs_html": [
+        "The survey's sharpest insight is that the three failure types cut across all reasoning domains. <strong>Fundamental failures</strong> trace back to intrinsic architectural constraints. The reversal curse, for instance, stems from the unidirectional training objective of autoregressive Transformers: the model's weights encode \"A → B\" but create no symmetric path from B back to A. Scaling alone cannot fix this, because the asymmetry is structural, not statistical. Similarly, LLMs suffer from proactive interference in working memory (earlier context disrupts retrieval of newer information) far more severely than humans do, a limitation attributed to the self-attention mechanism's dispersal of focus under complex tasks.",
+        "<strong>Application-specific limitations</strong> cluster in predictable places. Theory of Mind remains brittle: GPT-4 can pass many standard ToM tests, yet minor rephrasing causes drastic performance drops. In embodied settings, models produce physically impossible action plans because they lack grounded representations of affordances and spatial dynamics. In mathematics, LLMs solve individual sub-problems correctly but fail the composed version, revealing that what looks like mathematical competence is often shallow pattern-matching across isolated steps.",
+        "<strong>Robustness issues</strong> are the most pervasive and, in practice, the most dangerous. Reordering multiple-choice options, renaming variables in code, swapping known and unknown quantities in a word problem, or adding irrelevant sentences to a prompt can all cause large, unpredictable shifts in model output. The survey finds that perturbation-based stress-testing has proved transferable across domains, making it a promising unified methodology for detecting hidden vulnerabilities."
+      ]
+    },
+    {
+      "label": "Root causes and what (doesn't) work",
+      "paragraphs": [
+        "The root causes converge on three recurring themes. First, training data patterns : biases in human language are absorbed wholesale, including cognitive biases like confirmation bias and negativity bias. Second, architectural features : causal masking introduces order-based biases independent of the data, and the autoregressive generation process has no built-in mechanism for detecting and correcting earlier mistakes in a reasoning chain. Third, alignment procedures : RLHF amplifies biases by aligning model behaviour with human raters who are themselves biased, producing surface-level ethical compliance that crumbles under adversarial prompts.",
+        "Current mitigations fall into three categories, none of which solves the problem. Data-centric approaches curate training corpora to reduce biased content or augment with reversed/permuted facts. In-processing techniques like adversarial training and Chain-of-Thought prompting encourage explicit reasoning steps. Post-processing methods use prompt engineering or output filtering. All share the same weakness: they are task-specific patches that rarely transfer. Chain-of-Thought helps with compositional reasoning but does nothing for the reversal curse. Physics engines paired with LLMs improve embodied reasoning but cannot fix social norm inconsistencies. The survey argues that connecting behavioural errors to specific internal mechanisms (faulty attention heads, insufficient intermediate representation alignment) is the missing step toward general-purpose fixes."
+      ],
+      "paragraphs_html": [
+        "The root causes converge on three recurring themes. First, <strong>training data patterns</strong>: biases in human language are absorbed wholesale, including cognitive biases like confirmation bias and negativity bias. Second, <strong>architectural features</strong>: causal masking introduces order-based biases independent of the data, and the autoregressive generation process has no built-in mechanism for detecting and correcting earlier mistakes in a reasoning chain. Third, <strong>alignment procedures</strong>: RLHF amplifies biases by aligning model behaviour with human raters who are themselves biased, producing surface-level ethical compliance that crumbles under adversarial prompts.",
+        "Current mitigations fall into three categories, none of which solves the problem. <strong>Data-centric</strong> approaches curate training corpora to reduce biased content or augment with reversed/permuted facts. <strong>In-processing</strong> techniques like adversarial training and Chain-of-Thought prompting encourage explicit reasoning steps. <strong>Post-processing</strong> methods use prompt engineering or output filtering. All share the same weakness: they are task-specific patches that rarely transfer. Chain-of-Thought helps with compositional reasoning but does nothing for the reversal curse. Physics engines paired with LLMs improve embodied reasoning but cannot fix social norm inconsistencies. The survey argues that connecting behavioural errors to specific internal mechanisms (faulty attention heads, insufficient intermediate representation alignment) is the missing step toward general-purpose fixes."
+      ]
+    },
+    {
+      "label": "What the field still needs",
+      "paragraphs": [
+        "The survey identifies four concrete gaps. First, root cause analyses remain incomplete for compositional reasoning breakdowns, higher-order Theory of Mind failures, and multi-agent coordination collapse. Second, the field lacks unified, persistent failure benchmarks that span all failure types and track whether new models truly resolve old problems or just overfit to updated test sets. Third, \"failure-injection\" principles (adding adversarial sections, multi-level difficulty, cross-domain compositions) should be integrated into general reasoning benchmarks, not confined to dedicated robustness suites. Fourth, dynamic and event-driven benchmarks (partially private test sets, annually refreshed competition problems) would combat the increasingly obvious problem of benchmark contamination.",
+        "The authors also note a structural blind spot in the literature: multi-turn, interactive contexts remain underrepresented, despite being far closer to real-world deployment conditions than the single-shot prompts that dominate current evaluation. The persistent coordination breakdowns observed in multi-agent simulations suggest that interactive failures may be qualitatively different from, and more consequential than, the static failures the field currently measures."
+      ]
+    }
+  ],
+  "references": [
+    "Song, P., Han, P., & Goodman, N. (2026). Large language model reasoning failures. <em>Transactions on Machine Learning Research</em>. <a href=\"https://arxiv.org/abs/2602.06176\">https://arxiv.org/abs/2602.06176</a>"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "AI Agent SLAs: Jouneaux (2025)",
+    "eyebrow": "Research Explainer · Jouneaux (2025)",
+    "date_created": "2026-04-12",
+    "filename_slug": "2026-04-12_jouneaux_ai-agent-slas_explainer"
+  },
+  "hero": {
+    "headline": "AI agents can promise more, but nobody can check the promise",
+    "headline_html": "AI agents can promise more, but <span>nobody can check the promise</span>",
+    "subtitle": "This paper argues that AI agents need proper service-level agreements, not marketing copy dressed up as guarantees. The authors propose AgentSLA, a JSON-based language and quality model that turns agent quality claims into something software can parse, validate, and potentially enforce.",
+    "publication_date": "Published November 2025"
+  },
+  "top_block": {
+    "kind": "takeaway",
+    "label": "KEY CONTRIBUTION",
+    "body": "Jouneaux and Cabot propose AgentSLA, a domain-specific language for describing service-level agreements for AI agents in machine-readable form. The paper also extends ISO/IEC 25010 with agent-specific quality dimensions, so those agreements cover autonomy, sustainability, output properties, and other concerns that ordinary software standards do not handle cleanly."
+  },
+  "sections": [
+    {
+      "label": "The core problem",
+      "paragraphs": [
+        "Most AI-agent systems still treat quality guarantees as vague prose. You might get claims about reliability, correctness, or response time, but they usually sit in documentation where humans can read them and software cannot do much with them. That becomes awkward once agents start acting as services inside larger orchestrated systems.",
+        "The paper's central move is simple: if agents behave like services, they need service-level agreements that machines can inspect. The authors argue that existing QA language for software and AI components does not map neatly onto autonomous agents, so they build a quality model first, then a DSL on top of it."
+      ],
+      "paragraphs_html": [
+        "Most AI-agent systems still treat quality guarantees as vague prose. You might get claims about reliability, correctness, or response time, but they usually sit in documentation where humans can read them and software cannot do much with them. That becomes awkward once agents start acting as services inside larger orchestrated systems.",
+        "The paper's central move is simple: if agents behave like services, they need <strong>service-level agreements</strong> that machines can inspect. The authors argue that existing QA language for software and AI components does not map neatly onto autonomous agents, so they build a quality model first, then a <em>domain-specific language</em> on top of it."
+      ]
+    },
+    {
+      "label": "What AgentSLA actually adds",
+      "paragraphs": [
+        "The quality model starts from ISO/IEC 25010, then extends it for agent-specific concerns. The authors keep the standard's nine-section structure and add two new sections for sustainability and output properties. They also adapt or highlight characteristics such as autonomy, interoperability, understandability, fairness, accountability, time-behaviour, and the three familiar functional properties: completeness, correctness, and appropriateness.",
+        "On the DSL side, AgentSLA supports three kinds of metrics. A direct QoSMetric captures a raw service measure. A DerivedQoSMetric computes something over a time window with an aggregation function. A QoSDriftMetric compares how a metric changes across windows, which matters if you care about degradation over time rather than a single snapshot."
+      ],
+      "paragraphs_html": [
+        "The quality model starts from <em>ISO/IEC 25010</em>, then extends it for agent-specific concerns. The authors keep the standard's nine-section structure and add two new sections for sustainability and output properties. They also adapt or highlight characteristics such as <strong>autonomy</strong>, interoperability, understandability, fairness, accountability, time-behaviour, and the three familiar functional properties: completeness, correctness, and appropriateness.",
+        "On the DSL side, <strong>AgentSLA</strong> supports three kinds of metrics. A direct <em>QoSMetric</em> captures a raw service measure. A <em>DerivedQoSMetric</em> computes something over a time window with an aggregation function. A <em>QoSDriftMetric</em> compares how a metric changes across windows, which matters if you care about degradation over time rather than a single snapshot."
+      ]
+    },
+    {
+      "label": "Why the JSON design matters",
+      "paragraphs": [
+        "The paper does not stop at a metamodel on paper. The authors define an abstract syntax, give the DSL a JSON concrete syntax, and implement it using the BESSER Low-Code platform. That choice looks pragmatic rather than glamorous, which is probably the right instinct here. JSON fits existing agent tooling better than a pristine academic notation nobody will adopt.",
+        "They also implement a Python parser that reads JSON SLA descriptions, validates them, and instantiates the metamodel classes. The parser checks four things in particular: whether required units are present, whether those units match the metamodel, whether metric types, operators, and aggregation functions are valid, and whether provider confidence stays within the range from 0 to 1. The paper also sets out five encoding rules for mapping class instances, attributes, compositions, multiplicity, and simple associations into JSON."
+      ],
+      "paragraphs_html": [
+        "The paper does not stop at a metamodel on paper. The authors define an abstract syntax, give the DSL a <strong>JSON</strong> concrete syntax, and implement it using the <em>BESSER Low-Code</em> platform. That choice looks pragmatic rather than glamorous, which is probably the right instinct here. JSON fits existing agent tooling better than a pristine academic notation nobody will adopt.",
+        "They also implement a Python parser that reads JSON SLA descriptions, validates them, and instantiates the metamodel classes. The parser checks four things in particular: whether required units are present, whether those units match the metamodel, whether metric types, operators, and aggregation functions are valid, and whether provider confidence stays within the range from 0 to 1. The paper also sets out five encoding rules for mapping class instances, attributes, compositions, multiplicity, and simple associations into JSON."
+      ]
+    },
+    {
+      "label": "What this enables, and what it still does not prove",
+      "paragraphs": [
+        "The paper's strongest implication is operational. Once an SLA becomes machine-readable, an orchestrator could use it for agent selection, monitoring, or even replacement when guarantees fail. The authors describe two main use cases: automatic agent selection and automatic monitor generation or deployment for SLA enforcement. That moves SLAs from legal-ish text into something closer to executable policy.",
+        "The catch is that the evidence remains thin. This is a design-and-implementation paper, not a benchmark paper. There are no latency plots, no accuracy gains, and no deployment results showing that AgentSLA improves real systems. The quality model has only partial validation with MOSAICO partners, the metric set is not yet extensible, and the wider protocol story remains unfinished because AgentSLA is not currently part of A2A. So the paper makes a credible case for formalising agent guarantees, but the industrial proof still sits in the future."
+      ],
+      "paragraphs_html": [
+        "The paper's strongest implication is operational. Once an SLA becomes <strong>machine-readable</strong>, an orchestrator could use it for agent selection, monitoring, or even replacement when guarantees fail. The authors describe two main use cases: automatic agent selection and automatic monitor generation or deployment for SLA enforcement. That moves SLAs from legal-ish text into something closer to executable policy.",
+        "The catch is that the evidence remains thin. This is a design-and-implementation paper, not a benchmark paper. There are no latency plots, no accuracy gains, and no deployment results showing that AgentSLA improves real systems. The quality model has only partial validation with <em>MOSAICO</em> partners, the metric set is not yet extensible, and the wider protocol story remains unfinished because AgentSLA is not currently part of <em>A2A</em>, the Agent-to-Agent protocol. So the paper makes a credible case for formalising agent guarantees, but the industrial proof still sits in the future."
+      ]
+    }
+  ],
+  "references": [
+    "Jouneaux, G., & Cabot, J. (2025). <em>AgentSLA: Towards a Service Level Agreement for AI Agents</em>. arXiv preprint. <a href=\"https://arxiv.org/abs/2511.02885\" target=\"_blank\" rel=\"noopener noreferrer\">https://arxiv.org/abs/2511.02885</a>"
+  ]
+}

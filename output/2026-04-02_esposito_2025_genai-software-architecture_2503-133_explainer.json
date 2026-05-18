@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "GenAI for Software Architecture: Esposito et al. (2025)",
+    "eyebrow": "Research Explainer · Esposito et al. (2025)",
+    "date_created": "2026-04-02",
+    "filename_slug": "2026-04-02_esposito_2025_genai-software-architecture_2503-133_explainer"
+  },
+  "hero": {
+    "headline": "GenAI can help architects sketch systems; but nobody is checking whether the sketches are right",
+    "headline_html": "GenAI can help architects sketch systems; <span>but nobody is checking whether the sketches are right</span>",
+    "subtitle": "A multivocal literature review of 46 studies finds GenAI is already embedded in early architectural tasks, yet 93% of the work skips formal validation of what the models produce."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Esposito et al. (2025), Table 14. Percentages reflect share of 46 reviewed studies mentioning each SALC phase (papers can cover more than one).",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('salcChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: ['Req → Arch', 'Arch → Code', 'Code → Arch', 'Req → Arch → Code', 'Arch → Arch'],\n    datasets: [{\n      label: '% of studies',\n      data: [40, 32, 13, 12, 3],\n      backgroundColor: ['#4dabf7', '#f6ad55', '#51cf66', '#fab005', '#ff6b6b'],\n      borderRadius: 6,\n      maxBarThickness: 64\n    }]\n  },\n  options: {\n    animation: false,\n    indexAxis: 'y',\n    responsive: true,\n    maintainAspectRatio: false,\n    plugins: {\n      legend: { display: false },\n      tooltip: {\n        callbacks: {\n          label: function(context) { return context.parsed.x + '%'; }\n        }\n      }\n    },\n    scales: {\n      x: {\n        beginAtZero: true,\n        max: 50,\n        ticks: {\n          callback: function(v) { return v + '%'; },\n          color: '#718096',\n          font: { size: 12 }\n        },\n        grid: { color: '#e2e8f0' }\n      },\n      y: {\n        ticks: {\n          color: '#4a5568',\n          font: { size: 13, weight: '600' }\n        },\n        grid: { display: false }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "What They Did",
+      "paragraphs": [
+        "Eight researchers across Finland, the United States, and India combed through 1,054 candidate papers (621 peer-reviewed, 433 grey literature) and whittled them down to 46 that genuinely address how generative AI is used for software architecture. The method was a multivocal literature review (MLR), which means the team treated blog posts, industry white papers, and YouTube tutorials with the same systematic rigour normally reserved for journal articles. That breadth matters: the grey literature turned out to carry early signals about tool adoption that academic venues hadn't yet captured.",
+        "Data extraction followed an open-coding protocol with two independent coders per paper and a third author to break ties. Inter-rater agreement ranged from 64% to 88% (Cohen's kappa), which sits comfortably in the \"substantial to almost perfect\" range. The team then mapped each study against the Software Architecture Life Cycle (SALC), cataloguing which models were used, how prompts were engineered, what architectural styles were targeted, and whether anybody bothered to validate the outputs."
+      ],
+      "paragraphs_html": [
+        "Eight researchers across Finland, the United States, and India combed through 1,054 candidate papers (621 peer-reviewed, 433 grey literature) and whittled them down to 46 that genuinely address how generative AI is used for software architecture. The method was a <em>multivocal literature review</em> (MLR), which means the team treated blog posts, industry white papers, and YouTube tutorials with the same systematic rigour normally reserved for journal articles. That breadth matters: the grey literature turned out to carry early signals about tool adoption that academic venues hadn't yet captured.",
+        "Data extraction followed an open-coding protocol with two independent coders per paper and a third author to break ties. Inter-rater agreement ranged from 64% to 88% (Cohen's kappa), which sits comfortably in the \"substantial to almost perfect\" range. The team then mapped each study against the <strong>Software Architecture Life Cycle</strong> (SALC), cataloguing which models were used, how prompts were engineered, what architectural styles were targeted, and whether anybody bothered to validate the outputs."
+      ]
+    },
+    {
+      "label": "What They Found",
+      "paragraphs": [
+        "OpenAI's GPT family dominates. Across every study, 62% of all model references pointed to a GPT variant, with GPT-4 alone appearing in 21 papers. Google's models trailed at 9%, and LLaMA variants accounted for 8%. DeepSeek and CodeQwen are beginning to surface, but with only a handful of mentions each. The practical implication: nearly all evidence about \"GenAI for architecture\" is actually evidence about \"GPT for architecture.\"",
+        "The primary use case is architectural decision support (38% of studies), followed by reverse engineering for architectural reconstruction (19%) and architecture generation (19%). Most activity clusters in the early SALC phases: turning requirements into architecture (40%) and turning architecture into code (32%). The later, harder task of transforming one architecture into another (say, refactoring a monolith into microservices at the architectural level) appeared in only 3% of studies.",
+        "Few-shot prompting was the most common technique (31%), while retrieval-augmented generation (RAG) showed up in 20% of studies, typically to inject domain-specific knowledge that general-purpose models lack. Fine-tuning was rarer, at 12%. A striking 26% of papers ran models completely off-the-shelf with no modifications, and a quarter simply failed to report what prompt strategy they used."
+      ],
+      "paragraphs_html": [
+        "OpenAI's GPT family dominates. Across every study, 62% of all model references pointed to a GPT variant, with GPT-4 alone appearing in 21 papers. Google's models trailed at 9%, and LLaMA variants accounted for 8%. DeepSeek and CodeQwen are beginning to surface, but with only a handful of mentions each. The practical implication: nearly all evidence about \"GenAI for architecture\" is actually evidence about \"GPT for architecture.\"",
+        "The primary use case is <strong>architectural decision support</strong> (38% of studies), followed by reverse engineering for architectural reconstruction (19%) and architecture generation (19%). Most activity clusters in the early SALC phases: turning requirements into architecture (40%) and turning architecture into code (32%). The later, harder task of transforming one architecture into another (say, refactoring a monolith into microservices at the architectural level) appeared in only 3% of studies.",
+        "Few-shot prompting was the most common technique (31%), while retrieval-augmented generation (RAG) showed up in 20% of studies, typically to inject domain-specific knowledge that general-purpose models lack. Fine-tuning was rarer, at 12%. A striking 26% of papers ran models completely off-the-shelf with no modifications, and a quarter simply failed to report what prompt strategy they used."
+      ]
+    },
+    {
+      "label": "The Validation Gap",
+      "paragraphs": [
+        "The most consequential finding is negative. Of the 46 studies, 93% provided no information about how (or whether) they validated the architectural outputs LLMs produced. Only three papers reported a formal method: one used ATAM (Architecture Tradeoff Analysis Method), one used SAAM, and one relied on static analysis. This means the field is generating an expanding body of claims about GenAI's usefulness for architecture without any consistent way of confirming those claims are true.",
+        "Modelling languages tell a similar story of under-specification. UML appeared in 17% of papers, but 74% of studies did not identify any modelling language at all. If you cannot name what notation your AI produced, it becomes very difficult to assess whether the output is correct, complete, or consistent. Architecture-specific datasets and benchmarks remain almost nonexistent, which makes reproducibility and comparison across studies practically impossible."
+      ]
+    },
+    {
+      "label": "The Challenges Ahead",
+      "paragraphs": [
+        "The review surfaced a clear hierarchy of concerns. LLM accuracy topped the list (15% of studies flagged it), followed by hallucinations (8%), ethical considerations (7%), and privacy (7%). These are not independent problems. Inaccurate outputs feed hallucination risk; hallucination risk undermines trust; low trust makes ethical deployment harder, particularly in safety-critical domains like healthcare or automotive systems where one bad architectural decision can have real consequences.",
+        "The authors also note a socio-technical blindspot. Most GenAI tools for architecture operate as if a single architect is making decisions in isolation. Real systems involve cross-team collaboration, co-changes across codebases, and organisational constraints that models currently ignore. One grey-literature source put it bluntly: GenAI might propose a technically elegant solution that nobody on the team has the skills to maintain. The tool does not know (and is never asked) about the team.",
+        "There is also an uncomfortable question about generated code ownership that echoes old debates from model-driven development. When the model writes the code, who maintains it? If you modify it, the model cannot update its internal representation. If you regenerate it, your modifications vanish. The review frames this not as a future concern but as a present one that the community has largely avoided discussing."
+      ]
+    }
+  ],
+  "references": [
+    "Esposito, M., Li, X., Moreschini, S., Ahmad, N., Cerny, T., Vaidhyanathan, K., Lenarduzzi, V., &amp; Taibi, D. (2025). Generative AI for software architecture: Applications, challenges, and future directions. <em>Preprint submitted to Journal of Systems and Software</em>. <a href=\"https://arxiv.org/abs/2503.13310\" target=\"_blank\" rel=\"noopener\">arXiv:2503.13310v2</a>"
+  ]
+}

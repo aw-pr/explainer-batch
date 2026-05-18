@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "SGLang and KV Cache Reuse: Zheng et al. (2024)",
+    "eyebrow": "",
+    "date_created": "2026-04-03",
+    "filename_slug": "2026-04-03_zheng_sglang-and-kv-cache-reuse_explainer"
+  },
+  "hero": {
+    "headline": "SGLang speeds up LLM programs; it stops recomputing the same prefixes",
+    "headline_html": "SGLang speeds up LLM programs; <span>it stops recomputing the same prefixes</span>",
+    "subtitle": "This is not a new model. It is a Python DSL plus a cache-aware runtime that remembers shared prompt work, then reuses it across branches, agents, and long documents. The paper's practical claim is simple enough to trust: when an LLM app keeps seeing the same prefix, you should not make the GPU rediscover it from scratch."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "",
+        "description": "Peak reported throughput gain across the benchmark suite, versus the strongest baseline named in the paper.",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "",
+        "description": "Throughput lift on LLaVA-Bench, using 24 images and 60 questions on an M2 Ultra.",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "",
+        "description": "Speedup on long-context JSON output, where the runtime reuses the same long prefix for multiple fields.",
+        "accent_color": "#4dabf7"
+      }
+    ]
+  },
+  "chart": {
+    "title": "",
+    "caption": "",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('speedupChart');\n\n    new Chart(ctx, {\n      type: 'bar',\n      data: {\n        labels: [\n          'Peak throughput',\n          'JSON summarise',\n          'LLaVA-Bench',\n          'Generative agents',\n          'Doc QA'\n        ],\n        datasets: [{\n          data: [6.4, 2.9, 1.7, 1.3, 1.2],\n          backgroundColor: ['#4dabf7', '#f6ad55', '#51cf66', '#fab005', '#ff6b6b'],\n          borderColor: ['#4dabf7', '#f6ad55', '#51cf66', '#fab005', '#ff6b6b'],\n          borderWidth: 1,\n          borderRadius: 8,\n          barThickness: 18\n        }]\n      },\n      options: {\n        animation: false,\n        responsive: true,\n        maintainAspectRatio: false,\n        indexAxis: 'y',\n        plugins: {\n          legend: {\n            display: false\n          },\n          tooltip: {\n            callbacks: {\n              label: function(context) {\n                return context.raw.toFixed(1) + 'x';\n              }\n            }\n          }\n        },\n        scales: {\n          x: {\n            beginAtZero: true,\n            suggestedMax: 7,\n            grid: {\n              color: '#e2e8f0'\n            },\n            ticks: {\n              color: '#4a5568',\n              callback: function(value) {\n                return value + 'x';\n              }\n            },\n            border: {\n              color: '#e2e8f0'\n            }\n          },\n          y: {\n            grid: {\n              display: false\n            },\n            ticks: {\n              color: '#4a5568',\n              font: {\n                size: 13\n              }\n            },\n            border: {\n              color: '#e2e8f0'\n            }\n          }\n        }\n      }\n    });"
+  },
+  "sections": [
+    {
+      "label": "What the system is",
+      "paragraphs": [
+        "SGLang gives you a small programming language embedded in Python, with primitives such as gen , select , fork , and join . That sounds modest, which is often a sign that the authors have done the hard work somewhere else. In this case, the hard work sits in the runtime, where the system tracks prompt state and generation calls as a structured program rather than a pile of ad hoc API calls.",
+        "The paper's bet is that LLM applications have already moved past single prompts. They now branch, loop, call tools, and stitch together partial outputs. Once you admit that reality, a plain request-response API starts to look rather underdressed, so SGLang puts the structure into the language itself and lets the backend do the awkward bookkeeping."
+      ],
+      "paragraphs_html": [
+        "SGLang gives you a small programming language embedded in Python, with primitives such as <strong>gen</strong>, <strong>select</strong>, <strong>fork</strong>, and <strong>join</strong>. That sounds modest, which is often a sign that the authors have done the hard work somewhere else. In this case, the hard work sits in the runtime, where the system tracks prompt state and generation calls as a structured program rather than a pile of ad hoc API calls.",
+        "The paper's bet is that LLM applications have already moved past single prompts. They now branch, loop, call tools, and stitch together partial outputs. Once you admit that reality, a plain request-response API starts to look rather underdressed, so SGLang puts the structure into the language itself and lets the backend do the awkward bookkeeping."
+      ]
+    },
+    {
+      "label": "Why it runs faster",
+      "paragraphs": [
+        "The main trick is RadixAttention , which keeps a radix tree of the KV cache, the model's saved attention work for a prefix. If two requests share text at the start, SGLang reuses that work instead of running the same tokens through the model again. That matters most in few-shot prompts, multi-turn agents, and any workflow that keeps dragging the same context through a fresh call.",
+        "The runtime also batches requests, detects independent branches, and schedules work to keep cache hits high. The paper reports up to 6.4x higher throughput across a spread of tasks, 1.3x on generative agents, 1.7x on LLaVA-Bench, and 2.9x on a long-context JSON task. The pattern is boring in the best way: the more repeated structure the app has, the more waste SGLang can cut away."
+      ],
+      "paragraphs_html": [
+        "The main trick is <strong>RadixAttention</strong>, which keeps a radix tree of the KV cache, the model's saved attention work for a prefix. If two requests share text at the start, SGLang reuses that work instead of running the same tokens through the model again. That matters most in few-shot prompts, multi-turn agents, and any workflow that keeps dragging the same context through a fresh call.",
+        "The runtime also batches requests, detects independent branches, and schedules work to keep cache hits high. The paper reports up to 6.4x higher throughput across a spread of tasks, 1.3x on generative agents, 1.7x on LLaVA-Bench, and 2.9x on a long-context JSON task. The pattern is boring in the best way: the more repeated structure the app has, the more waste SGLang can cut away."
+      ]
+    },
+    {
+      "label": "Why it matters",
+      "paragraphs": [
+        "SGLang sits between prompt libraries and inference engines, which means it can express the program and optimise the execution in one place. That is useful because the two layers usually ignore each other, then complain about latency in separate meetings. The paper shows that the combined approach buys both control and speed, instead of asking you to choose one and pretend the other will be fine.",
+        "The case studies make the point nicely. The authors add a vision-language primitive in around 400 lines of code, run it on GPT-4 Vision without code changes, and show that GPT-4 can reorder 12 of 15 prompt templates safely while lengthening the shareable prefix by 60 tokens on average. In other words, SGLang does not just accelerate the common case. It also makes the uncommon case less awkward, which is usually where useful systems earn their keep."
+      ]
+    }
+  ],
+  "references": [
+    "Zheng, L., Yin, L., Xie, Z., Sun, C., Huang, J., Yu, C. H., Cao, S., Kozyrakis, C., Stoica, I., Gonzalez, J. E., Barrett, C., &amp; Sheng, Y. (2024). <em>SGLang: Efficient execution of structured language model programs</em>. arXiv. <a href=\"https://doi.org/10.48550/arXiv.2312.07104\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.48550/arXiv.2312.07104</a>"
+  ]
+}

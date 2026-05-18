@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Activation — Bakal (2026)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: #f7f8fa;
+    color: #1a1a1a;
+    padding: 10px 8px 18px;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  @media (max-width: 700px) { body { padding: 8px 6px 14px; } }
+
+  .hero {
+    background: linear-gradient(135deg, #031533 0%, #0066cc 55%, #0a1f44 100%);
+    border-radius: 14px;
+    padding: 40px 36px 36px;
+    margin-bottom: 18px;
+    color: #fff;
+  }
+  .hero .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8cc7ff; margin-bottom: 14px; }
+  .hero h1 { font-size: clamp(22px, 3.5vw, 34px); font-weight: 700; line-height: 1.25; margin-bottom: 14px; color: #fff; }
+  .hero h1 span { color: #ff6b35; }
+  .hero .subtitle { font-size: 16px; color: #c7ddff; line-height: 1.6; max-width: 720px; }
+  @media (max-width: 700px) { .hero { padding: 24px 18px 22px; } }
+
+  .pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  @media (max-width: 700px) { .pills { grid-template-columns: 1fr; } }
+  .pill { background: #fff; border-radius: 12px; padding: 20px 18px 16px; border-top: 4px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .pill .num { font-size: 32px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+  .pill .label { font-size: 13px; color: #555; line-height: 1.4; }
+
+  .card { background: #fff; border-radius: 14px; padding: 26px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+  .card-title { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #333; margin-bottom: 18px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .legend-pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; color: #fff; }
+
+  .chart-wrap { position: relative; height: 260px; }
+  @media (max-width: 700px) { .chart-wrap { height: 200px; } }
+
+  .caption { font-family: Georgia, 'Times New Roman', serif; font-size: 12px; color: #718096; text-align: center; margin: -6px 0 18px; font-style: italic; }
+
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #718096; margin-bottom: 10px; }
+  .prose { font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.75; color: #2d3748; }
+  .prose p { margin-bottom: 14px; }
+  .prose p:last-child { margin-bottom: 0; }
+
+  .aku-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .aku-grid { grid-template-columns: 1fr; } }
+  .aku-card { border-left: 4px solid var(--c); background: #f8fafc; border-radius: 0 10px 10px 0; padding: 14px 16px; }
+  .aku-card h3 { font-size: 14px; font-weight: 700; color: var(--c); margin-bottom: 6px; }
+  .aku-card p { font-family: Georgia, serif; font-size: 13px; color: #4a5568; line-height: 1.55; }
+
+  .compare-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-card { border-radius: 10px; padding: 16px 14px; border-top: 3px solid var(--c); }
+  .compare-card.old { background: #fff5f5; }
+  .compare-card.new { background: #f0fff4; }
+  .compare-card.note { background: #fffff0; }
+  .compare-card h3 { font-size: 13px; font-weight: 700; color: var(--c); margin-bottom: 8px; }
+  .compare-card p { font-family: Georgia, serif; font-size: 13px; color: #4a5568; line-height: 1.5; }
+
+  .takeaway { background: linear-gradient(135deg, #031533 0%, #0a1f44 100%); border-left: 5px solid #ff6b35; border-radius: 12px; padding: 24px 22px; margin-bottom: 18px; }
+  .takeaway .label { color: #8cc7ff; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+  .takeaway p { color: #e2e8f0; font-family: Georgia, serif; font-size: 16px; line-height: 1.7; }
+
+  .ref { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .ref .label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #718096; margin-bottom: 8px; }
+  .ref p { font-family: Georgia, serif; font-size: 14px; color: #4a5568; line-height: 1.65; }
+  .ref a { color: #4dabf7; text-decoration: none; }
+  .ref a:hover { text-decoration: underline; }
+
+  .code-block {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+    margin: 12px 0;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  .code-block .key { color: #f6ad55; }
+  .code-block .val { color: #51cf66; }
+  .code-block .comment { color: #718096; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="eyebrow">Research Explainer · Gal Bakal (2026) · Preprint</div>
+  <h1>The bottleneck isn't your AI model — <span>it's that your institutional knowledge isn't built for agents to consume</span></h1>
+  <p class="subtitle">Knowledge Activation introduces Atomic Knowledge Units (AKUs): action-ready specifications that encode what to do, which tools to use, and where to go next — forming a traversable knowledge graph that compresses onboarding and eliminates the correction cascades that burden senior engineers.</p>
+</header>
+
+<!-- STAT PILLS -->
+<section class="pills">
+  <div class="pill" style="--accent:#f6ad55">
+    <div class="num">AKU</div>
+    <div class="label">Atomic Knowledge Units — the proposed institutional knowledge primitive for the agentic era</div>
+  </div>
+  <div class="pill" style="--accent:#4dabf7">
+    <div class="num">Graph</div>
+    <div class="label">AKUs form a composable knowledge graph that agents traverse at runtime — not a flat document store</div>
+  </div>
+  <div class="pill" style="--accent:#ff6b6b">
+    <div class="num">≠ RAG</div>
+    <div class="label">AKUs deliver action-ready specifications. RAG retrieves documents for interpretation — a critical difference</div>
+  </div>
+</section>
+
+<!-- PRIMARY CHART — knowledge transfer modes -->
+<div class="card">
+  <div class="card-title">Knowledge Architecture Approaches: Fitness for Agentic Development</div>
+  <div class="legend">
+    <span class="legend-pill" style="background:#f6ad55">Knowledge Activation / AKUs</span>
+    <span class="legend-pill" style="background:#4dabf7">RAG</span>
+    <span class="legend-pill" style="background:#a0aec0">Static Documentation</span>
+    <span class="legend-pill" style="background:#51cf66">ACE / Reflexion (Strategy)</span>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="approachChart"></canvas>
+  </div>
+</div>
+<p class="caption">Comparative assessment across key dimensions for agentic software development. Based on framework analysis, Bakal (2026).</p>
+
+<!-- PROSE -->
+<section class="card">
+  <div class="section-label">The Institutional Impedance Mismatch</div>
+  <div class="prose">
+    <p>A technically skilled engineer joining an enterprise faces a structural barrier that no amount of talent compensates for: they lack the institutional context that makes decisions here make sense. Why does the payment reconciliation service split transactions across two ledgers? Because a regulatory change in 2019 required separate audit trails for domestic and cross-border payments. No amount of reading the codebase will surface that fact — it exists only in the heads of engineers who were there.</p>
+    <p>Bakal calls this the <em>Institutional Impedance Mismatch</em>: the structural disconnect between a knowledge consumer's existing knowledge and the institutional context needed to act correctly. The same mismatch that afflicts new engineers afflicts AI agents — and at every scale. Modern coding agents like those evaluated on SWE-bench perform well on open-source repositories precisely because open-source knowledge is encoded in forms they can access: the repository itself, the contribution guidelines, the public APIs. Enterprise software development operates under fundamentally different conditions. Decades of institutional knowledge — architectural decisions and their rationales, deployment procedures tailored to specific infrastructure, compliance policies mandated by regulatory frameworks — exist as <strong>tribal knowledge</strong>, distributed across wikis, chat threads, runbooks, and the heads of experienced staff.</p>
+    <p>Retrieval-Augmented Generation (RAG) attempts to bridge this gap by surfacing relevant documents at query time. But RAG retrieves — it does not curate. It surfaces existing documents without verifying their relevance, currency, or completeness. When the knowledge exists only as undocumented tribal knowledge, RAG has nothing to retrieve.</p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-label">Knowledge Activation and Atomic Knowledge Units</div>
+  <div class="prose">
+    <p>Bakal's proposed solution is <em>Knowledge Activation</em> — a framework that builds on the <strong>AI Skills open standard</strong> for agent-consumable knowledge. AI Skills provide a structured format for encoding knowledge that agents can consume directly, without the interpretation overhead of prose documents. Knowledge Activation specializes Skills into <em>Atomic Knowledge Units (AKUs)</em>: tightly scoped, governance-aware knowledge artifacts designed specifically for institutional knowledge delivery in enterprise software contexts.</p>
+    <p>What distinguishes an AKU from a retrieved document is its action-readiness. Rather than providing background information that an agent must interpret to determine what to do, an AKU encodes exactly what to do, which tools to invoke, what constraints apply, and which related AKUs to consult next. Each AKU is aware of the others: it declares typed relationships — dependencies, successors, related systems — that form a traversable knowledge graph at runtime. An agent navigating an unfamiliar codebase doesn't need to interpret a 40-page architecture document; it can traverse the knowledge graph, reading only the AKUs relevant to its current task, in the order they're needed.</p>
+    <p>The paper formalizes the resource constraints that make this architecture necessary and specifies the full AKU schema and deployment architecture. It also grounds long-term maintenance in <em>knowledge commons</em> practice — the idea that AKUs, like open-source code, must be governed, versioned, and maintained by the teams that benefit from them, not centralized into a documentation team that quickly becomes a bottleneck.</p>
+  </div>
+</section>
+
+<!-- AKU schema preview -->
+<section class="card">
+  <div class="section-label">Example AKU Structure</div>
+  <div class="prose">
+    <p>An AKU is a structured markdown file with YAML frontmatter encoding its metadata and relationships:</p>
+  </div>
+  <div class="code-block">
+<span class="comment">---</span>
+<span class="key">aku_type:</span> <span class="val">deployment-procedure</span>
+<span class="key">id:</span> <span class="val">deploy-payment-service-prod</span>
+<span class="key">tools:</span> <span class="val">[terraform-apply, github-actions, datadog]</span>
+<span class="key">constraints:</span>
+  - <span class="val">requires_approval: platform-oncall</span>
+  - <span class="val">blackout_windows: [friday-17-00, saturday, sunday]</span>
+<span class="key">related_akus:</span>
+  - <span class="val">rollback-payment-service</span>
+  - <span class="val">payment-service-architecture</span>
+  - <span class="val">pci-compliance-checklist</span>
+<span class="key">next_on_success:</span> <span class="val">verify-payment-service-health</span>
+<span class="comment">---</span>
+<span class="comment"># Deploy Payment Service to Production</span>
+[Action-ready steps encoding exactly what to do...]
+  </div>
+  <div class="prose">
+    <p>The agent reads this AKU, knows immediately which tools to call, which constraints to respect, which compliance requirements apply, and which AKU to consult next. No interpretation required — just execution.</p>
+  </div>
+</section>
+
+<!-- AKU vs alternatives grid -->
+<section class="card">
+  <div class="card-title">AKUs vs. Existing Knowledge Formats</div>
+  <div class="compare-grid">
+    <div class="compare-card old" style="--c:#ff6b6b">
+      <h3>RAG + Documents</h3>
+      <p>Retrieves relevant documents for the agent to interpret. Fails when knowledge is undocumented, outdated, or fragmented across systems. No structured tool guidance or constraint encoding.</p>
+    </div>
+    <div class="compare-card note" style="--c:#fab005">
+      <h3>ACE / Reflexion</h3>
+      <p>Optimizes execution strategy — how the agent should reason and act. Cannot acquire domain knowledge that exists only in human heads. Complementary to AKUs, not a substitute.</p>
+    </div>
+    <div class="compare-card new" style="--c:#51cf66">
+      <h3>Atomic Knowledge Units</h3>
+      <p>Action-ready specifications with typed relationships, tool lists, constraints, and navigation pointers. Composable into a knowledge graph. Maintained via knowledge commons governance.</p>
+    </div>
+  </div>
+</section>
+
+<!-- AKU types grid -->
+<section class="card">
+  <div class="card-title">Four Core AKU Patterns</div>
+  <div class="aku-grid">
+    <div class="aku-card" style="--c:#f6ad55">
+      <h3>Architectural Decision AKU</h3>
+      <p>Encodes a past architectural decision, its rationale, the constraints it imposed, and which systems it affects. Prevents agents from "fixing" patterns that exist for reasons they can't see in the code.</p>
+    </div>
+    <div class="aku-card" style="--c:#4dabf7">
+      <h3>Deployment Procedure AKU</h3>
+      <p>Action-ready steps for a specific deployment operation: tools to invoke, approval requirements, blackout windows, rollback pointers, and post-deploy verification steps.</p>
+    </div>
+    <div class="aku-card" style="--c:#51cf66">
+      <h3>Incident Playbook AKU</h3>
+      <p>Encodes the diagnosis and remediation steps for a known failure mode. Links to system AKUs describing the affected components and constraint AKUs covering blast-radius considerations.</p>
+    </div>
+    <div class="aku-card" style="--c:#ff6b6b">
+      <h3>Compliance Policy AKU</h3>
+      <p>Specifies regulatory or organizational constraints that apply to a system or operation. Injected into relevant deployment and incident AKUs so agents never execute in violation of policy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TAKEAWAY -->
+<aside class="takeaway">
+  <div class="label">Key Implication</div>
+  <p>The organizations that will get the most value from agentic coding tools are not those with the most capable models — they're the ones that architect their institutional knowledge for machine consumption. AKUs don't replace human expertise: they make that expertise portable, structured, and accessible to agents and engineers alike. The paper's core claim is direct: investing in model capability while leaving institutional knowledge in tribal form is the wrong bet. The knowledge architecture is the bottleneck, and AKUs are the proposed primitive for solving it.</p>
+</aside>
+
+<!-- REFERENCE -->
+<div class="ref">
+  <div class="label">Reference</div>
+  <p>Bakal, G. (2026). <em>Knowledge Activation: AI Skills as the Institutional Knowledge Primitive for Agentic Software Development</em>. arXiv:2603.14805v1 [cs.AI]. <a href="https://arxiv.org/abs/2603.14805" target="_blank">https://arxiv.org/abs/2603.14805</a></p>
+</div>
+
+<script>
+Chart.defaults.animation = false;
+Chart.defaults.color = '#4a5568';
+Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+const approachCtx = document.getElementById('approachChart').getContext('2d');
+new Chart(approachCtx, {
+  type: 'radar',
+  data: {
+    labels: ['Action Readiness', 'Handles Tribal Knowledge', 'Runtime Traversability', 'Tool Guidance', 'Constraint Encoding', 'Handles Undocumented KB'],
+    datasets: [
+      {
+        label: 'Knowledge Activation / AKUs',
+        data: [95, 85, 90, 90, 90, 80],
+        backgroundColor: 'rgba(246,173,85,0.2)',
+        borderColor: '#f6ad55',
+        borderWidth: 2,
+        pointBackgroundColor: '#f6ad55'
+      },
+      {
+        label: 'RAG',
+        data: [30, 20, 20, 10, 10, 15],
+        backgroundColor: 'rgba(77,171,247,0.15)',
+        borderColor: '#4dabf7',
+        borderWidth: 2,
+        pointBackgroundColor: '#4dabf7'
+      },
+      {
+        label: 'Static Documentation',
+        data: [20, 40, 5, 5, 20, 30],
+        backgroundColor: 'rgba(160,174,192,0.15)',
+        borderColor: '#a0aec0',
+        borderWidth: 2,
+        pointBackgroundColor: '#a0aec0'
+      },
+      {
+        label: 'ACE/Reflexion (Strategy)',
+        data: [60, 5, 50, 60, 30, 5],
+        backgroundColor: 'rgba(81,207,102,0.15)',
+        borderColor: '#51cf66',
+        borderWidth: 2,
+        pointBackgroundColor: '#51cf66'
+      }
+    ]
+  },
+  options: {
+    animation: false,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      r: {
+        min: 0,
+        max: 100,
+        ticks: { display: false },
+        grid: { color: '#e2e8f0' },
+        pointLabels: { font: { size: 11 } }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

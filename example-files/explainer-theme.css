@@ -1,0 +1,84 @@
+:root {
+  --explainer-bg: #f7f8fa;
+  --explainer-text: #1a1a1a;
+  --explainer-muted: #4a5568;
+  --explainer-muted-soft: #718096;
+  --explainer-card-bg: #ffffff;
+  --explainer-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  --explainer-hero-start: #031533;
+  --explainer-hero-mid: #0066cc;
+  --explainer-hero-end: #0a1f44;
+  --explainer-hero-text: #ffffff;
+  --explainer-hero-muted: #c7ddff;
+  --explainer-hero-eyebrow: #8cc7ff;
+  --explainer-accent: #ff6b35;
+  --explainer-link: #4dabf7;
+}
+
+html,
+body {
+  background: var(--explainer-bg);
+  color: var(--explainer-text);
+}
+
+a {
+  color: var(--explainer-link);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.hero,
+.takeaway,
+.takeaway-box {
+  background: linear-gradient(
+    135deg,
+    var(--explainer-hero-start) 0%,
+    var(--explainer-hero-mid) 55%,
+    var(--explainer-hero-end) 100%
+  );
+  color: var(--explainer-hero-text);
+}
+
+.hero h1 span,
+.hero-title span {
+  color: var(--explainer-accent);
+}
+
+.hero .eyebrow,
+.hero-eyebrow,
+.takeaway .label,
+.takeaway-label {
+  color: var(--explainer-hero-eyebrow);
+}
+
+.hero .subtitle,
+.hero-subtitle,
+.takeaway p,
+.takeaway-body {
+  color: var(--explainer-hero-muted);
+}
+
+.card,
+.charts-wrapper,
+.prose-section,
+.ref {
+  background: var(--explainer-card-bg);
+  box-shadow: var(--explainer-card-shadow);
+}
+
+.caption,
+.section-label,
+.section-heading,
+.legend-label,
+.ref .label {
+  color: var(--explainer-muted-soft);
+}
+
+.prose,
+.section-body,
+.ref p,
+.apa-ref {
+  color: var(--explainer-muted);
+}

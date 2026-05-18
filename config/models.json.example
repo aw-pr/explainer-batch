@@ -1,0 +1,23 @@
+{
+  "_comment": "Copy to config/models.json (gitignored) for per-provider model overrides. Any key may be omitted; env vars (MODEL_BATCH, etc.) take precedence over this file, which takes precedence over the built-in defaults shown here.",
+  "claude": {
+    "batchModel": "claude-opus-4-7",
+    "laneModel": "claude-opus-4-7",
+    "synthesisModel": "claude-opus-4-7",
+    "repairModel": "claude-sonnet-4-6",
+    "maxTokens": 16384,
+    "laneMaxTokens": 16384,
+    "synthesisMaxTokens": 16384,
+    "repairMaxTokens": 8192
+  },
+  "openai": {
+    "batchModel": "gpt-5.4",
+    "laneModel": "gpt-5.4-mini",
+    "synthesisModel": "gpt-5.4",
+    "repairModel": "gpt-5.4-mini",
+    "maxTokens": 8192,
+    "laneMaxTokens": 4096,
+    "synthesisMaxTokens": 8192,
+    "repairMaxTokens": 8192
+  }
+}

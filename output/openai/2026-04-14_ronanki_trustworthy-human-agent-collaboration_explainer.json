@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Trustworthy Human-Agent Collaboration in Software Engineering: Ronanki (2025)",
+    "eyebrow": "Research Explainer · Ronanki (2025)",
+    "date_created": "2026-04-14",
+    "filename_slug": "2026-04-14_ronanki_trustworthy-human-agent-collaboration_explainer"
+  },
+  "hero": {
+    "headline": "LLM agents can take real software tasks, but humans still need the final say",
+    "headline_html": "LLM agents can take real software tasks, but <span>humans still need the final say</span>",
+    "subtitle": "This work-in-progress paper proposes a RACI-based framework for dividing software engineering work between people and LLM agents. Its contribution is not measured performance, but a concrete governance model for deciding what agents may do, who remains accountable, and where automation should stop.",
+    "publication_date": "Published June 2025"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "Responsible",
+        "description": "the actor who actually performs the task, whether human or agent",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "Accountable",
+        "description": "the actor who delegates or approves the work and validates the output before completion",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "Consulted",
+        "description": "the actor whose judgement or domain input should shape the task outcome",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "Informed",
+        "description": "the actor kept in the loop without needing to take direct action",
+        "accent_color": "#fab005"
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "title": "The paper's responsibility assignment framework",
+      "caption": "Recreated from Ronanki (2025), Figure 1.",
+      "mermaid": "flowchart TD\n  S1[Step 1<br/>List artefact-based tasks] --> S2[Step 2<br/>List human and LLM actors]\n  S2 --> S3[Step 3<br/>List regulatory and compliance constraints]\n  S3 --> S4[Step 4<br/>Identify tasks suitable for automation]\n  S4 --> S5[Step 5<br/>Check agent technical proficiency]\n  S5 --> S6[Step 6<br/>Assign R A C I per task]\n  S6 --> S7[Step 7<br/>Check assignments against constraints]\n  S7 -- conflict --> S5\n  S7 -- clear --> S8[Step 8<br/>Design workflows for automated tasks]\n  S8 --> S9[Step 9<br/>Check workflows against constraints]\n  S9 -- conflict --> S8\n  S9 -- clear --> O[Operational human-agent workflow]",
+      "source_figure": "Figure 1"
+    }
+  ],
+  "sections": [
+    {
+      "label": "What this paper is, and what it is not",
+      "paragraphs": [
+        "This is a conceptual paper, not an evaluation study. Ronanki argues that the hard problem in LLM-based multi-agent software engineering is not merely building capable agents, but deciding which tasks they should handle, which tasks must stay with humans, and who carries responsibility when the system acts.",
+        "The proposed answer is a Responsibility Assignment Framework built on the old RACI matrix. That sounds almost suspiciously sensible. In practice, that is the point: the paper takes a familiar governance tool and adapts it for software teams working with LLM agents, with Trustworthy AI requirements and EU AI Act obligations in the background."
+      ],
+      "paragraphs_html": [
+        "This is a <strong>conceptual paper</strong>, not an evaluation study. Ronanki argues that the hard problem in LLM-based multi-agent software engineering is not merely building capable agents, but deciding which tasks they should handle, which tasks must stay with humans, and who carries responsibility when the system acts.",
+        "The proposed answer is a <strong>Responsibility Assignment Framework</strong> built on the old <strong>RACI matrix</strong>. That sounds almost suspiciously sensible. In practice, that is the point: the paper takes a familiar governance tool and adapts it for software teams working with LLM agents, with <strong>Trustworthy AI requirements</strong> and <strong>EU AI Act obligations</strong> in the background."
+      ]
+    },
+    {
+      "label": "How the framework works",
+      "paragraphs": [
+        "Figure 1 lays out a nine-step process. It starts by listing artefact-based tasks, the human and agent actors involved, and the regulatory constraints that apply. Only then does the framework ask which tasks can be automated, whether the chosen agents are technically capable, and how the RACI assignments should be set row by row.",
+        "The useful twist is the two control loops. If the assignments conflict with compliance constraints, you go back and rethink the agent choice. If the designed workflows conflict with those constraints, you redesign the workflow itself. In other words, automation is not assumed to be legitimate by default. It has to survive review."
+      ],
+      "paragraphs_html": [
+        "Figure 1 lays out a <strong>nine-step process</strong>. It starts by listing artefact-based tasks, the human and agent actors involved, and the regulatory constraints that apply. Only then does the framework ask which tasks can be automated, whether the chosen agents are technically capable, and how the RACI assignments should be set row by row.",
+        "The useful twist is the <strong>two control loops</strong>. If the assignments conflict with compliance constraints, you go back and rethink the agent choice. If the designed workflows conflict with those constraints, you redesign the workflow itself. In other words, automation is not assumed to be legitimate by default. It has to survive review."
+      ],
+      "list": {
+        "ordered": true,
+        "style": "steps",
+        "intro": "The framework's logic is straightforward:",
+        "items": [
+          {
+            "label": "Map the work",
+            "body": "List the artefact-based tasks and the human and LLM actors involved."
+          },
+          {
+            "label": "Map the constraints",
+            "body": "Identify the regulatory and compliance rules that bound what agents may do."
+          },
+          {
+            "label": "Choose automation carefully",
+            "body": "Mark only the tasks that can be automated and verify that the selected agents are actually capable of doing them."
+          },
+          {
+            "label": "Assign responsibility",
+            "body": "Set Responsible, Accountable, Consulted, and Informed roles for each task."
+          },
+          {
+            "label": "Check for conflicts",
+            "body": "If assignments or workflows violate constraints, revise them before deployment."
+          }
+        ]
+      }
+    },
+    {
+      "label": "What the DevOps example actually shows",
+      "paragraphs": [
+        "The worked example applies the framework to the planning phase of a DevOps software development lifecycle. Table 1 covers six tasks: requirements elicitation, product roadmap creation, features and user stories, product backlog creation, sprint planning, and task allocation. It also spans six actors: product owner, business analyst, scrum master, and three LLM agents.",
+        "The split is revealing. Requirements elicitation and roadmap creation stay human-led, with agents only consulted or informed. More bounded artefact-heavy tasks move toward automation: LLM-agent B becomes responsible for features and user stories, LLM-agent A for the product backlog, and LLM-agent C for sprint planning and task allocation, while humans remain accountable for approval and validation."
+      ],
+      "paragraphs_html": [
+        "The worked example applies the framework to the <strong>planning phase of a DevOps software development lifecycle</strong>. <strong>Table 1</strong> covers six tasks: requirements elicitation, product roadmap creation, features and user stories, product backlog creation, sprint planning, and task allocation. It also spans six actors: product owner, business analyst, scrum master, and three LLM agents.",
+        "The split is revealing. Requirements elicitation and roadmap creation stay <strong>human-led</strong>, with agents only consulted or informed. More bounded artefact-heavy tasks move toward automation: <strong>LLM-agent B</strong> becomes responsible for features and user stories, <strong>LLM-agent A</strong> for the product backlog, and <strong>LLM-agent C</strong> for sprint planning and task allocation, while humans remain accountable for approval and validation."
+      ],
+      "list": {
+        "ordered": false,
+        "style": "cards",
+        "intro": "The matrix in Table 1 implies three practical rules:",
+        "items": [
+          {
+            "label": "Keep customer-facing judgement human",
+            "body": "Requirements elicitation is not automated because the source of truth should still come from the customer."
+          },
+          {
+            "label": "Automate artefacts, not authority",
+            "body": "Agents may draft stories, backlogs, or sprint outputs, but a human stays accountable whenever an agent has a responsible role."
+          },
+          {
+            "label": "Use specialist agents narrowly",
+            "body": "Each agent is tied to a role-shaped capability, product owner, requirements engineer, or scrum assistant, rather than being treated as a general oracle."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Why the paper matters, and where it stops",
+      "paragraphs": [
+        "The paper's real contribution is governance discipline. It gives teams a way to talk about human oversight, accountability, and risk mitigation before they start wiring agents into real development workflows. That is more valuable than another breezy claim that multi-agent systems will write the backlog while everyone else goes to lunch.",
+        "Still, the evidence base here is thin because the paper says so itself. The framework has not yet been empirically validated, the DevOps matrix is hypothetical, and one of the agents in the example, LLM-agent C, is explicitly assumed for illustration. The planned next step is a groupware walkthrough-based multi-case study with experts and potential users. For now, this is a credible design proposal, not a demonstrated win."
+      ],
+      "paragraphs_html": [
+        "The paper's real contribution is <strong>governance discipline</strong>. It gives teams a way to talk about human oversight, accountability, and risk mitigation before they start wiring agents into real development workflows. That is more valuable than another breezy claim that multi-agent systems will write the backlog while everyone else goes to lunch.",
+        "Still, the evidence base here is thin because the paper says so itself. The framework has <strong>not yet been empirically validated</strong>, the DevOps matrix is hypothetical, and one of the agents in the example, <strong>LLM-agent C</strong>, is explicitly assumed for illustration. The planned next step is a <strong>groupware walkthrough-based multi-case study</strong> with experts and potential users. For now, this is a credible design proposal, not a demonstrated win."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "KEY CONTRIBUTION",
+    "body": "Ronanki's paper does not prove that human-agent collaboration improves software delivery. What it does provide is a workable decision framework for assigning roles between humans and LLM agents without letting accountability evaporate. In a field that often mistakes autonomy for governance, that is a useful correction."
+  },
+  "references": [
+    "Ronanki, K. (2025). Facilitating Trustworthy Human-Agent Collaboration in LLM-based Multi-Agent System oriented Software Engineering. In <em>Companion Proceedings of the 33rd ACM Symposium on the Foundations of Software Engineering (FSE '25)</em> (pp. 1333-1337). ACM. <a href=\"https://doi.org/10.1145/3696630.3728717\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1145/3696630.3728717</a>"
+  ]
+}

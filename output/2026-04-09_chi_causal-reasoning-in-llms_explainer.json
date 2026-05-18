@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Causal Reasoning in LLMs: Chi et al. (2024)",
+    "eyebrow": "Research Explainer · Chi et al. (2024)",
+    "date_created": "2026-04-09",
+    "filename_slug": "2026-04-09_chi_causal-reasoning-in-llms_explainer"
+  },
+  "hero": {
+    "headline": "LLMs look like causal reasoners, but they're mostly just remembering",
+    "headline_html": "LLMs look like causal reasoners, but <span>they're mostly just remembering</span>",
+    "subtitle": "When tested on fresh news articles they couldn't have seen during training, four leading language models showed dramatic accuracy drops on cause-and-effect questions, revealing that their apparent causal reasoning is largely a retrieval trick."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "<70%",
+        "description": "exact-match accuracy for Claude 3 Opus on CausalProbe-H, the hard version of the fresh benchmark with deliberately misleading answer choices",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "3,461",
+        "description": "unique causal Q&A items in the CausalProbe-2024 benchmark, all built from BBC and Guardian articles published after January 2024",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "99.1% → 75.8%",
+        "description": "accuracy drop for Claude 3 Opus when moving from the older COPA benchmark to the fresh CausalProbe-E dataset",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "chart": {
+    "title": "Vanilla accuracy across benchmarks (older to fresher)",
+    "caption": "Source: Table 2, Chi et al. (2024). Exact-match accuracy on four causal Q&A benchmarks. COPA = Choice of Plausible Alternatives (pre-2011 corpus). e-CARE = Causal Reasoning dataset (pre-2020 corpus). C-E = CausalProbe-Easy, C-H = CausalProbe-Hard (both post-Jan 2024 corpus).",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('mainChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: ['COPA\\n(pre-2011)', 'e-CARE\\n(pre-2020)', 'CausalProbe-E\\n(Jan 2024)', 'CausalProbe-H\\n(Jan 2024)'],\n    datasets: [\n      {\n        label: 'LLaMA 2 7B',\n        data: [75.2, 68.4, 61.6, 56.5],\n        backgroundColor: '#f6ad55'\n      },\n      {\n        label: 'LLaMA 3 8B',\n        data: [93.7, 77.8, 71.5, 65.2],\n        backgroundColor: '#4dabf7'\n      },\n      {\n        label: 'GPT-3.5 Turbo',\n        data: [94.8, 81.4, 73.2, 67.1],\n        backgroundColor: '#51cf66'\n      },\n      {\n        label: 'Claude 3 Opus',\n        data: [99.1, 86.1, 75.8, 69.2],\n        backgroundColor: '#ff6b6b'\n      }\n    ]\n  },\n  options: {\n    animation: false,\n    maintainAspectRatio: false,\n    responsive: true,\n    plugins: {\n      legend: {\n        position: 'top',\n        labels: {\n          font: { size: 12, family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\" },\n          padding: 16,\n          usePointStyle: true,\n          pointStyle: 'rectRounded'\n        }\n      }\n    },\n    scales: {\n      y: {\n        beginAtZero: true,\n        max: 100,\n        ticks: {\n          callback: function(value) { return value + '%'; },\n          font: { size: 11 },\n          color: '#718096'\n        },\n        grid: { color: '#e2e8f0' },\n        title: {\n          display: true,\n          text: 'Exact Match (%)',\n          font: { size: 12 },\n          color: '#718096'\n        }\n      },\n      x: {\n        ticks: {\n          font: { size: 11 },\n          color: '#718096',\n          maxRotation: 0\n        },\n        grid: { display: false }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "The core question",
+      "paragraphs": [
+        "Ask GPT-3.5 why a village's children performed better after a road was built and you'll get a plausible answer: better access to libraries and tutoring centres. Ask it what happens when railway stations become social hubs, and it confidently tells you that \"public transportation accessibility improves,\" which has nothing to do with the scenario. The first question draws on common knowledge the model absorbed during training. The second requires genuine reasoning about an unfamiliar situation.",
+        "Chi and colleagues formalise this intuition into two levels. Level-1 causal reasoning retrieves cause-and-effect patterns already stored in the model's parameters. Level-2 causal reasoning deduces new causal relationships from first principles, the way a human would when encountering a novel scenario. Their hypothesis: current LLMs are stuck at level-1."
+      ],
+      "paragraphs_html": [
+        "Ask GPT-3.5 why a village's children performed better after a road was built and you'll get a plausible answer: better access to libraries and tutoring centres. Ask it what happens when railway stations become social hubs, and it confidently tells you that \"public transportation accessibility improves,\" which has nothing to do with the scenario. The first question draws on common knowledge the model absorbed during training. The second requires genuine reasoning about an unfamiliar situation.",
+        "Chi and colleagues formalise this intuition into two levels. <em>Level-1 causal reasoning</em> retrieves cause-and-effect patterns already stored in the model's parameters. <em>Level-2 causal reasoning</em> deduces new causal relationships from first principles, the way a human would when encountering a novel scenario. Their hypothesis: current LLMs are stuck at level-1."
+      ]
+    },
+    {
+      "label": "Why autoregression isn't causation",
+      "paragraphs": [
+        "The methodological argument is clean. Transformer-based LLMs predict the next token from preceding tokens. That sequential dependency looks causal on the surface, but the order of concepts in a sentence does not match the order of causation in the real world. Consider: \"Jack learned programming at home because he couldn't go to school, which was closed because of the rain.\" The true causal chain runs rain → school closure → can't attend → learns at home. The sequential chain in the text runs in the opposite direction. Autoregressive training memorises common textual expressions of causality rather than learning to reconstruct the underlying causal graph.",
+        "The authors formalise this with a structural causal model in which world knowledge (C) confounds cause (X) and effect (Y), while the natural-language expression (T) acts as a conditioned collider. Conditioning on T creates a useful association between X and Y, but only if the model has seen sufficiently similar expressions before. For novel scenarios, the association breaks down."
+      ]
+    },
+    {
+      "label": "The CausalProbe-2024 benchmark",
+      "paragraphs": [
+        "To test the hypothesis empirically, the team needed questions that no studied model could have memorised. They scraped articles from the BBC and The Guardian published between January and April 2024, safely after the training data cutoffs for LLaMA 2 (Sep 2022), LLaMA 3 (Mar 2023), GPT-3.5 Turbo (Sep 2021), and Claude 3 Opus (Aug 2023). GPT-3.5 Turbo then generated Q&A pairs from these articles in three flavours: CausalProbe-E (easy, single correct answer), CausalProbe-H (hard, with deliberately fabricated incorrect causal pairs as distractors), and CausalProbe-M (multiple correct answers, preventing lucky guesses).",
+        "They verified freshness using Min-K% Prob, a membership-inference attack that estimates whether text appeared in a model's training data. CausalProbe-2024's scores were consistently lower (fresher) than COPA and e-CARE for both LLaMA 2 and LLaMA 3. The benchmark's 3,461 items span technology, health, environment, business, culture, and world news, so the vocabulary is everyday English. The difficulty lies not in the words themselves, but in whether the model can reason about events it has never encountered."
+      ]
+    },
+    {
+      "label": "What the results show",
+      "paragraphs": [
+        "The pattern is consistent across all four models: accuracy drops monotonically as the benchmark corpus gets fresher. On COPA (pre-2011 corpus, almost certainly in every model's training data), Claude 3 Opus hits 99.1%. On CausalProbe-E it falls to 75.8%. On CausalProbe-H, with its counterfactual distractors, it drops further to 69.2%. LLaMA 2 7B, the smallest model tested, manages only 56.5% on CausalProbe-H, barely above chance for a four-choice question.",
+        "Providing background context with each question boosted all models' performance by roughly 5 to 15 percentage points, confirming that part of the difficulty is informational rather than logical. On CausalProbe-M, where models had to identify a variable number of correct answers, exact-match accuracy cratered further. Under partial-match scoring (penalising false positives but forgiving missed positives), GPT and Claude recovered to about 75% and 85% respectively. The models rarely hallucinate causal relationships where none exist, but they struggle to identify all correct ones."
+      ]
+    },
+    {
+      "label": "G²-Reasoner: knowledge + goals",
+      "paragraphs": [
+        "The proposed fix borrows from how humans reason about unfamiliar problems: start with background knowledge, keep the goal in mind. G²-Reasoner has two components. A retrieval-augmented generation (RAG) module pulls relevant facts from a small (~16 MB) general-knowledge database and feeds them to the LLM alongside the question. A goal-oriented prompt then instructs the model to \"keep carefully analysing the available information and logically inferring the most probable causal relationship\" rather than free-associating toward plausible-sounding text.",
+        "On its own, RAG typically performed no better than vanilla inference (and sometimes worse). The goal-oriented prompt made the critical difference, suggesting that the problem is partly one of attention drift during autoregressive generation. Combined, G²-Reasoner produced modest but consistent gains, particularly on the fresh CausalProbe benchmarks. With a larger knowledge base (the authors mention Wikipedia), they expect substantially bigger improvements, but resource constraints limited the experiments to the small dataset. The gains are real, but the authors are candid: G²-Reasoner does not achieve level-2 reasoning. It pushes in that direction."
+      ],
+      "paragraphs_html": [
+        "The proposed fix borrows from how humans reason about unfamiliar problems: start with background knowledge, keep the goal in mind. <strong>G²-Reasoner</strong> has two components. A retrieval-augmented generation (RAG) module pulls relevant facts from a small (~16 MB) general-knowledge database and feeds them to the LLM alongside the question. A goal-oriented prompt then instructs the model to \"keep carefully analysing the available information and logically inferring the most probable causal relationship\" rather than free-associating toward plausible-sounding text.",
+        "On its own, RAG typically performed no better than vanilla inference (and sometimes worse). The goal-oriented prompt made the critical difference, suggesting that the problem is partly one of attention drift during autoregressive generation. Combined, G²-Reasoner produced modest but consistent gains, particularly on the fresh CausalProbe benchmarks. With a larger knowledge base (the authors mention Wikipedia), they expect substantially bigger improvements, but resource constraints limited the experiments to the small dataset. The gains are real, but the authors are candid: G²-Reasoner does not achieve level-2 reasoning. It pushes in that direction."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "Key Takeaway",
+    "body": "LLMs perform causal reasoning primarily by retrieving patterns from training data, not by genuinely understanding cause and effect. When tested on fresh, post-training-cutoff news articles, accuracy dropped by 15 to 25 percentage points across all models. Supplementing LLMs with external knowledge and goal-directed prompting helps, but the gap between memorised pattern-matching and true causal inference remains wide. The illusion of causal understanding is exactly that."
+  },
+  "references": [
+    "Chi, H., Li, H., Yang, W., Liu, F., Lan, L., Ren, X., Liu, T., &amp; Han, B. (2024). Unveiling causal reasoning in large language models: Reality or mirage? In <em>Advances in Neural Information Processing Systems 38 (NeurIPS 2024)</em>. <a href=\"https://arxiv.org/abs/2506.21215\" target=\"_blank\">arXiv:2506.21215</a>"
+  ]
+}

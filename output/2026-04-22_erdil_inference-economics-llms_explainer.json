@@ -1,0 +1,358 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Inference Economics: Erdil (2025)",
+    "eyebrow": "Research Explainer · Erdil (2025)",
+    "date_created": "2026-04-22",
+    "filename_slug": "2026-04-22_erdil_inference-economics-llms_explainer"
+  },
+  "hero": {
+    "headline": "Serving LLMs costs far more than the arithmetic alone, and network latency is the reason",
+    "headline_html": "Serving LLMs costs far more than the arithmetic alone, and <span>network latency is the reason</span>",
+    "subtitle": "A theoretical roofline model for LLM inference reveals that GPU collective latency, not memory bandwidth, is the dominant constraint on cost-per-token. The model produces Pareto frontiers of speed vs. cost that match real API provider pricing within a factor of two.",
+    "publication_date": "Published June 2025"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "~$0.27/M tokens",
+        "description": "predicted efficient-point cost for Llama 3 70B (8-bit) on H100 at 107 tok/s, matching leading API providers",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "3-5×",
+        "description": "gap in hardware utilization between prefill (input tokens) and autoregressive decoding (output tokens) at practical speeds",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "~2× cheaper",
+        "description": "effective cost reduction from speculative decoding at 80% token acceptance, the single largest lever beyond quantization",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "~20%",
+        "description": "cost reduction per halving of weight precision, a surprisingly modest gain unless it crosses a hardware memory boundary",
+        "accent_color": "#fcc419"
+      }
+    ]
+  },
+  "charts": [
+    {
+      "title": "Efficient inference cost per million tokens across models (H100 SXM)",
+      "caption": "Erdil (2025), Table 3. Predicted efficient operating points maximizing a speed-value objective (α = 4) on H100 SXM at $2/hr. All models use speculative decoding with Llama 3 8B at 80% acceptance.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "Llama 3 70B\n(8-bit)",
+            "Mixtral 8x22B\n(16-bit)",
+            "DeepSeek-V3\n(8-bit)",
+            "Llama 3.1 405B\n(8-bit)",
+            "GPT-4\n(16-bit, spec.)"
+          ],
+          "datasets": [
+            {
+              "label": "Cost per million tokens (USD)",
+              "data": [
+                0.27,
+                0.54,
+                1.1,
+                1.31,
+                4.53
+              ],
+              "backgroundColor": [
+                "#4dabf7",
+                "#748ffc",
+                "#51cf66",
+                "#fcc419",
+                "#ff6b6b"
+              ]
+            }
+          ]
+        },
+        "options": {
+          "indexAxis": "y",
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": false
+            }
+          },
+          "scales": {
+            "x": {
+              "title": {
+                "display": true,
+                "text": "Cost per million tokens (USD)"
+              },
+              "beginAtZero": true
+            },
+            "y": {
+              "title": {
+                "display": false
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"Llama 3 70B\\n(8-bit)\",\"Mixtral 8x22B\\n(16-bit)\",\"DeepSeek-V3\\n(8-bit)\",\"Llama 3.1 405B\\n(8-bit)\",\"GPT-4\\n(16-bit, spec.)\"],\"datasets\":[{\"label\":\"Cost per million tokens (USD)\",\"data\":[0.27,0.54,1.1,1.31,4.53],\"backgroundColor\":[\"#4dabf7\",\"#748ffc\",\"#51cf66\",\"#fcc419\",\"#ff6b6b\"]}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":true,\"text\":\"Cost per million tokens (USD)\"},\"beginAtZero\":true},\"y\":{\"title\":{\"display\":false}}}}}"
+    },
+    {
+      "title": "How quantization shifts the cost curve for Llama 3 70B",
+      "caption": "Erdil (2025), Table 6. Efficient operating points for Llama 3 70B at three weight precisions on H100 SXM, holding activation precision at 16 bits. Each halving of weight bits yields roughly 20% lower latency and proportionally cheaper tokens.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "16-bit weights",
+            "8-bit weights",
+            "4-bit weights"
+          ],
+          "datasets": [
+            {
+              "label": "Cost per million tokens (USD)",
+              "data": [
+                0.7,
+                0.37,
+                0.23
+              ],
+              "backgroundColor": "#ff6b6b",
+              "yAxisID": "y"
+            },
+            {
+              "label": "Tokens per second",
+              "data": [
+                83,
+                99,
+                122
+              ],
+              "backgroundColor": "#4dabf7",
+              "yAxisID": "y1"
+            }
+          ]
+        },
+        "options": {
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": true,
+              "position": "top"
+            }
+          },
+          "scales": {
+            "y": {
+              "type": "linear",
+              "position": "left",
+              "title": {
+                "display": true,
+                "text": "Cost per million tokens (USD)"
+              },
+              "beginAtZero": true
+            },
+            "y1": {
+              "type": "linear",
+              "position": "right",
+              "title": {
+                "display": true,
+                "text": "Tokens per second per request"
+              },
+              "beginAtZero": true,
+              "grid": {
+                "drawOnChartArea": false
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"16-bit weights\",\"8-bit weights\",\"4-bit weights\"],\"datasets\":[{\"label\":\"Cost per million tokens (USD)\",\"data\":[0.7,0.37,0.23],\"backgroundColor\":\"#ff6b6b\",\"yAxisID\":\"y\"},{\"label\":\"Tokens per second\",\"data\":[83,99,122],\"backgroundColor\":\"#4dabf7\",\"yAxisID\":\"y1\"}]},\"options\":{\"responsive\":true,\"plugins\":{\"legend\":{\"display\":true,\"position\":\"top\"}},\"scales\":{\"y\":{\"type\":\"linear\",\"position\":\"left\",\"title\":{\"display\":true,\"text\":\"Cost per million tokens (USD)\"},\"beginAtZero\":true},\"y1\":{\"type\":\"linear\",\"position\":\"right\",\"title\":{\"display\":true,\"text\":\"Tokens per second per request\"},\"beginAtZero\":true,\"grid\":{\"drawOnChartArea\":false}}}}}"
+    },
+    {
+      "title": "Speculative decoding cuts cost and raises speed for Llama models",
+      "caption": "Erdil (2025), Table 5. Efficient operating points for 16-bit Llama models with and without speculative decoding by Llama 3 8B at 80% acceptance on H100 SXM.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "Llama 3 70B",
+            "Llama 3 70B (spec.)",
+            "Llama 3.1 405B",
+            "Llama 3.1 405B (spec.)"
+          ],
+          "datasets": [
+            {
+              "label": "Cost per million tokens (USD)",
+              "data": [
+                0.52,
+                0.51,
+                6.54,
+                7.33
+              ],
+              "backgroundColor": [
+                "#ff6b6b",
+                "#51cf66",
+                "#ff6b6b",
+                "#51cf66"
+              ]
+            }
+          ]
+        },
+        "options": {
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": false
+            },
+            "title": {
+              "display": false
+            }
+          },
+          "scales": {
+            "y": {
+              "title": {
+                "display": true,
+                "text": "Cost per million tokens (USD)"
+              },
+              "beginAtZero": true
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"Llama 3 70B\",\"Llama 3 70B (spec.)\",\"Llama 3.1 405B\",\"Llama 3.1 405B (spec.)\"],\"datasets\":[{\"label\":\"Cost per million tokens (USD)\",\"data\":[0.52,0.51,6.54,7.33],\"backgroundColor\":[\"#ff6b6b\",\"#51cf66\",\"#ff6b6b\",\"#51cf66\"]}]},\"options\":{\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"title\":{\"display\":false}},\"scales\":{\"y\":{\"title\":{\"display\":true,\"text\":\"Cost per million tokens (USD)\"},\"beginAtZero\":true}}}}"
+    }
+  ],
+  "sections": [
+    {
+      "label": "Why we still lack a roofline model for inference cost",
+      "paragraphs": [
+        "Training a large language model is expensive, but running it afterwards can be worse. Cumulative inference costs across all users now rival or exceed training budgets for popular models. A competitive market of API providers has sprung up to serve open-source LLMs cheaply and quickly, yet there has been no public, quantitative framework for understanding the theoretical limits of what this hardware can deliver.",
+        "Erdil's paper fills that gap. It builds a first-principles model that takes a model architecture and a GPU spec sheet as inputs and outputs a Pareto frontier: every achievable combination of serial decoding speed and cost per token, assuming optimal choices of batch size, instance size, and parallelism strategy. The model accounts for arithmetic throughput, HBM bandwidth, network bandwidth, network latency, and the topology of multi-GPU clusters.",
+        "The striking result is that the model's predictions match real-world API pricing within a factor of two, without any parameter fitting. Leading providers appear to operate close to the theoretical frontier."
+      ],
+      "paragraphs_html": [
+        "Training a large language model is expensive, but running it afterwards can be worse. Cumulative inference costs across all users now <strong>rival or exceed training budgets</strong> for popular models. A competitive market of API providers has sprung up to serve open-source LLMs cheaply and quickly, yet there has been no public, quantitative framework for understanding the theoretical limits of what this hardware can deliver.",
+        "Erdil's paper fills that gap. It builds a <strong>first-principles model</strong> that takes a model architecture and a GPU spec sheet as inputs and outputs a Pareto frontier: every achievable combination of serial decoding speed and cost per token, assuming optimal choices of batch size, instance size, and parallelism strategy. The model accounts for arithmetic throughput, HBM bandwidth, network bandwidth, network latency, and the topology of multi-GPU clusters.",
+        "The striking result is that the model's predictions <strong>match real-world API pricing within a factor of two</strong>, without any parameter fitting. Leading providers appear to operate close to the theoretical frontier."
+      ]
+    },
+    {
+      "label": "Latency is the real cost driver, not memory bandwidth",
+      "paragraphs": [
+        "The conventional wisdom from hobbyist single-GPU inference is that memory bandwidth is the bottleneck. You can only generate tokens as fast as you can stream weights out of HBM. This is true on one device, but it breaks down completely at scale.",
+        "When you spread inference across many GPUs with tensor parallelism, each layer requires all-reduce operations to synchronize intermediate results. Even a small all-reduce on NVIDIA hardware costs roughly 7 microseconds of base latency plus additional time scaling with the square root of the number of participating GPUs. Multiply that by four sequential matrix multiplications per layer and 80 layers, and the latency overhead becomes the dominant term in the cost equation.",
+        "This is the key insight of the paper. In theory, you could quadruple serial speed for each doubling of cost by simply throwing 8 times more GPUs at the problem, because matrix multiplications are three-dimensional while the tensors being communicated are two-dimensional. But latency grows with instance size, and eventually the all-reduce overhead exceeds the time saved by distributing the computation. There is an optimal instance size for every model, and going beyond it makes inference slower, not faster, at any cost."
+      ],
+      "paragraphs_html": [
+        "The conventional wisdom from hobbyist single-GPU inference is that memory bandwidth is the bottleneck. You can only generate tokens as fast as you can stream weights out of HBM. This is true on one device, but it <strong>breaks down completely at scale</strong>.",
+        "When you spread inference across many GPUs with tensor parallelism, each layer requires all-reduce operations to synchronize intermediate results. Even a small all-reduce on NVIDIA hardware costs roughly <strong>7 microseconds of base latency</strong> plus additional time scaling with the square root of the number of participating GPUs. Multiply that by four sequential matrix multiplications per layer and 80 layers, and the latency overhead becomes the dominant term in the cost equation.",
+        "This is the key insight of the paper. In theory, you could quadruple serial speed for each doubling of cost by simply throwing 8× more GPUs at the problem, because matrix multiplications are three-dimensional while the tensors being communicated are two-dimensional. But latency grows with instance size, and eventually the all-reduce overhead exceeds the time saved by distributing the computation. There is an <strong>optimal instance size</strong> for every model, and going beyond it makes inference slower, not faster, at any cost."
+      ]
+    },
+    {
+      "label": "What actually moves the cost curve",
+      "paragraphs": [
+        "The paper evaluates three major levers for reducing cost per token: quantization, speculative decoding, and hardware generation. None of them are as powerful as you might hope, and the reasons are instructive.",
+        "Quantization helps, but modestly. Halving weight precision from 16-bit to 8-bit reduces cost per million tokens for Llama 3 70B from $0.70 to $0.37, a factor of roughly 1.9. Going further to 4-bit gets you to $0.23. The simplified model predicts each halving should yield about a 26% latency improvement, and the full model confirms this is approximately right. The big wins come not from the precision reduction itself but from crossing a hardware boundary: fitting a model that previously required two nodes onto a single node, for instance.",
+        "Speculative decoding is the more interesting lever. Using Llama 3 8B as a fast approximator for Llama 3 70B at an 80% token acceptance rate yields a 66% throughput increase at constant cost. For Llama 3.1 405B the effect is even larger: a full doubling. The paper notes that acceptance rates between 0.7 and 0.9 are typical for model pairs roughly an order of magnitude apart in size, making this a broadly applicable technique. Providers not using speculative decoding face a structural cost disadvantage.",
+        "Across GPU generations, the gains are surprisingly modest. Moving from A100 to H100 improves tokens per second at a fixed cost by about 25%, and roughly halves the required instance size. The paper notes this pattern and leaves open whether B100 will continue the trend."
+      ],
+      "paragraphs_html": [
+        "The paper evaluates three major levers for reducing cost per token: <strong>quantization</strong>, <strong>speculative decoding</strong>, and <strong>hardware generation</strong>. None of them are as powerful as you might hope, and the reasons are instructive.",
+        "Quantization helps, but modestly. Halving weight precision from 16-bit to 8-bit reduces cost per million tokens for Llama 3 70B from <strong>$0.70 to $0.37</strong>, a factor of roughly 1.9×. Going further to 4-bit gets you to $0.23. The simplified model predicts each halving should yield about a 26% latency improvement, and the full model confirms this is approximately right. The big wins come not from the precision reduction itself but from crossing a hardware boundary: fitting a model that previously required two nodes onto a single node, for instance.",
+        "Speculative decoding is the more interesting lever. Using Llama 3 8B as a fast approximator for Llama 3 70B at an 80% token acceptance rate yields a <strong>66% throughput increase at constant cost</strong>. For Llama 3.1 405B the effect is even larger: a full doubling. The paper notes that acceptance rates between 0.7 and 0.9 are typical for model pairs roughly an order of magnitude apart in size, making this a broadly applicable technique. Providers not using speculative decoding face a structural cost disadvantage.",
+        "Across GPU generations, the gains are surprisingly modest. Moving from A100 to H100 improves tokens per second at a fixed cost by about 25%, and roughly halves the required instance size. The paper notes this pattern and leaves open whether B100 will continue the trend."
+      ]
+    },
+    {
+      "label": "Long context makes everything more expensive",
+      "paragraphs": [
+        "At short context lengths, the KV cache is negligible and cost is driven by weight reads and network latency. At long contexts, the KV cache dominates everything. Mistral Large 2 at 100K tokens of context requires 36 GB of KV cache reads per generated token, more than the 244 GB model itself at batch sizes above 7. The memory bandwidth cost alone sets a floor of $6.06 per million output tokens on an H100.",
+        "Grouped-query attention (GQA) matters enormously here. Without it, the arithmetic intensity of attention during decoding drops below 1% on NVIDIA hardware. Models like DeepSeek-V3, which use multi-head latent attention to compress the KV cache by a factor of roughly 6 relative to Mistral Large 2, pay for this with higher arithmetic cost per attention operation, but the tradeoff is overwhelmingly favorable for long-context inference costs.",
+        "The paper also explains why input tokens are typically priced 3 times cheaper than output tokens. During prefill, the GPU achieves 50% or better arithmetic utilization because all input tokens can be processed in parallel. During decoding, utilization drops to 10-17%. This roughly 3:1 ratio matches observed pricing at providers like OpenAI."
+      ],
+      "paragraphs_html": [
+        "At short context lengths, the KV cache is negligible and cost is driven by weight reads and network latency. At long contexts, the KV cache dominates everything. Mistral Large 2 at 100K tokens of context requires <strong>36 GB of KV cache reads per generated token</strong>, more than the 244 GB model itself at batch sizes above 7. The memory bandwidth cost alone sets a floor of <strong>$6.06 per million output tokens</strong> on an H100.",
+        "Grouped-query attention (GQA) matters enormously here. Without it, the arithmetic intensity of attention during decoding drops below 1% on NVIDIA hardware. Models like DeepSeek-V3, which use multi-head latent attention to compress the KV cache by a factor of roughly 6× relative to Mistral Large 2, pay for this with higher arithmetic cost per attention operation, but the tradeoff is overwhelmingly favorable for long-context inference costs.",
+        "The paper also explains why input tokens are typically priced <strong>3× cheaper than output tokens</strong>. During prefill, the GPU achieves 50% or better arithmetic utilization because all input tokens can be processed in parallel. During decoding, utilization drops to 10-17%. This roughly 3:1 ratio matches observed pricing at providers like OpenAI."
+      ]
+    },
+    {
+      "label": "The inverse square root law and what it means for your budget",
+      "paragraphs": [
+        "One of the cleanest results in the paper is a scaling law for dense models: the maximum achievable tokens per second scales as the inverse square root of parameter count. A model with 8 billion parameters can theoretically hit roughly 960 tokens per second on H100s. Scale that to 70 billion parameters and you get about 234 tokens per second. The ratio is almost exactly the square root of 70/8.",
+        "This scaling law is not just an empirical observation. It drops out of the theoretical analysis under reasonable assumptions about how model depth scales with width. It also has a direct cost implication: because the arithmetic cost per token scales linearly with parameters while the achievable speed scales as the inverse square root, the minimum cost per token at maximum speed is roughly proportional to the square root of the parameter count as well.",
+        "For anyone budgeting inference costs, the practical message is clear. Going from a 70B to a 405B model does not multiply your per-token costs by 405/70. But it does multiply them by something closer to the square root of that ratio, roughly 2.4 times, before accounting for architectural differences like MoE sparsity. The actual predictions from the full model ($0.27 for Llama 3 70B vs. $1.31 for Llama 3.1 405B) track this surprisingly well."
+      ],
+      "paragraphs_html": [
+        "One of the cleanest results in the paper is a scaling law for dense models: the maximum achievable tokens per second scales as <strong>the inverse square root of parameter count</strong>. A model with 8 billion parameters can theoretically hit roughly 960 tokens per second on H100s. Scale that to 70 billion parameters and you get about 234 tokens per second. The ratio is almost exactly the square root of 70/8.",
+        "This scaling law is not just an empirical observation. It drops out of the theoretical analysis under reasonable assumptions about how model depth scales with width. It also has a direct cost implication: because the arithmetic cost per token scales linearly with parameters while the achievable speed scales as the inverse square root, the <strong>minimum cost per token at maximum speed is roughly proportional to the square root of the parameter count</strong> as well.",
+        "For anyone budgeting inference costs, the practical message is clear. Going from a 70B to a 405B model does not multiply your per-token costs by 405/70. But it does multiply them by something closer to the square root of that ratio, roughly 2.4×, before accounting for architectural differences like MoE sparsity. The actual predictions from the full model ($0.27 for Llama 3 70B vs. $1.31 for Llama 3.1 405B) track this surprisingly well."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "BOTTOM LINE",
+    "body": "LLM inference cost is not primarily an arithmetic problem. It is a latency problem. Network and NVLink latency from GPU collective operations set the floor on how cheaply you can serve a model at any given speed. Speculative decoding and quantization can each cut that cost by up to 2 times, but the fundamental constraint is the topology of the GPU cluster and the microseconds lost to each all-reduce. The paper's theoretical model matches real-world API pricing without calibration, suggesting that leading providers are already operating near the theoretical frontier."
+  },
+  "references": [
+    "Erdil, E. (2025). Inference Economics of Language Models. <em>arXiv preprint</em> arXiv:2506.04645. <a href=\"https://arxiv.org/abs/2506.04645\" target=\"_blank\" rel=\"noopener noreferrer\">https://arxiv.org/abs/2506.04645</a>"
+  ],
+  "chart": {
+    "title": "Efficient inference cost per million tokens across models (H100 SXM)",
+    "caption": "Erdil (2025), Table 3. Predicted efficient operating points maximizing a speed-value objective (α = 4) on H100 SXM at $2/hr. All models use speculative decoding with Llama 3 8B at 80% acceptance.",
+    "config_json": {
+      "type": "bar",
+      "data": {
+        "labels": [
+          "Llama 3 70B\n(8-bit)",
+          "Mixtral 8x22B\n(16-bit)",
+          "DeepSeek-V3\n(8-bit)",
+          "Llama 3.1 405B\n(8-bit)",
+          "GPT-4\n(16-bit, spec.)"
+        ],
+        "datasets": [
+          {
+            "label": "Cost per million tokens (USD)",
+            "data": [
+              0.27,
+              0.54,
+              1.1,
+              1.31,
+              4.53
+            ],
+            "backgroundColor": [
+              "#4dabf7",
+              "#748ffc",
+              "#51cf66",
+              "#fcc419",
+              "#ff6b6b"
+            ]
+          }
+        ]
+      },
+      "options": {
+        "indexAxis": "y",
+        "responsive": true,
+        "plugins": {
+          "legend": {
+            "display": false
+          }
+        },
+        "scales": {
+          "x": {
+            "title": {
+              "display": true,
+              "text": "Cost per million tokens (USD)"
+            },
+            "beginAtZero": true
+          },
+          "y": {
+            "title": {
+              "display": false
+            }
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"Llama 3 70B\\n(8-bit)\",\"Mixtral 8x22B\\n(16-bit)\",\"DeepSeek-V3\\n(8-bit)\",\"Llama 3.1 405B\\n(8-bit)\",\"GPT-4\\n(16-bit, spec.)\"],\"datasets\":[{\"label\":\"Cost per million tokens (USD)\",\"data\":[0.27,0.54,1.1,1.31,4.53],\"backgroundColor\":[\"#4dabf7\",\"#748ffc\",\"#51cf66\",\"#fcc419\",\"#ff6b6b\"]}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false}},\"scales\":{\"x\":{\"title\":{\"display\":true,\"text\":\"Cost per million tokens (USD)\"},\"beginAtZero\":true},\"y\":{\"title\":{\"display\":false}}}}}"
+  }
+}

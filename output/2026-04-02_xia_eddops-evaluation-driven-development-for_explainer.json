@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "EDDOps: Evaluation-Driven Development for LLM Agents — Xia et al. (2025)",
+    "eyebrow": "Research Explainer · Xia, Lu, Zhu et al. (2025)",
+    "date_created": "2026-04-02",
+    "filename_slug": "2026-04-02_xia_eddops-evaluation-driven-development-for_explainer"
+  },
+  "hero": {
+    "headline": "Most LLM agent evaluation stops at launch; so the same failures keep recurring in production",
+    "headline_html": "Most LLM agent evaluation stops at launch; <span>so the same failures keep recurring in production</span>",
+    "subtitle": "A multivocal review of 161 sources reveals that academic evaluation overwhelmingly focuses on pre-deployment benchmarks. The authors propose EDDOps, a process model and reference architecture that make evaluation a continuous, governing function across the entire agent lifecycle."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Xia et al. (2025), Figure 2. Distribution of evaluation efforts across lifecycle stages for 134 academic and 27 grey-literature (industry) sources. Grey sources show far more balanced lifecycle coverage.",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('lifecycleChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: ['Pre-Deployment', 'Post-Deployment', 'Continuous'],\n    datasets: [\n      {\n        label: 'Academic (n = 134)',\n        data: [93.28, 2.24, 4.48],\n        backgroundColor: '#4dabf7',\n        borderRadius: 5,\n        barPercentage: 0.7,\n        categoryPercentage: 0.6\n      },\n      {\n        label: 'Grey / Industry (n = 27)',\n        data: [44.44, 14.81, 40.74],\n        backgroundColor: '#f6ad55',\n        borderRadius: 5,\n        barPercentage: 0.7,\n        categoryPercentage: 0.6\n      }\n    ]\n  },\n  options: {\n    animation: false,\n    responsive: true,\n    maintainAspectRatio: true,\n    plugins: {\n      legend: {\n        position: 'top',\n        labels: {\n          font: { family: \"system-ui, -apple-system, 'Segoe UI', sans-serif\", size: 12 },\n          color: '#4a5568',\n          usePointStyle: true,\n          pointStyle: 'rectRounded'\n        }\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            return context.dataset.label + ': ' + context.parsed.y + '%';\n          }\n        }\n      }\n    },\n    scales: {\n      y: {\n        beginAtZero: true,\n        max: 100,\n        ticks: {\n          callback: function(value) { return value + '%'; },\n          color: '#718096',\n          font: { size: 12 }\n        },\n        grid: { color: '#e2e8f0' }\n      },\n      x: {\n        ticks: {\n          color: '#4a5568',\n          font: { size: 12 }\n        },\n        grid: { display: false }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "What the study did",
+      "paragraphs": [
+        "The authors ran a multivocal literature review (MLR), a method that deliberately mixes peer-reviewed papers with practitioner sources like blog posts, open-source tool docs, and industry white papers. They screened 4,404 academic and 222 grey-literature candidates, quality-checked and coded 134 papers and 27 tools or platforms, and extracted data on four dimensions: when evaluation happens, what metrics it uses, what level it targets (model vs. system), and whether findings actually change anything.",
+        "From that evidence base they distilled six \"evaluation drivers\" (recurring pressures that keep surfacing across sources) and used them to derive two artifacts. The first is a four-step process model for planning, generating test cases, running offline and online evaluations, and closing the loop by feeding results back into improvements. The second is a reference architecture with three layers (supply chain, agent, operation) and a central \"Evaluation Backbone\" that connects offline batch checks to live runtime monitoring, with hybrid human/AI oversight built in."
+      ],
+      "paragraphs_html": [
+        "The authors ran a <strong>multivocal literature review</strong> (MLR), a method that deliberately mixes peer-reviewed papers with practitioner sources like blog posts, open-source tool docs, and industry white papers. They screened 4,404 academic and 222 grey-literature candidates, quality-checked and coded 134 papers and 27 tools or platforms, and extracted data on four dimensions: when evaluation happens, what metrics it uses, what level it targets (model vs. system), and whether findings actually change anything.",
+        "From that evidence base they distilled six \"evaluation drivers\" (recurring pressures that keep surfacing across sources) and used them to derive two artifacts. The first is a four-step <strong>process model</strong> for planning, generating test cases, running offline and online evaluations, and closing the loop by feeding results back into improvements. The second is a <strong>reference architecture</strong> with three layers (supply chain, agent, operation) and a central \"Evaluation Backbone\" that connects offline batch checks to live runtime monitoring, with hybrid human/AI oversight built in."
+      ]
+    },
+    {
+      "label": "The core problem",
+      "paragraphs": [
+        "LLM agents are not static models. They reason, plan, call tools, adjust memory, and keep adapting after deployment. Traditional evaluation was designed for a different world: fixed inputs, deterministic outputs, a clear line between \"development\" and \"done.\" The review quantifies just how wide the gap is.",
+        "Almost all academic work (93.3%) evaluates agents only before deployment. Just 2.2% look at post-deployment behaviour and 4.5% attempt continuous evaluation. The numbers improve in industry grey literature (41% continuous), but even there post-deployment work is sparse (15%). The result is what the authors call operational blind spots : production-only failures like goal drift, tool misuse, and latency spikes go undetected until users complain. Meanwhile, 92.5% of academic studies report only end-to-end aggregate metrics (task success, pass/fail). Step-level or slice-aware checks that could localise where in a reasoning chain things went wrong appear in under 7% of papers.",
+        "Perhaps the most striking finding is that 71% of academic sources treat evaluation purely as a checkpoint. They run the benchmark, report the score, and move on. Findings never flow back into prompt changes, tool configuration, or architecture refinements. In contrast, 81% of grey-literature sources do close that loop, suggesting industry has learned the hard way that an unused evaluation result is an expensive waste of compute."
+      ],
+      "paragraphs_html": [
+        "LLM agents are not static models. They reason, plan, call tools, adjust memory, and keep adapting after deployment. Traditional evaluation was designed for a different world: fixed inputs, deterministic outputs, a clear line between \"development\" and \"done.\" The review quantifies just how wide the gap is.",
+        "Almost all academic work (93.3%) evaluates agents only before deployment. Just 2.2% look at post-deployment behaviour and 4.5% attempt continuous evaluation. The numbers improve in industry grey literature (41% continuous), but even there post-deployment work is sparse (15%). The result is what the authors call <strong>operational blind spots</strong>: production-only failures like goal drift, tool misuse, and latency spikes go undetected until users complain. Meanwhile, 92.5% of academic studies report only end-to-end aggregate metrics (task success, pass/fail). Step-level or slice-aware checks that could localise where in a reasoning chain things went wrong appear in under 7% of papers.",
+        "Perhaps the most striking finding is that 71% of academic sources treat evaluation purely as a checkpoint. They run the benchmark, report the score, and move on. Findings never flow back into prompt changes, tool configuration, or architecture refinements. In contrast, 81% of grey-literature sources do close that loop, suggesting industry has learned the hard way that an unused evaluation result is an expensive waste of compute."
+      ]
+    },
+    {
+      "label": "The EDDOps approach",
+      "paragraphs": [
+        "EDDOps stands for Evaluation-Driven Development and Operations . It takes the iterative logic of Test-Driven Development (write the test first, then make it pass) and extends it to cover the full lifecycle of an LLM agent, including everything that happens after you ship it. The process model has four steps that loop continuously: define an evaluation plan (with risk-based prioritisation and hybrid-evaluator policies), generate test cases (mixing pinned benchmarks with expert-curated and synthetic edge cases), conduct both offline and online evaluations (including shadow deployments, canary rollouts, and kill-switches), and analyse results to make targeted improvements at the smallest effective scope.",
+        "The reference architecture gives this process a structural home. A Supply Chain Layer handles design, data collection, and model selection. An Agent Layer instruments the context engine, planner, workflow executor, guardrails, and memory so they emit traces the evaluation system can consume. An Operation Layer runs the Evaluation Backbone and Control Loop , connecting offline batch evidence to online runtime signals. Findings can trigger bounded runtime adjustments (prompt tweaks, routing changes, guardrail threshold shifts) or, for bigger issues, governed offline redevelopment. Every change is versioned and linked to its originating evidence."
+      ],
+      "paragraphs_html": [
+        "EDDOps stands for <em>Evaluation-Driven Development and Operations</em>. It takes the iterative logic of Test-Driven Development (write the test first, then make it pass) and extends it to cover the full lifecycle of an LLM agent, including everything that happens after you ship it. The process model has four steps that loop continuously: define an evaluation plan (with risk-based prioritisation and hybrid-evaluator policies), generate test cases (mixing pinned benchmarks with expert-curated and synthetic edge cases), conduct both offline and online evaluations (including shadow deployments, canary rollouts, and kill-switches), and analyse results to make targeted improvements at the smallest effective scope.",
+        "The reference architecture gives this process a structural home. A Supply Chain Layer handles design, data collection, and model selection. An Agent Layer instruments the context engine, planner, workflow executor, guardrails, and memory so they emit traces the evaluation system can consume. An Operation Layer runs the <strong>Evaluation Backbone and Control Loop</strong>, connecting offline batch evidence to online runtime signals. Findings can trigger bounded runtime adjustments (prompt tweaks, routing changes, guardrail threshold shifts) or, for bigger issues, governed offline redevelopment. Every change is versioned and linked to its originating evidence."
+      ]
+    },
+    {
+      "label": "Why it matters",
+      "paragraphs": [
+        "The paper makes a conceptual move that sounds obvious once stated but that the data show almost nobody practices: evaluation is not a gate you pass on the way to production, it is a system capability that runs for the entire lifetime of the agent. The MLR data back this up convincingly. Academic evaluation is almost entirely pre-deployment, aggregate, model-level, static, and AI-judged. Industry practice is closer to the ideal (more continuous, more mixed metrics, more hybrid oversight), but still patchy on post-deployment coverage.",
+        "The six drivers give teams a diagnostic checklist. If your evaluation is all pre-deployment (D1 gap), all end-to-end metrics (D2 gap), all model-level (D3 gap), all static (D4 gap), never linked to changes (D5 gap), and all AI-judged (D6 gap), you have every problem at once. Most teams will have some subset. The process model and architecture then tell you where to put the plumbing to close those gaps.",
+        "There are clear limitations. The work is framework-level: no production deployment is reported end-to-end, and the caselet (a pre-deployment tax assistant) only exercises offline steps. The reference architecture is a facilitation template, not a tested implementation. Multi-domain validation is explicitly left as future work. Still, as a synthesis of where LLM agent evaluation is today and a structured proposal for where it should go, the contribution is substantial. The field badly needs shared vocabulary and lifecycle thinking for agent evaluation, and EDDOps provides both."
+      ]
+    }
+  ],
+  "references": [
+    "Xia, B., Lu, Q., Zhu, L., Xing, Z., Zhao, D., & Zhang, H. (2025). Evaluation-driven development and operations of LLM agents: A process model and reference architecture. <em>arXiv preprint arXiv:2411.13768v3</em>. <a href=\"https://arxiv.org/abs/2411.13768\" target=\"_blank\" rel=\"noopener\">https://arxiv.org/abs/2411.13768</a>"
+  ]
+}

@@ -1,0 +1,47 @@
+*.pdf
+
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets / publish-guard (machine-specific; .example variants stay tracked)
+*.local
+op-refs.local.sh
+.publish-guard.local
+
+# Parse-failure dumps (not explainers)
+output/**/*_error.txt
+
+# Auto-managed state (machine-specific absolute paths)
+state.json
+
+# Local model overrides (.example stays tracked)
+config/models.json
+
+# Optional shared batch-dashboard integration
+/jobs
+/jobs/
+
+# Build / coverage
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Claude Code runtime artefacts
+.claude/
+**/.claude/

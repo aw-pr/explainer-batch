@@ -1,0 +1,11 @@
+# Copy to .publish-guard.local (gitignored) and list ERE regex patterns, one
+# per line, that must never appear in a committed file. The pre-commit hook
+# (scripts/git-hooks/pre-commit) reads this file. Blank lines and #-comments
+# are ignored. These are YOUR machine specifics — keep them out of the tree.
+#
+# Examples (replace with your own; do NOT commit the real values):
+# /Users/yourname
+# /home/yourname
+# op://your-private-vault
+# your-github-username
+# you@example\.com

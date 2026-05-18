@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "On-Premise LLM Deployment: Break-Even Analysis — Pan et al. (2025)",
+    "eyebrow": "Research Explainer · Pan, Chodnekar, Roy & Wang (2025)",
+    "date_created": "2026-04-02",
+    "filename_slug": "2026-04-02_pan_on-premise-llm-deployment-break-even-ana_explainer"
+  },
+  "hero": {
+    "headline": "Running your own LLM can pay for itself in months; but only if you pick the right model size",
+    "headline_html": "Running your own LLM can pay for itself in months; <span>but only if you pick the right model size</span>",
+    "subtitle": "A cost-benefit analysis of 54 deployment scenarios finds that small open-source models break even against commercial APIs in under three months on a $2,000 GPU, while large models can take years to justify their quarter-million-dollar hardware."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": []
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Table IV, Pan et al. (2025). Break-even time in months for each open-source model when replacing GPT-5 API usage with equivalent on-premise throughput. Hardware costs range from $2k (RTX 5090) to $240k (16× A100).",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('breakEvenChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels: [\n      'EXAONE 4.0\\n32B ($2k)',\n      'Qwen3-30B\\n($2k)',\n      'Magistral\\nSmall ($2k)',\n      'Llama-3.3\\n70B ($15k)',\n      'gpt-oss\\n120B ($30k)',\n      'GLM-4.5\\nAir ($30k)',\n      'Qwen3\\n235B ($60k)',\n      'GLM-4.5\\n($90k)',\n      'Kimi-K2\\n($240k)'\n    ],\n    datasets: [{\n      label: 'Break-even months vs GPT-5',\n      data: [2.26, 2.5, 3.0, 17.8, 30.9, 34.0, 34.0, 51.5, 69.3],\n      backgroundColor: [\n        '#51cf66', '#51cf66', '#51cf66',\n        '#4dabf7', '#4dabf7', '#4dabf7',\n        '#f6ad55', '#f6ad55', '#ff6b6b'\n      ],\n      borderRadius: 6,\n      borderSkipped: false\n    }]\n  },\n  options: {\n    animation: false,\n    responsive: true,\n    maintainAspectRatio: false,\n    indexAxis: 'y',\n    layout: {\n      padding: { right: 20 }\n    },\n    plugins: {\n      legend: { display: false },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            return context.parsed.x + ' months';\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        title: {\n          display: true,\n          text: 'Months to break even',\n          color: '#4a5568',\n          font: { size: 13, weight: '600' }\n        },\n        grid: { color: '#e2e8f0' },\n        ticks: {\n          color: '#4a5568',\n          callback: function(value) { return value + ' mo'; }\n        }\n      },\n      y: {\n        grid: { display: false },\n        ticks: {\n          color: '#4a5568',\n          font: { size: 11.5 }\n        }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "What the Study Did",
+      "paragraphs": [
+        "Pan and colleagues built a total-cost-of-ownership model that pits nine open-source LLMs against five leading commercial APIs across every plausible combination. The open models span three size classes: small (24B to 32B parameters, running on a single $2,000 NVIDIA RTX 5090), medium (70B to 120B, needing one or two $15,000 A100 GPUs), and large (235B to 1 trillion, requiring clusters of four to sixteen A100s costing $60k to $240k). On the commercial side, they priced out GPT-5, Claude-4 Opus, Claude-4 Sonnet, Grok-4, and Gemini 2.5 Pro using published per-token API rates.",
+        "The cost model itself is straightforward. Hardware is a one-time capital expense. Electricity accrues monthly at $0.15 per kWh, assuming eight hours of operation per business day. The comparison is fair because the authors normalise on throughput: they calculate how many tokens the local hardware could generate each month, then compute what the same volume would cost through a commercial API. Where the two cumulative-cost lines cross is the break-even point .",
+        "They also track performance parity. Every open model is benchmarked on GPQA (graduate-level Q&A), MATH-500, LiveCodeBench, and MMLU-Pro, with percentage deltas reported alongside each break-even figure so readers can see exactly how much accuracy they trade for cost savings."
+      ],
+      "paragraphs_html": [
+        "Pan and colleagues built a total-cost-of-ownership model that pits nine open-source LLMs against five leading commercial APIs across every plausible combination. The open models span three size classes: <strong>small</strong> (24B to 32B parameters, running on a single $2,000 NVIDIA RTX 5090), <strong>medium</strong> (70B to 120B, needing one or two $15,000 A100 GPUs), and <strong>large</strong> (235B to 1 trillion, requiring clusters of four to sixteen A100s costing $60k to $240k). On the commercial side, they priced out GPT-5, Claude-4 Opus, Claude-4 Sonnet, Grok-4, and Gemini 2.5 Pro using published per-token API rates.",
+        "The cost model itself is straightforward. Hardware is a one-time capital expense. Electricity accrues monthly at $0.15 per kWh, assuming eight hours of operation per business day. The comparison is fair because the authors normalise on throughput: they calculate how many tokens the local hardware could generate each month, then compute what the same volume would cost through a commercial API. Where the two cumulative-cost lines cross is the <em>break-even point</em>.",
+        "They also track performance parity. Every open model is benchmarked on GPQA (graduate-level Q&amp;A), MATH-500, LiveCodeBench, and MMLU-Pro, with percentage deltas reported alongside each break-even figure so readers can see exactly how much accuracy they trade for cost savings."
+      ]
+    },
+    {
+      "label": "What It Found",
+      "paragraphs": [
+        "The headline is a story of scale. Small models pay for themselves almost immediately. EXAONE 4.0 32B, deployed on a single consumer GPU, breaks even against Claude-4 Opus in nine days (0.3 months) and against GPT-5 in 2.3 months. Performance loss relative to GPT-5 sits at about 2.7 percentage points on the composite benchmark score. For a small business running customer-support chatbots or internal document search, that gap barely registers.",
+        "Medium models occupy the middle ground you would expect. Llama-3.3-70B on a single A100 ($15k) breaks even with GPT-5 in 17.8 months, though it takes a 28-percentage-point hit on the combined benchmarks. GLM-4.5-Air and gpt-oss-120B perform better (within 5 points of GPT-5) but need two A100s and roughly 20 to 34 months to recoup the hardware spend. The practical sweet spot for mid-sized organisations is a hybrid strategy: run sensitive or high-volume workloads locally and push burst traffic to cloud APIs.",
+        "Large models tell a cautionary tale. Qwen3-235B matches GPT-5's benchmarks (scoring slightly higher on MATH-500 and MMLU-Pro) and breaks even in 34 months on $60k of hardware. But Kimi-K2, a 1-trillion-parameter model needing $240k in GPUs, does not break even against GPT-5 for nearly six years. Against aggressively priced Gemini 2.5 Pro, even Qwen3-235B takes 31 months. At that time horizon, hardware depreciation and the next generation of models become real risks."
+      ],
+      "paragraphs_html": [
+        "The headline is a story of scale. <strong>Small models pay for themselves almost immediately.</strong> EXAONE 4.0 32B, deployed on a single consumer GPU, breaks even against Claude-4 Opus in nine days (0.3 months) and against GPT-5 in 2.3 months. Performance loss relative to GPT-5 sits at about 2.7 percentage points on the composite benchmark score. For a small business running customer-support chatbots or internal document search, that gap barely registers.",
+        "Medium models occupy the middle ground you would expect. Llama-3.3-70B on a single A100 ($15k) breaks even with GPT-5 in 17.8 months, though it takes a 28-percentage-point hit on the combined benchmarks. GLM-4.5-Air and gpt-oss-120B perform better (within 5 points of GPT-5) but need two A100s and roughly 20 to 34 months to recoup the hardware spend. The practical sweet spot for mid-sized organisations is a hybrid strategy: run sensitive or high-volume workloads locally and push burst traffic to cloud APIs.",
+        "Large models tell a cautionary tale. Qwen3-235B matches GPT-5's benchmarks (scoring slightly higher on MATH-500 and MMLU-Pro) and breaks even in 34 months on $60k of hardware. But Kimi-K2, a 1-trillion-parameter model needing $240k in GPUs, does not break even against GPT-5 for nearly six years. Against aggressively priced Gemini 2.5 Pro, even Qwen3-235B takes 31 months. At that time horizon, hardware depreciation and the next generation of models become real risks."
+      ]
+    },
+    {
+      "label": "The Pricing Wildcard",
+      "paragraphs": [
+        "One of the paper's sharpest observations concerns the enormous variance across commercial providers. Claude-4 Opus charges $15 per million input tokens and $75 per million output tokens. GPT-5 charges $1.25 and $10 respectively. That 12x price difference on the input side means the same open-source model can break even in under a month against Claude-4 Opus while taking over two years against GPT-5. The choice of which commercial API you are replacing matters at least as much as the open model you choose.",
+        "This has a practical implication the paper does not fully spell out. If your organisation currently pays Claude-4 Opus rates, almost any local deployment looks brilliant. If you are on GPT-5 or Gemini pricing, the case for going on-premise weakens dramatically, and you need high sustained volume (50 million tokens per month or more) to make the numbers work. Vendor selection is the first lever, not the last."
+      ],
+      "paragraphs_html": [
+        "One of the paper's sharpest observations concerns the enormous variance across commercial providers. Claude-4 Opus charges $15 per million input tokens and $75 per million output tokens. GPT-5 charges $1.25 and $10 respectively. That 12x price difference on the input side means the same open-source model can break even in under a month against Claude-4 Opus while taking over two years against GPT-5. The choice of <em>which</em> commercial API you are replacing matters at least as much as the open model you choose.",
+        "This has a practical implication the paper does not fully spell out. If your organisation currently pays Claude-4 Opus rates, almost any local deployment looks brilliant. If you are on GPT-5 or Gemini pricing, the case for going on-premise weakens dramatically, and you need high sustained volume (50 million tokens per month or more) to make the numbers work. Vendor selection is the first lever, not the last."
+      ]
+    },
+    {
+      "label": "What the Numbers Leave Out",
+      "paragraphs": [
+        "The cost model is deliberately lean. It accounts for GPU hardware and electricity but excludes staffing (someone has to maintain those servers), networking, cooling infrastructure, rack space, and software licensing. The authors acknowledge this and flag it as future work. For a small team deploying a 30B model on a workstation under a desk, these omissions are minor. For an enterprise standing up a 16-GPU cluster, they could add 30 to 50 percent to the total cost and push break-even horizons well past what Table IV suggests.",
+        "The analysis also assumes eight hours of daily operation, which suits a standard business-day workflow but undercounts always-on production services. Running 24/7 triples the electricity cost, shortening break-even on the API side (because you generate more tokens locally) but increasing OpEx. The model is transparent enough that organisations can plug in their own assumptions, and the authors provide an interactive calculator for exactly that purpose.",
+        "Hardware depreciation is the elephant in the room. GPU technology turns over roughly every two years. A $240k cluster bought today competes against hardware that will be twice as fast per dollar by the time Kimi-K2 hits its break-even point. The paper wisely steers readers toward small and medium models where payback arrives before the hardware becomes obsolete."
+      ],
+      "paragraphs_html": [
+        "The cost model is deliberately lean. It accounts for GPU hardware and electricity but excludes staffing (someone has to maintain those servers), networking, cooling infrastructure, rack space, and software licensing. The authors acknowledge this and flag it as future work. For a small team deploying a 30B model on a workstation under a desk, these omissions are minor. For an enterprise standing up a 16-GPU cluster, they could add 30 to 50 percent to the total cost and push break-even horizons well past what Table IV suggests.",
+        "The analysis also assumes eight hours of daily operation, which suits a standard business-day workflow but undercounts always-on production services. Running 24/7 triples the electricity cost, shortening break-even on the API side (because you generate more tokens locally) but increasing OpEx. The model is transparent enough that organisations can plug in their own assumptions, and the authors provide an <a href=\"https://v0-ai-cost-calculator.vercel.app/\">interactive calculator</a> for exactly that purpose.",
+        "Hardware depreciation is the elephant in the room. GPU technology turns over roughly every two years. A $240k cluster bought today competes against hardware that will be twice as fast per dollar by the time Kimi-K2 hits its break-even point. The paper wisely steers readers toward small and medium models where payback arrives before the hardware becomes obsolete."
+      ]
+    }
+  ],
+  "references": [
+    "Pan, G., Chodnekar, V., Roy, A., &amp; Wang, H. (2025). A cost-benefit analysis of on-premise large language model deployment: Breaking even with commercial LLM services. <em>arXiv</em>. <a href=\"https://arxiv.org/abs/2509.18101\">https://arxiv.org/abs/2509.18101</a>"
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Test-Time Scaling Plateaus: Wang et al. (2025)",
+    "eyebrow": "Research Explainer · Wang et al. (2025)",
+    "date_created": "2026-04-09",
+    "filename_slug": "2026-04-09_wang_test-time-scaling-plateaus_explainer"
+  },
+  "hero": {
+    "headline": "Letting AI models \"think longer\" hits a wall, but the math tells you exactly where that wall is",
+    "headline_html": "Letting AI models \"think longer\" hits a wall, but <span>the math tells you exactly where that wall is</span>",
+    "subtitle": "A unified probabilistic model shows that both parallel sampling and sequential rethinking strategies for large reasoning models converge to the same saturation formula, letting you calculate the exact point where more compute stops helping."
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "+23.3 pp",
+        "description": "accuracy gain on AIME 2024 for a 1.5B model using parallel scaling with 32 samples, rising from 30.0% to 53.3%",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "r = 0.803",
+        "description": "Pearson correlation between predicted and observed saturation points for the 7B model with parallel scaling on MATH-500",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "83.6%",
+        "description": "accuracy achieved by the tiny 1.5B model with 32-sample scaling on MATH-500, beating the unscaled 7B model's 82.0%",
+        "accent_color": "#f6ad55"
+      }
+    ]
+  },
+  "chart": {
+    "title": "",
+    "caption": "Source: Figure 5(a) and Table 1, Wang et al. (2025). Accuracy (%) by number of generations per problem (N) for DeepSeek-R1-Distill-Qwen 1.5B and 7B. Vanilla baselines shown as dashed reference lines.",
+    "config_json": null,
+    "config_raw": "const ctx = document.getElementById('scalingChart').getContext('2d');\nnew Chart(ctx, {\n  type: 'line',\n  data: {\n    labels: [1, 4, 8, 16, 32],\n    datasets: [\n      {\n        label: '7B Parallel',\n        data: [56.7, 73.3, 76.7, 76.7, 76.7],\n        borderColor: '#4dabf7',\n        backgroundColor: 'rgba(77,171,247,0.1)',\n        borderWidth: 2.5,\n        pointRadius: 4,\n        pointBackgroundColor: '#4dabf7',\n        tension: 0.3\n      },\n      {\n        label: '7B Sequential',\n        data: [56.7, 63.3, 63.3, 70.0, 73.3],\n        borderColor: '#4dabf7',\n        backgroundColor: 'rgba(77,171,247,0.05)',\n        borderWidth: 2.5,\n        borderDash: [6, 3],\n        pointRadius: 4,\n        pointBackgroundColor: '#4dabf7',\n        pointStyle: 'triangle',\n        tension: 0.3\n      },\n      {\n        label: '1.5B Parallel',\n        data: [30.0, 30.0, 46.7, 50.0, 53.3],\n        borderColor: '#f6ad55',\n        backgroundColor: 'rgba(246,173,85,0.1)',\n        borderWidth: 2.5,\n        pointRadius: 4,\n        pointBackgroundColor: '#f6ad55',\n        tension: 0.3\n      },\n      {\n        label: '1.5B Sequential',\n        data: [30.0, 36.7, 26.7, 30.0, 30.0],\n        borderColor: '#f6ad55',\n        backgroundColor: 'rgba(246,173,85,0.05)',\n        borderWidth: 2.5,\n        borderDash: [6, 3],\n        pointRadius: 4,\n        pointBackgroundColor: '#f6ad55',\n        pointStyle: 'triangle',\n        tension: 0.3\n      }\n    ]\n  },\n  options: {\n    animation: false,\n    maintainAspectRatio: false,\n    responsive: true,\n    scales: {\n      x: {\n        title: {\n          display: true,\n          text: 'Generations per problem (N)',\n          color: '#4a5568',\n          font: { size: 12, family: 'system-ui' }\n        },\n        grid: { color: '#e2e8f0' },\n        ticks: { color: '#718096' }\n      },\n      y: {\n        title: {\n          display: true,\n          text: 'Accuracy (%)',\n          color: '#4a5568',\n          font: { size: 12, family: 'system-ui' }\n        },\n        min: 20,\n        max: 85,\n        grid: { color: '#e2e8f0' },\n        ticks: {\n          color: '#718096',\n          callback: function(v) { return v + '%'; }\n        }\n      }\n    },\n    plugins: {\n      legend: {\n        position: 'top',\n        labels: {\n          usePointStyle: true,\n          padding: 16,\n          color: '#4a5568',\n          font: { size: 12, family: 'system-ui' }\n        }\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';\n          }\n        }\n      }\n    }\n  }\n});"
+  },
+  "sections": [
+    {
+      "label": "The Setup",
+      "paragraphs": [
+        "Modern reasoning models like DeepSeek-R1 and OpenAI's o1 already \"think harder\" internally by generating long chain-of-thought traces before producing an answer. The natural next question: what happens if you stack more compute on top of that? You can either sample many answers in parallel and pick the best one (parallel scaling), or ask the model to rethink its answer round after round (sequential scaling). The authors call this scaling over scaling .",
+        "Wang and colleagues set out to formalise what practitioners already suspected: these strategies work, but they stop working. There is a ceiling, and spending tokens past it is pure waste. The paper introduces TTSPM (the Test-Time Scaling Performance Model), a probabilistic framework that characterises precisely where that ceiling sits."
+      ],
+      "paragraphs_html": [
+        "Modern reasoning models like DeepSeek-R1 and OpenAI's o1 already \"think harder\" internally by generating long chain-of-thought traces before producing an answer. The natural next question: what happens if you stack more compute on top of that? You can either sample many answers in parallel and pick the best one (parallel scaling), or ask the model to rethink its answer round after round (sequential scaling). The authors call this <strong>scaling over scaling</strong>.",
+        "Wang and colleagues set out to formalise what practitioners already suspected: these strategies work, but they stop working. There is a ceiling, and spending tokens past it is pure waste. The paper introduces TTSPM (the Test-Time Scaling Performance Model), a probabilistic framework that characterises precisely where that ceiling sits."
+      ]
+    },
+    {
+      "label": "What They Found",
+      "paragraphs": [
+        "The core insight is elegant. For parallel scaling, each of N independent samples has some probability p of being correct. The chance that at least one is right follows 1 − (1 − p)ᴺ. For sequential rethinking, modelled as an absorbing Markov chain, the algebra yields the identical formula. Two fundamentally different strategies, one mathematical structure.",
+        "From that shared structure, the authors derive the marginal gain of adding one more sample or round: it decays exponentially. They define the scaling plateau as the point N* where that marginal gain drops below a threshold ε. The resulting saturation formula is compact: N* = ⌈ln(ε / F_max·p) / ln(1 − p)⌉. It depends on the model's single-attempt success probability and the task's achievable ceiling, both estimable from a small validation run.",
+        "Empirically, this bound tracks reality well. On MATH-500, the predicted saturation points correlate with observed ones at r = 0.803 for the 7B model under parallel scaling and r = 0.768 for the 1.5B model. Sequential scaling correlations are somewhat weaker (r = 0.575 for the 7B case), which the authors attribute to the stronger inter-step dependencies that their independence assumption cannot fully capture."
+      ],
+      "paragraphs_html": [
+        "The core insight is elegant. For parallel scaling, each of N independent samples has some probability <em>p</em> of being correct. The chance that at least one is right follows 1 − (1 − p)ᴺ. For sequential rethinking, modelled as an absorbing Markov chain, the algebra yields the identical formula. Two fundamentally different strategies, one mathematical structure.",
+        "From that shared structure, the authors derive the marginal gain of adding one more sample or round: it decays exponentially. They define the <strong>scaling plateau</strong> as the point N* where that marginal gain drops below a threshold ε. The resulting saturation formula is compact: N* = ⌈ln(ε / F_max·p) / ln(1 − p)⌉. It depends on the model's single-attempt success probability and the task's achievable ceiling, both estimable from a small validation run.",
+        "Empirically, this bound tracks reality well. On MATH-500, the predicted saturation points correlate with observed ones at r = 0.803 for the 7B model under parallel scaling and r = 0.768 for the 1.5B model. Sequential scaling correlations are somewhat weaker (r = 0.575 for the 7B case), which the authors attribute to the stronger inter-step dependencies that their independence assumption cannot fully capture."
+      ]
+    },
+    {
+      "label": "Parallel Beats Sequential, and Small Can Beat Big",
+      "paragraphs": [
+        "Across every benchmark and model size, parallel scaling outperformed sequential scaling. On AIME 2024 with the 1.5B model and N = 32, parallel scaling reached 53.3% accuracy while sequential scaling plateaued at 30.0%, identical to the no-scaling baseline. The likely culprit is error propagation: sequential rethinking can get stuck in a wrong groove, whereas parallel sampling explores independent solution paths.",
+        "Perhaps more striking, the tiny 1.5B model with 32 parallel samples beat the 7B model running on a single attempt on MATH-500 (83.6% vs. 82.0%). Test-time compute can substitute for model scale, at least up to a point. On GPQA, the 1.5B model's Hit@32 under parallel scaling hit 96.5%, compared to the 7B vanilla baseline of 41.9%. The gap between \"ever finding a correct answer among 32 tries\" and \"reliably picking the right one\" remains large, though, since accuracy with majority voting only reached 39.4%."
+      ]
+    },
+    {
+      "label": "Why It Matters",
+      "paragraphs": [
+        "Inference cost is becoming the dominant line item in production AI deployments. Every API call to a reasoning model already generates thousands of internal thinking tokens. Stacking additional parallel samples or rethinking rounds on top multiplies that cost. The TTSPM framework gives practitioners a formula, not just a heuristic, for deciding when to stop spending.",
+        "The model has clear limitations. It assumes independence between scaling units, which holds well for parallel sampling but less well for sequential rethinking where each round conditions on the last. The parameters (success probability p, ceiling F_max) must be estimated per model-task combination. And the framework focuses on verifier-free strategies; adding a strong verifier would change the dynamics entirely. Still, the unified mathematical structure underlying two very different scaling approaches suggests a genuine law of diminishing returns, not an artefact of any particular implementation."
+      ]
+    }
+  ],
+  "references": [
+    "Wang, J., Zhu, B., Leong, C. T., Li, Y., & Li, W. (2025). Scaling over scaling: Exploring test-time scaling plateau in large reasoning models. <em>arXiv preprint arXiv:2505.20522v2</em>. <a href=\"https://arxiv.org/abs/2505.20522\" target=\"_blank\">https://arxiv.org/abs/2505.20522</a>"
+  ]
+}

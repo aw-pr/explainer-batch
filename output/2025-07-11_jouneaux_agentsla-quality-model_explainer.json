@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Service Level Agreements for AI Agents: Jouneaux (2025)",
+    "eyebrow": "Research Explainer · Jouneaux (2025)",
+    "date_created": "2025-07-11",
+    "filename_slug": "2025-07-11_jouneaux_agentsla-quality-model_explainer"
+  },
+  "hero": {
+    "headline": "AI agents now act as services, but nobody has written the quality contract yet",
+    "headline_html": "AI agents now act as services, but <span>nobody has written the quality contract yet</span>",
+    "subtitle": "AgentSLA proposes both a quality model extending ISO/IEC 25010 for AI agents and a JSON-based domain-specific language for specifying enforceable Service Level Agreements between agent providers and consumers.",
+    "publication_date": "Published November 2025"
+  },
+  "top_block": {
+    "kind": "takeaway",
+    "label": "KEY CONTRIBUTION",
+    "body": "This paper introduces AgentSLA, a domain-specific language for writing machine-readable Service Level Agreements for AI agents. It builds on a new quality model that extends the ISO/IEC 25010 software quality standard with AI-specific dimensions like sustainability, autonomy, output properties, and understandability, and provides a concrete JSON syntax plus a Python validating parser so that SLAs can be exchanged over protocols like Google's Agent2Agent (A2A)."
+  },
+  "sections": [
+    {
+      "label": "From Model-as-a-Service to Agent-as-a-Service",
+      "paragraphs": [
+        "When organisations first wired LLMs into their products, the integration pattern was straightforward: send a prompt, receive a completion. That Model-as-a-Service paradigm treated the AI component like a stateless function call. The shift toward agentic AI changes the contract fundamentally. Agents reason over multiple steps, call tools, delegate to sub-agents, and maintain context across interactions. They behave more like long-running collaborators than API endpoints.",
+        "This new Agent-as-a-Service paradigm inherits all the quality concerns of traditional service-oriented architectures (performance, availability, fault tolerance) and adds distinctly AI-shaped ones: drift in behaviour as context accumulates, nondeterministic outputs, fairness risks, and environmental cost. Yet no formal language exists for specifying quality expectations between an agent consumer and an agent provider. Jouneaux and Cabot set out to fill that gap."
+      ],
+      "paragraphs_html": [
+        "When organisations first wired LLMs into their products, the integration pattern was straightforward: send a prompt, receive a completion. That <em>Model-as-a-Service</em> paradigm treated the AI component like a stateless function call. The shift toward agentic AI changes the contract fundamentally. Agents reason over multiple steps, call tools, delegate to sub-agents, and maintain context across interactions. They behave more like long-running collaborators than API endpoints.",
+        "This new <em>Agent-as-a-Service</em> paradigm inherits all the quality concerns of traditional service-oriented architectures (performance, availability, fault tolerance) and adds distinctly AI-shaped ones: drift in behaviour as context accumulates, nondeterministic outputs, fairness risks, and environmental cost. Yet no formal language exists for specifying quality expectations between an agent consumer and an agent provider. Jouneaux and Cabot set out to fill that gap."
+      ]
+    },
+    {
+      "label": "A quality model that extends ISO 25010 for AI",
+      "paragraphs": [
+        "The authors surveyed existing AI quality models and found a fragmented landscape. Of six papers that map AI quality attributes to ISO/IEC 25010, only two discuss sustainability and two overlook explainability entirely. None addresses the autonomy dimension that makes agents distinct from plain model calls. Rather than building from scratch, the paper extends the existing nine-section ISO standard with bold additions and redefinitions.",
+        "Two entirely new sections appear: Sustainability (covering training impact, inference impact, and mitigation measures like carbon offsets) and Output Properties (conciseness, consistency, creativity, and diversity of generated content). Autonomy slots into the Interaction Capability section, reflecting how much human oversight the agent requires. Fairness becomes a Reliability concern about ethical biases. Understandability regroups interpretability, transparency, explainability, and an expanded definition of accountability that now includes tracing entity actions through the AI model.",
+        "Alongside the quality model, the paper catalogues 30-plus concrete metrics mapped to these characteristics. These range from the familiar (precision, recall, F1, TTFT, end-to-end latency) to the AI-specific (SHAP estimation error for interpretability, LangBiTe ratios for bias detection across racism, sexism, ageism, and more) to the sustainability-focused (energy consumption, water consumption, carbon emissions, and carbon offset percentages)."
+      ],
+      "paragraphs_html": [
+        "The authors surveyed existing AI quality models and found a fragmented landscape. Of six papers that map AI quality attributes to ISO/IEC 25010, only two discuss sustainability and two overlook explainability entirely. None addresses the autonomy dimension that makes agents distinct from plain model calls. Rather than building from scratch, the paper extends the existing nine-section ISO standard with bold additions and redefinitions.",
+        "Two entirely new sections appear: <strong>Sustainability</strong> (covering training impact, inference impact, and mitigation measures like carbon offsets) and <strong>Output Properties</strong> (conciseness, consistency, creativity, and diversity of generated content). <strong>Autonomy</strong> slots into the Interaction Capability section, reflecting how much human oversight the agent requires. <strong>Fairness</strong> becomes a Reliability concern about ethical biases. <strong>Understandability</strong> regroups interpretability, transparency, explainability, and an expanded definition of accountability that now includes tracing entity actions through the AI model.",
+        "Alongside the quality model, the paper catalogues 30-plus concrete metrics mapped to these characteristics. These range from the familiar (precision, recall, F1, TTFT, end-to-end latency) to the AI-specific (SHAP estimation error for interpretability, <em>LangBiTe</em> ratios for bias detection across racism, sexism, ageism, and more) to the sustainability-focused (energy consumption, water consumption, carbon emissions, and carbon offset percentages)."
+      ]
+    },
+    {
+      "label": "The AgentSLA language and how it works",
+      "paragraphs": [
+        "AgentSLA is a domain-specific language with a JSON concrete syntax, chosen deliberately so that SLA documents can travel over agent communication protocols like Google's A2A without requiring a separate serialisation layer. At its core, an SLA is a collection of Guarantee Terms. Each term has a Scope (which agent it applies to), optional Qualifying Conditions (preconditions that must hold before the SLO kicks in), and one or more Service Level Objectives.",
+        "An SLO is a boolean expression comparing a QoS metric against a threshold. The language supports raw metrics, derived metrics (aggregations over a time or message window, like \"average TTFT over the last ten messages\"), and drift metrics that compare two consecutive windows to detect degradation as an agent's context evolves. Each metric carries an uncertainty value, acknowledging that nondeterministic AI behaviour makes exact measurement tricky. Metric providers are tracked with confidence scores and reputation ratings, a pragmatic nod to the reality that third-party monitoring services vary in trustworthiness.",
+        "The paper provides a Python implementation built with the BESSER low-code platform. The toolchain parses a JSON SLA document, validates units, metric types, operator enumerations, and confidence bounds, then instantiates a full object model. That model can drive downstream tooling: generating monitors, selecting agents, or building orchestrators that swap in a replacement agent when guarantee terms are violated."
+      ],
+      "paragraphs_html": [
+        "<strong>AgentSLA</strong> is a domain-specific language with a JSON concrete syntax, chosen deliberately so that SLA documents can travel over agent communication protocols like Google's <em>A2A</em> without requiring a separate serialisation layer. At its core, an SLA is a collection of <em>Guarantee Terms</em>. Each term has a <em>Scope</em> (which agent it applies to), optional <em>Qualifying Conditions</em> (preconditions that must hold before the SLO kicks in), and one or more <em>Service Level Objectives</em>.",
+        "An SLO is a boolean expression comparing a QoS metric against a threshold. The language supports raw metrics, <strong>derived metrics</strong> (aggregations over a time or message window, like \"average TTFT over the last ten messages\"), and <strong>drift metrics</strong> that compare two consecutive windows to detect degradation as an agent's context evolves. Each metric carries an <em>uncertainty</em> value, acknowledging that nondeterministic AI behaviour makes exact measurement tricky. Metric providers are tracked with confidence scores and reputation ratings, a pragmatic nod to the reality that third-party monitoring services vary in trustworthiness.",
+        "The paper provides a Python implementation built with the <em>BESSER</em> low-code platform. The toolchain parses a JSON SLA document, validates units, metric types, operator enumerations, and confidence bounds, then instantiates a full object model. That model can drive downstream tooling: generating monitors, selecting agents, or building orchestrators that swap in a replacement agent when guarantee terms are violated."
+      ]
+    },
+    {
+      "label": "What is missing and where this goes next",
+      "paragraphs": [
+        "The authors are candid about the limitations. The quality model has only been partially validated through discussions with partners in the MOSAICO project. No empirical study yet shows that AgentSLA SLAs improve agent selection or runtime quality in production systems. The metric catalogue is fixed for now; users cannot define custom metrics, which limits coverage for domain-specific use cases like medical diagnosis or financial risk scoring. Characteristics like creativity and diversity lack any agreed-upon metric at all.",
+        "The roadmap is ambitious. The team plans formal empirical validation with industrial partners, an extensible metric system so users can plug in their own measurement logic, a graphical notation for less technical stakeholders, a conversational interface for SLA negotiation, and direct integration into the A2A protocol specification and Google's Agent Development Kit. The most interesting future scenario may be prescriptive SLAs: instead of describing what quality an agent provides, the SLA becomes a runtime contract that an orchestrator enforces by dynamically swapping agents when guarantees are breached. That would move AgentSLA from a specification exercise into an active piece of infrastructure."
+      ],
+      "paragraphs_html": [
+        "The authors are candid about the limitations. The quality model has only been partially validated through discussions with partners in the MOSAICO project. No empirical study yet shows that AgentSLA SLAs improve agent selection or runtime quality in production systems. The metric catalogue is fixed for now; users cannot define custom metrics, which limits coverage for domain-specific use cases like medical diagnosis or financial risk scoring. Characteristics like creativity and diversity lack any agreed-upon metric at all.",
+        "The roadmap is ambitious. The team plans formal empirical validation with industrial partners, an extensible metric system so users can plug in their own measurement logic, a graphical notation for less technical stakeholders, a conversational interface for SLA negotiation, and direct integration into the A2A protocol specification and Google's <em>Agent Development Kit</em>. The most interesting future scenario may be <strong>prescriptive SLAs</strong>: instead of describing what quality an agent provides, the SLA becomes a runtime contract that an orchestrator enforces by dynamically swapping agents when guarantees are breached. That would move AgentSLA from a specification exercise into an active piece of infrastructure."
+      ]
+    }
+  ],
+  "references": [
+    "Jouneaux, G., & Cabot, J. (2025). AgentSLA: Towards a Service Level Agreement for AI Agents. <em>arXiv preprint arXiv:2511.02885</em>. <a href=\"https://arxiv.org/abs/2511.02885\" target=\"_blank\" rel=\"noopener noreferrer\">https://arxiv.org/abs/2511.02885</a>",
+    "Ali, M. A., Yap, N. K., Abd Ghani, A. A., Zulzalil, H., Admodisastro, N. I., & Najafabadi, A. A. (2022). A systematic mapping of quality models for AI systems, software and components. <em>Applied Sciences</em>, 12(17), 8700. <a href=\"https://doi.org/10.3390/app12178700\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.3390/app12178700</a>",
+    "Mitchell, M., Wu, S., Zaldivar, A., Barnes, P., Vasserman, L., Hutchinson, B., Spitzer, E., Raji, I. D., & Gebru, T. (2019). Model cards for model reporting. In <em>Proceedings of the Conference on Fairness, Accountability, and Transparency</em>, 220–229. <a href=\"https://doi.org/10.1145/3287560.3287596\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1145/3287560.3287596</a>",
+    "Oriol, M., Gómez, A., & Cabot, J. (2024). AsyncSLA: Towards a service level agreement for asynchronous services. In <em>Proceedings of the 39th ACM/SIGAPP Symposium on Applied Computing</em>, 1781–1788. <a href=\"https://doi.org/10.1145/3605098.3636046\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1145/3605098.3636046</a>",
+    "Thangarajah, K., Leung, A., Chen, B., & Hassan, A. E. (2025). SLA-awareness for AI-assisted coding. <em>arXiv preprint arXiv:2505.xxxxx</em>. <a href=\"https://arxiv.org/abs/2505.00000\" target=\"_blank\" rel=\"noopener noreferrer\">https://arxiv.org/abs/2505.00000</a>"
+  ]
+}
