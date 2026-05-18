@@ -43,8 +43,20 @@ Each route fetches only the secrets it needs:
   `*settings.local.json`, `state.json`, logs, and any content matching the
   personal regex patterns in a gitignored `.publish-guard.local` (seeded from
   `.publish-guard.local.example`).
-- **pre-push** — on the public remote, allows only the default branch; other
-  remotes (private backups) are unrestricted.
+- **pre-push** — fail-closed publish gate. On the public remote (matched by
+  the local `git config publishguard.publicmatch`) only the default branch may
+  be pushed, **and** that push must arrive via the sanctioned path: the
+  `git publish` alias sets a sentinel env var (`PUBLISH_GUARD_OK=1`) which the
+  hook requires. A direct `git push <public> dev:main` is rejected so it
+  cannot skip the private-remote backup that `git publish` does first. Other
+  remotes (private backups) are unrestricted. Unset `publishguard.publicmatch`
+  → the hook is inert. Deliberate one-off override: `git push --no-verify`.
+
+  Why fail-closed, not a warning: publishing to a public remote is effectively
+  irreversible (objects stay fetchable by SHA, content can be cached/indexed),
+  so the gate stops the action and points at the correct command rather than
+  narrating the mistake as it completes. Org/repo names live only in local
+  `git config` (`publishguard.*`), never in the committed tree.
 
 Hooks are local and not transferred by clone; each contributor runs
 `npm run guards:install` once. Override an individual block intentionally with
