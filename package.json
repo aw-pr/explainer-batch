@@ -25,6 +25,7 @@
     "process:secure:tmux": "bash ./scripts/run-batch-tmux.sh",
     "process:claude:tmux": "PROVIDER=claude EXTRA_ARGS=--sync SESSION_NAME=explainer-claude-sync bash ./scripts/run-batch-tmux.sh",
     "render-html": "ts-node scripts/render-html.ts",
+    "reextract": "ts-node scripts/reextract-figure.ts",
     "export-html": "ts-node scripts/export-html.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
