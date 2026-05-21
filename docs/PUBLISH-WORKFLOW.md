@@ -74,15 +74,34 @@ routine.
 
 ## Day-to-day
 
+Default mode: **preserve atomic commits with per-agent attribution.** Squash
+is the opt-in case for genuinely hacky WIP topic branches, not the default.
+
 ```bash
+# Default: atomic commits land on publish as-is.
+git switch -c wip/<thing>        # atomic commits, per-agent --author=
+# …work…
+git switch PUBLISH_BRANCH
+git merge --ff-only wip/<thing>  # fast-forward when publish hasn't moved
+# or: git merge --no-ff wip/<thing> -m "merge wip/<thing>: <topic>"
+git publish                      # PRIV PUBLISH_BRANCH, then ff PUB/main
+git branch -d wip/<thing>        # -d (not -D) — commits live on publish now
+```
+
+```bash
+# Opt-in squash: when wip/<thing> has messy WIP commits not worth preserving.
 git switch -c wip/<thing>        # messy commits, freely
 # …work…
 git switch PUBLISH_BRANCH
 git merge --squash wip/<thing>
 git commit -m "One clean message"
-git publish                      # PRIV PUBLISH_BRANCH, then ff PUB/main
-git branch -D wip/<thing>
+git publish
+git branch -D wip/<thing>        # -D — commits don't live on publish
 ```
+
+Mode is a per-merge choice, not a per-repo flag. Use squash when you'd
+otherwise want to rebase-interactive to clean up; use the default when the
+atomic commits + per-agent authors are the honest output.
 
 `git publish` (alias, set by install-guards) =
 `git push PRIV PUBLISH_BRANCH && PUBLISH_GUARD_OK=1 git push PUB PUBLISH_BRANCH:main`.
@@ -107,13 +126,16 @@ stay fetchable by SHA, content gets cached/indexed). A guardrail for an
 irreversible outward action must stop it and point at the right command, not
 narrate the mistake as it completes.
 
-## Squashing
+## Squashing and rewriting
 
-- Squash *unpublished* commits at will — topic-branch `--squash` merge (best:
-  the publish line stays append-only, every push is a clean ff, no force
-  anywhere), or `git rebase -i <PUB/main commit>` for a quick local tidy
-  (then the private push needs `--force-with-lease`).
-- Never squash/rebase commits already on `PUB/main`.
+- Squash *unpublished* commits at will — topic-branch `--squash` merge keeps
+  the publish line append-only (every push is a clean ff, no force anywhere),
+  or `git rebase -i <PUB/main commit>` for a quick local tidy (then the
+  private push needs `--force-with-lease`).
+- Never squash/rebase commits already on `PUB/main`. If you do (incident, not
+  routine), the public push needs `--force-with-lease` and the
+  `PUBLISH_GUARD_OK=1` sentinel. Content already fetched downstream stays
+  fetchable by SHA — assume the original commits are not actually erased.
 
 ## Applying to other repos
 
