@@ -55,7 +55,12 @@ export function extractFigureAsDataUrl(
   if (derived === null) return null;
   const { page } = derived;
 
-  if (isPageCodeHeavy(pdfPath, page)) {
+  // Skip the code-heavy guard when the caller pinned the page via directive -
+  // the user has explicitly named the figure and the post-extraction text-
+  // density gate (output.ts) will still catch a genuinely bad crop. The guard
+  // is for the legacy unguided path where the model picked the figure label
+  // and we want a cheap rejection before cropping.
+  if (opts.pageHint === undefined && isPageCodeHeavy(pdfPath, page)) {
     console.warn(`  ⚠ ${figureLabel} p.${page}: page looks code/text-heavy — dropping image block.`);
     return null;
   }
@@ -527,12 +532,28 @@ export function deriveFigureCrop(
   const crop = findFigureCropPoints(pdfPath, page, figureToken);
   if (!crop) return null;
 
-  const topPts = crop.figureTopY !== null
-    ? crop.figureTopY
-    : Math.max(0, crop.captionY - CAPTION_MARGIN_PTS);
-  const bottomPts = crop.figureBottomY !== null
-    ? crop.figureBottomY
-    : Math.min(pageHeightPts, crop.captionY + CAPTION_MARGIN_PTS);
+  // Directive path: the user has named the figure and pinned the page, so we
+  // trust that and use a simple "figure is above the caption" rule. The gap-
+  // finder is brittle when the figure has lots of internal text (architecture
+  // diagrams with layer labels) - it cannot tell intra-figure text from
+  // figure/caption boundary text. Cropping page-top to just-above-caption is
+  // robust for the ~all-academic-papers case where the figure sits above its
+  // caption. Skips the page header strip via HEADER_SKIP_PTS.
+  const HEADER_SKIP_PTS = 60;
+  const CAPTION_GAP_PTS = 4;
+  let topPts: number;
+  let bottomPts: number;
+  if (opts.pageHint !== undefined) {
+    topPts = HEADER_SKIP_PTS;
+    bottomPts = Math.max(topPts + 1, crop.captionY - CAPTION_GAP_PTS);
+  } else {
+    topPts = crop.figureTopY !== null
+      ? crop.figureTopY
+      : Math.max(0, crop.captionY - CAPTION_MARGIN_PTS);
+    bottomPts = crop.figureBottomY !== null
+      ? crop.figureBottomY
+      : Math.min(pageHeightPts, crop.captionY + CAPTION_MARGIN_PTS);
+  }
   if (!(bottomPts > topPts)) return null;
 
   let xMin = 0;
