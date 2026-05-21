@@ -55,7 +55,7 @@ The first character of your response must be `{` and the last must be `}`. No pr
 
   "charts":   [ <0–4 chart objects, omit if none> ],
 
-  "image":    <single conceptual figure object, omit if none>,
+  "image":    <NEVER emit; supplied externally via directive sidecar>,
 
   "sections":      [ <2–5 section objects> ],
   "end_takeaway":  <object or omit>,
@@ -156,27 +156,23 @@ One entry per primary source. Raw HTML string with the URL wrapped in an anchor:
 
 ## Working with figures in the paper
 
-When the paper contains figures — results charts, conceptual diagrams, architecture sketches, stage models — do not ignore them.
+When the paper contains figures — results charts, conceptual diagrams, architecture sketches, stage models — read them for context, but emit nothing to the `image` field.
+
+**Before emitting any chart, run two checks against the data you are about to put in it:**
+
+1. **Is this a share-of-whole?** If the values sum to ~100% or ~1.0, or read as "X% does A, Y% does B" — that is `top_block.pills` or prose, not a chart. A two-value split like `1.6 / 98.4` rendered as bars is the same proportion in disguise; bar-encoding it does not make it a chart.
+2. **Are the values an ordinal ranking?** If the dataset is `[1, 2, 3, 4]`, `[0, 1, 2, 3]`, or any sequence that just encodes "this comes before that" rather than measured magnitudes — that is prose, not a chart. Bar height must encode a real quantity (tokens per second, accuracy, latency, cost). Rank order belongs in a numbered list.
+
+If either answer is yes, do not emit the chart. Find a different cut of the paper that has genuine magnitudes to compare, or just write it in prose.
+
+Then, for what does qualify:
 
 - For a **data-bearing figure** (measured values, comparisons, trends): reproduce it as a Chart.js chart in `charts`. Match the axes, groupings, and data points. If multiple central results figures exist and each adds a distinct story, include multiple charts.
 - **Never chart a checklist, conformance table, or category list.** If every value would be the same number (all 100%, all `true`, all `2`, all "yes"), or the axis has no meaningful scale, it is not a chart — rewrite it as a `list` inside a prose section, or a `takeaway` / `pills` block. Charts exist to show *variation*; equal-height bars communicate nothing.
-- **Never chart a single number or a single proportion.** One headline figure, a share-of-whole split (a two-slice pie/doughnut like `83% / 17%`), or one metric with no second series is a *pill*, not a chart — emit it in `top_block.pills` and state it in prose. A chart must carry at least two genuinely different data points that a reader compares against each other (a trend over time, categories at different magnitudes, multiple series). If the figure collapses to "the number is X", it belongs in pills.
-- For a **single, high-value conceptual figure** (visual abstract, architecture overview, framework diagram, taxonomy): emit an `image` block naming the figure so the post-step can lift it straight from the PDF. Hard cap of one image per explainer — pick the *one* figure that best conveys the paper's argument at a glance.
-- **Before emitting `image`, visually verify the figure region contains shapes, boxes, arrows, nodes, or labels — not running prose sentences.** If the figure area in the PDF shows body-text paragraphs, equations stacked as lines, or a full page of copy, it is not a standalone visual — skip it entirely.
-- Everything else: skip. Do not include author photos, journal logos, decorative icons, tables-as-images, equations-as-images, small schematics, or any figure a reader wouldn't stop to look at.
+- **Never chart a single number or a single proportion.** One headline figure, a share-of-whole split (whether pie, doughnut, or bar), or one metric with no second series is a *pill*, not a chart — emit it in `top_block.pills` and state it in prose. A chart must carry at least two genuinely different data points with real magnitudes that a reader compares against each other (a trend over time, categories at different measured magnitudes, multiple series). If the figure collapses to "the number is X" or "the split is X/Y", it belongs in pills.
 - Put the most important chart first — it renders after the first prose section, below the opening text.
 
-The `image` block shape:
-
-```json
-{
-  "source_figure": "Figure 1",
-  "caption": "Zandieh et al. (2026), Figure 1. Visual abstract of the TurboQuant framework.",
-  "alt_text": "Diagram showing the three-stage TurboQuant pipeline."
-}
-```
-
-`source_figure` must match the figure's label in the paper exactly (e.g. `"Figure 1"`, `"Figure 2a"`). The renderer will show the figure beneath the charts with your caption below.
+**Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream from a per-paper directive sidecar (`<paper>.focus.md`). Your job is to author the prose, pills, charts, and structure; the image is supplied externally or omitted entirely.
 
 Prose sections may refer to figures by number so the reader can find them in the original paper. Do not invent figure content — if a figure's values or labels are unclear, say so or leave the detail out.
 
@@ -220,9 +216,10 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] `top_block` is `pills` when the paper has measured results or a central 2–6 item sequence; otherwise `takeaway`. `end_takeaway` is present iff `top_block.kind === "pills"`.
 - [ ] Every chart comes from real data or a faithfully recreated figure from the paper. The most important chart is first.
 - [ ] No chart has uniform values (all bars equal, all rows `true`, all categories the same count). If a "chart" is really a checklist or membership table, it belongs in a `list` or `takeaway`, not `charts`.
-- [ ] No chart conveys just a single number or one share-of-whole split (e.g. a two-slice pie). Single figures go in `top_block.pills`; a chart must compare at least two genuinely different data points.
+- [ ] No chart conveys just a single number or one share-of-whole split (whether pie, doughnut, or 2-bar). Single figures and proportions go in `top_block.pills`; a chart must compare at least two genuinely different data points with real magnitudes.
+- [ ] No chart encodes an ordinal ranking as bar height (datasets like `[1, 2, 3, 4]` or `[0, 1, 2, 3]` where the numbers mean "order", not "amount"). Rank order goes in a numbered list or prose.
 - [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true` — never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
-- [ ] If `image` is present, `source_figure` matches the paper's exact label and the figure is a genuine visual abstract / conceptual diagram — not a data chart, photo, logo, table, equation, or any figure whose PDF region contains running prose paragraphs.
+- [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and either `paragraphs` or `list`.
 - [ ] `references` contains the primary source with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`).
 - [ ] No em dashes, corporate jargon, or AI tell-tales in prose.
