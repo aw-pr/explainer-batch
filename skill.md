@@ -158,6 +158,16 @@ One entry per primary source. Raw HTML string with the URL wrapped in an anchor:
 
 When the paper contains figures — results charts, conceptual diagrams, architecture sketches, stage models — read them for context, but emit nothing to the `image` field.
 
+**First decide: does this paper need any charts at all?**
+
+Before authoring a single chart, ask: does the paper contain real measured magnitudes — benchmark scores, latencies, accuracies, token counts, dollar costs, parameter counts, training steps, percentages from a measurement — that a reader would actually compare against each other?
+
+If no, the right answer is **zero charts**. System-architecture writeups, conceptual frameworks, design-space surveys, position papers, and qualitative analyses often have no chartable data at all. Forcing two or three charts out of an architecture paper produces ordinal-ranking-as-bars (`[1, 2, 3, 4]` encoding layer order) and proportions-as-bars (a 2-value split that should have been pills). Both are wrong, and they leak the model's discomfort with returning an empty list.
+
+Emit `charts: []` (or omit `charts` entirely) and let prose carry the explanation. Zero charts is the correct answer for many papers; do not pad. One chart is also fine. The schema allows 0-4 — the lower end of that range exists for a reason.
+
+If the paper *does* have measured magnitudes worth charting, continue to the data-shape checks below.
+
 **Before emitting any chart, run two checks against the data you are about to put in it:**
 
 1. **Is this a share-of-whole?** If the values sum to ~100% or ~1.0, or read as "X% does A, Y% does B" — that is `top_block.pills` or prose, not a chart. A two-value split like `1.6 / 98.4` rendered as bars is the same proportion in disguise; bar-encoding it does not make it a chart.
