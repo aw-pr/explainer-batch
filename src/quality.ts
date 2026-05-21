@@ -42,6 +42,55 @@ function chartEntries(root: Record<string, unknown>): Record<string, unknown>[] 
  * content-quality judgements (pill wording, chart type choice, etc.)
  * which are left to the model.
  */
+function chartDatasetNumbers(chart: Record<string, unknown>): number[][] {
+  const config = isRecord(chart['config_json']) ? chart['config_json'] : undefined;
+  const data = config && isRecord(config['data']) ? config['data'] : undefined;
+  const datasets = data && Array.isArray(data['datasets']) ? data['datasets'] : [];
+  const out: number[][] = [];
+  for (const ds of datasets) {
+    if (!isRecord(ds) || !Array.isArray(ds['data'])) continue;
+    const nums = (ds['data'] as unknown[]).filter((v): v is number => typeof v === 'number');
+    if (nums.length > 0) out.push(nums);
+  }
+  return out;
+}
+
+// Reject the two failure modes seen in practice: ordinal rank encoded as bar
+// height ([0,1,2,3] / [1,2,3,4,5]) and two-value share-of-whole rendered as a
+// 2-bar chart. Both are pills or prose, not charts.
+function chartDataIssues(chart: Record<string, unknown>, i: number): string[] {
+  const issues: string[] = [];
+  const datasets = chartDatasetNumbers(chart);
+  if (datasets.length === 0) return issues;
+
+  for (let d = 0; d < datasets.length; d++) {
+    const data = datasets[d];
+
+    if (data.length >= 3) {
+      const ascending = data.every((v, k) => k === 0 || v === data[k - 1] + 1);
+      const descending = data.every((v, k) => k === 0 || v === data[k - 1] - 1);
+      const startsAtRankZero = data[0] === 0 || data[0] === 1 || data[data.length - 1] === 0 || data[data.length - 1] === 1;
+      if ((ascending || descending) && startsAtRankZero) {
+        issues.push(
+          `charts[${i}].datasets[${d}].data is an ordinal sequence (${JSON.stringify(data)}) - bar height is encoding rank order, not magnitude. Move to a numbered list or prose, or replace with measured values.`,
+        );
+      }
+    }
+
+    if (data.length === 2) {
+      const sum = data[0] + data[1];
+      const isPercentSplit = sum >= 95 && sum <= 105;
+      const isFractionSplit = sum >= 0.95 && sum <= 1.05;
+      if (isPercentSplit || isFractionSplit) {
+        issues.push(
+          `charts[${i}].datasets[${d}].data is a two-value share-of-whole (${JSON.stringify(data)} sums to ~${sum.toFixed(2)}). Move to top_block.pills - a proportion is not a chart.`,
+        );
+      }
+    }
+  }
+  return issues;
+}
+
 export function validateJsonOutput(json: unknown, options: ValidationOptions): JsonValidation {
   const issues: string[] = [];
 
@@ -191,6 +240,7 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
     if (!('config_json' in chart) && !isNonEmptyString(chart['config_raw'])) {
       issues.push(`charts[${i}] must include config_json or config_raw.`);
     }
+    for (const issue of chartDataIssues(chart, i)) issues.push(issue);
   });
   if (j['chart'] !== undefined && !isRecord(j['chart'])) {
     issues.push('chart must be an object when present.');
