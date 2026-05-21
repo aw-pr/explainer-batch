@@ -223,10 +223,13 @@ function attachFigureImage(json: ExplainerJson, customId: string): void {
   }
 
   // Text-density gate: drop the image if the crop is mostly body prose.
-  // Bypassed when the user supplied an explicit override (we trust them) or
-  // when no crop bbox is derivable (tier-1 embedded raster, unclear layout).
-  // Gate measures the same region extraction will crop (via deriveFigureCrop).
-  if (!override && cropIsMostlyText(pdfPath, image.source_figure, customId)) {
+  // Image attachment is directive-only, so the user has named the figure -
+  // but the crop rectangle is still computed by the extractor, so the gate
+  // runs unconditionally to catch a bad image_page_hint or a caption match
+  // that landed on the wrong region. Skipped only when deriveFigureCrop
+  // returns null (tier-1 embedded raster, unclear layout - handled inside
+  // cropIsMostlyText). Gate measures the same region extraction will crop.
+  if (cropIsMostlyText(pdfPath, image.source_figure, customId, override.pageHint)) {
     delete json.image;
     return;
   }
