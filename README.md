@@ -137,15 +137,24 @@ and no `PROVIDER` env var the default is `claude`.
   changing the global prompt:
   - PDF: sidecar `input/<basename>.focus.md` (body = emphasis block).
   - URL: append `# focus: …` to the line in `urls.txt`.
-- **Lead-image override (optional)** — force a specific figure as the lead
-  image via directive lines in the focus content (stripped before the model
-  sees the prose):
 
-  ```
-  image: Figure 3.0
-  image_caption: Source (2026), Figure 3.0. Annual spend by firm type.
-  image_alt: Bar chart comparing spend brackets.
-  ```
+### Per-paper directives (`<paper>.focus.md`)
+
+For a PDF at `input/my-paper.pdf`, an optional sidecar at
+`input/my-paper.focus.md` lets you steer one paper without touching the global
+prompt. Structured directive lines are stripped before the model sees the
+prose; the remainder is appended verbatim to the user message under the
+heading `READER EMPHASIS FOR THIS PAPER`. Malformed directive lines are
+ignored silently.
+
+| Directive | Purpose |
+|---|---|
+| `image: Figure N` | Force a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.) |
+| `image_caption: …` | Override the caption attached to the lead image |
+| `image_alt: …` | Override the alt text for the lead image |
+| `image_page_hint: N` | 1-based page number used by the figure cropper instead of caption search |
+
+See `input/.focus.md.example` for a copy-paste-and-edit template.
 
 ## Configuration
 

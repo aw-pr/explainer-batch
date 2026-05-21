@@ -29,6 +29,8 @@ export interface ImageOverride {
   source_figure: string;
   caption?: string;
   alt_text?: string;
+  /** Optional 1-based page hint that short-circuits caption search in figure-extract. */
+  pageHint?: number;
 }
 
 function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?: ImageOverride } {
@@ -37,10 +39,12 @@ function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?
   let sourceFigure: string | undefined;
   let caption: string | undefined;
   let altText: string | undefined;
+  let pageHint: number | undefined;
 
   const figDirective = /^\s*image\s*:\s*((?:figure|fig\.?)\s*\d+(?:\.\d+)?[a-z]?)\s*$/i;
   const captionDirective = /^\s*image[_-]caption\s*:\s*(.+?)\s*$/i;
   const altDirective = /^\s*image[_-]alt\s*:\s*(.+?)\s*$/i;
+  const pageHintDirective = /^\s*image[_-]page[_-]hint\s*:\s*(.+?)\s*$/i;
 
   for (const line of lines) {
     let m = line.match(figDirective);
@@ -55,12 +59,18 @@ function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?
     if (m) { caption = m[1]; continue; }
     m = line.match(altDirective);
     if (m) { altText = m[1]; continue; }
+    m = line.match(pageHintDirective);
+    if (m) {
+      const n = Number.parseInt(m[1].trim(), 10);
+      if (Number.isFinite(n) && n > 0) pageHint = n;
+      continue;
+    }
     remaining.push(line);
   }
 
   const focusHint = remaining.join('\n').trim() || undefined;
   const imageOverride = sourceFigure
-    ? { source_figure: sourceFigure, caption, alt_text: altText }
+    ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint }
     : undefined;
   return { focusHint, imageOverride };
 }

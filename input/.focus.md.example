@@ -1,0 +1,35 @@
+# Per-paper directives example for explainer-batch.
+#
+# To use: copy this file next to a PDF in input/ and rename it to match the
+# PDF's basename. For input/my-paper.pdf the sidecar is input/my-paper.focus.md.
+#
+# All directives are optional. Lines beginning with `#` are treated as part of
+# the free-text focus block (no special comment syntax); delete or replace the
+# block at the bottom of this file when you adapt it.
+#
+# Structured directives (parsed line-by-line, stripped before the model sees
+# the prose). Unknown or malformed directive lines are ignored silently.
+
+# Force a specific figure as the lead image. Accepts "Figure 3", "Fig 3.2",
+# "fig. 4a", etc. Normalised to "Figure N" internally.
+image: Figure 3
+
+# Optional caption override for the lead image. Free text.
+image_caption: Source (2026), Figure 3. Annual spend by firm type.
+
+# Optional alt text for the lead image. Free text.
+image_alt: Bar chart comparing spend brackets across four firm sizes.
+
+# Optional 1-based page hint. When set, the figure cropper uses this page
+# directly instead of searching for the caption. Useful when the caption-text
+# match is ambiguous or the figure appears across page boundaries.
+image_page_hint: 5
+
+# Everything below the last structured directive becomes the free-text focus
+# block. It is appended verbatim to the user message under the heading
+# "READER EMPHASIS FOR THIS PAPER" — write it as you would tell a colleague
+# which angle to take.
+
+Frame this for an infrastructure-leadership reader, not an ML researcher.
+Lead with the deployment cost trade-off rather than the accuracy delta.
+Skip the related-work survey; we have read it.
