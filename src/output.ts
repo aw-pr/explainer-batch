@@ -186,18 +186,26 @@ function cropIsMostlyText(pdfPath: string, figureLabel: string, customId: string
 
 function attachFigureImage(json: ExplainerJson, customId: string): void {
   const override = lookupImageOverride(customId);
-  if (override) {
-    const existing = json.image;
-    json.image = {
-      ...(existing ?? {}),
-      source_figure: override.source_figure,
-      caption: override.caption ?? existing?.caption ?? `${override.source_figure} from the source paper.`,
-      alt_text: override.alt_text ?? existing?.alt_text ?? `${override.source_figure} from the source paper.`,
-    };
+
+  // Directive-only: the image block is supplied externally via .focus.md, never
+  // by the model. Empirically the model cannot reliably pick a figure from a
+  // PDF document block, so we drop anything it emits and only attach when a
+  // sidecar override exists.
+  if (!override) {
+    if (json.image) delete json.image;
+    return;
   }
 
+  const existing = json.image;
+  json.image = {
+    ...(existing ?? {}),
+    source_figure: override.source_figure,
+    caption: override.caption ?? existing?.caption ?? `${override.source_figure} from the source paper.`,
+    alt_text: override.alt_text ?? existing?.alt_text ?? `${override.source_figure} from the source paper.`,
+  };
+
   const image = json.image;
-  if (!image || !image.source_figure) return;
+  if (!image.source_figure) return;
   if (image.src) return; // already populated
 
   const pdfPath = resolveSourcePdf(customId);
