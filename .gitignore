@@ -1,5 +1,12 @@
 *.pdf
 
+# Input directory: per-paper directive sidecars are local working state.
+# Only the reference template stays tracked; everything else under input/
+# (PDFs, real .focus.md sidecars, OS detritus) is local.
+/input/*
+!/input/.gitkeep
+!/input/.focus.md.example
+
 
 # Dependencies
 node_modules/
