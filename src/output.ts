@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { spawnSync } from 'child_process';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
-import { extractFigureAsDataUrl } from './figure-extract';
+import { extractFigureAsDataUrl, deriveFigureCrop } from './figure-extract';
 import { readState } from './state';
 
 const ROOT_DIR = path.join(__dirname, '..');
@@ -97,7 +98,7 @@ function resolveSourcePdf(customId: string): string | null {
   return null;
 }
 
-function lookupImageOverride(customId: string): { source_figure: string; caption?: string; alt_text?: string } | undefined {
+function lookupImageOverride(customId: string): { source_figure: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
   try {
     const state = readState();
     for (const batch of state.batches) {
@@ -106,6 +107,81 @@ function lookupImageOverride(customId: string): { source_figure: string; caption
     }
   } catch { /* ignore */ }
   return undefined;
+}
+
+interface CropRect { xMin: number; yMin: number; xMax: number; yMax: number; }
+interface BboxWord { xMin: number; yMin: number; xMax: number; yMax: number; text: string; }
+interface PageBbox { width: number; height: number; words: BboxWord[]; }
+
+function parseBboxLayout(pdfPath: string, page: number): PageBbox | null {
+  const result = spawnSync(
+    'pdftotext',
+    ['-bbox-layout', '-f', String(page), '-l', String(page), pdfPath, '-'],
+    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+  );
+  if (result.error || result.status !== 0) return null;
+  const pageMatch = result.stdout.match(/<page[^>]*width="([\d.]+)"[^>]*height="([\d.]+)"/);
+  if (!pageMatch) return null;
+  const width = parseFloat(pageMatch[1]);
+  const height = parseFloat(pageMatch[2]);
+  if (!(width > 0) || !(height > 0)) return null;
+
+  const wordPattern = /<word[^>]*xMin="([\d.]+)"[^>]*yMin="([\d.]+)"[^>]*xMax="([\d.]+)"[^>]*yMax="([\d.]+)"[^>]*>([^<]*)<\/word>/g;
+  const words: BboxWord[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = wordPattern.exec(result.stdout)) !== null) {
+    words.push({
+      xMin: parseFloat(m[1]),
+      yMin: parseFloat(m[2]),
+      xMax: parseFloat(m[3]),
+      yMax: parseFloat(m[4]),
+      text: m[5].trim(),
+    });
+  }
+  return { width, height, words };
+}
+
+function textDensityInCrop(bbox: PageBbox, crop: CropRect): number {
+  const cropArea = (crop.xMax - crop.xMin) * (crop.yMax - crop.yMin);
+  if (!(cropArea > 0)) return 0;
+  let textArea = 0;
+  for (const w of bbox.words) {
+    const ix0 = Math.max(crop.xMin, w.xMin);
+    const iy0 = Math.max(crop.yMin, w.yMin);
+    const ix1 = Math.min(crop.xMax, w.xMax);
+    const iy1 = Math.min(crop.yMax, w.yMax);
+    if (ix1 > ix0 && iy1 > iy0) textArea += (ix1 - ix0) * (iy1 - iy0);
+  }
+  return textArea / cropArea;
+}
+
+// 0.30 is permissive; audit suggested 0.25. Tune downward if text-prose crops slip through.
+const FIGURE_TEXT_DENSITY_THRESHOLD = 0.30;
+
+/**
+ * Returns true if the crop is mostly text (likely body prose, not a figure)
+ * and the caller should drop `json.image`. Returns false when the gate cannot
+ * be evaluated (no PDF, tier 1 embedded raster, or no derivable crop bbox).
+ *
+ * Both gate and extraction consume `deriveFigureCrop` so they evaluate the
+ * same {page, cropPts} — no split-brain geometry.
+ */
+function cropIsMostlyText(pdfPath: string, figureLabel: string, customId: string, pageHint?: number): boolean {
+  const derived = deriveFigureCrop(pdfPath, figureLabel, { pageHint });
+  if (!derived) return false;
+  if (derived.tier === 'embedded') return false;
+
+  const bbox = parseBboxLayout(pdfPath, derived.page);
+  if (!bbox) return false;
+
+  const ratio = textDensityInCrop(bbox, derived.cropPts);
+  if (ratio > FIGURE_TEXT_DENSITY_THRESHOLD) {
+    console.warn(
+      `  ⚠ ${customId} p.${derived.page} ${figureLabel}: text density ${ratio.toFixed(2)} > ${FIGURE_TEXT_DENSITY_THRESHOLD.toFixed(2)} — dropping image block.`,
+    );
+    return true;
+  }
+  return false;
 }
 
 function attachFigureImage(json: ExplainerJson, customId: string): void {
@@ -131,9 +207,18 @@ function attachFigureImage(json: ExplainerJson, customId: string): void {
     return;
   }
 
-  const dataUrl = extractFigureAsDataUrl(pdfPath, image.source_figure);
+  const dataUrl = extractFigureAsDataUrl(pdfPath, image.source_figure, { pageHint: override?.pageHint });
   if (!dataUrl) {
     console.warn(`  ⚠ ${customId}: could not locate ${image.source_figure} in PDF — dropping image block.`);
+    delete json.image;
+    return;
+  }
+
+  // Text-density gate: drop the image if the crop is mostly body prose.
+  // Bypassed when the user supplied an explicit override (we trust them) or
+  // when no crop bbox is derivable (tier-1 embedded raster, unclear layout).
+  // Gate measures the same region extraction will crop (via deriveFigureCrop).
+  if (!override && cropIsMostlyText(pdfPath, image.source_figure, customId)) {
     delete json.image;
     return;
   }
