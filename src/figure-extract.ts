@@ -22,6 +22,8 @@ import { spawnSync } from 'child_process';
  */
 export interface ExtractOptions {
   dpi?: number;
+  /** Override page detection — when set, skip caption scan and use this page. */
+  pageHint?: number;
 }
 
 const MIN_EMBEDDED_WIDTH = 600;
@@ -30,6 +32,18 @@ const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 85;
 const CAPTION_MARGIN_PTS = 8;
 
+export interface FigureCropResult {
+  /** 1-indexed page number. */
+  page: number;
+  pageWidthPts: number;
+  pageHeightPts: number;
+  /** Crop rectangle in user-space points, top-left origin (matches pdftotext -bbox-layout). */
+  cropPts: { xMin: number; yMin: number; xMax: number; yMax: number };
+  column: ColumnBounds | null;
+  /** 'embedded' when pdfimages tier-1 would succeed; 'vector' for rasterised crop. */
+  tier: 'embedded' | 'vector' | null;
+}
+
 export function extractFigureAsDataUrl(
   pdfPath: string,
   figureLabel: string,
@@ -37,23 +51,22 @@ export function extractFigureAsDataUrl(
 ): string | null {
   if (!fs.existsSync(pdfPath)) return null;
 
-  const figureToken = parseFigureToken(figureLabel);
-  if (figureToken === null) return null;
-
-  const page = locateFigurePage(pdfPath, figureToken);
-  if (page === null) return null;
+  const derived = deriveFigureCrop(pdfPath, figureLabel, opts);
+  if (derived === null) return null;
+  const { page } = derived;
 
   if (isPageCodeHeavy(pdfPath, page)) {
     console.warn(`  ⚠ ${figureLabel} p.${page}: page looks code/text-heavy — dropping image block.`);
     return null;
   }
 
-  const embedded = extractEmbeddedImage(pdfPath, page);
-  if (embedded) return embedded;
+  if (derived.tier === 'embedded') {
+    const embedded = extractEmbeddedImage(pdfPath, page);
+    if (embedded) return embedded;
+  }
 
   const dpi = opts.dpi ?? 150;
-  const cropPts = findFigureCropPoints(pdfPath, page, figureToken);
-  const cropArgs = cropPts ? buildCropArgs(cropPts, dpi, pdfPath) : undefined;
+  const cropArgs = buildCropArgs(derived, dpi);
   const raster = rasterisePage(pdfPath, page, dpi, cropArgs);
   if (!raster) return null;
 
@@ -101,14 +114,14 @@ function encodeAsJpegDataUrl(pngPath: string): string | null {
  * `pdfimages`. Returns a data URL, or null if no suitably large image
  * is present (in which case the caller should fall back to page raster).
  */
-function extractEmbeddedImage(pdfPath: string, page: number): string | null {
+function hasEmbeddedImage(pdfPath: string, page: number): boolean {
   const list = spawnSync('pdfimages', ['-list', pdfPath], {
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
   });
-  if (list.error || list.status !== 0) return null;
+  if (list.error || list.status !== 0) return false;
 
-  const hasQualifyingImage = list.stdout
+  return list.stdout
     .split('\n')
     .map(line => line.trim())
     .filter(Boolean)
@@ -121,8 +134,10 @@ function extractEmbeddedImage(pdfPath: string, page: number): string | null {
       const height = Number.parseInt(cols[4], 10);
       return width >= MIN_EMBEDDED_WIDTH && height >= MIN_EMBEDDED_HEIGHT;
     });
+}
 
-  if (!hasQualifyingImage) return null;
+function extractEmbeddedImage(pdfPath: string, page: number): string | null {
+  if (!hasEmbeddedImage(pdfPath, page)) return null;
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-embed-'));
   const prefix = path.join(tmpDir, 'img');
@@ -223,11 +238,20 @@ function isPageCodeHeavy(pdfPath: string, page: number): boolean {
   return false;
 }
 
-function locateFigurePage(pdfPath: string, figureToken: string): number | null {
+function locateFigurePage(pdfPath: string, figureToken: string, pageHint?: number): number | null {
   const text = runPdftotext(pdfPath);
   if (text === null) return null;
 
   const pages = text.split('\f');
+
+  if (pageHint !== undefined) {
+    if (Number.isInteger(pageHint) && pageHint > 0 && pageHint <= pages.length) {
+      return pageHint;
+    }
+    console.warn(`  ⚠ pageHint ${pageHint} out of range (PDF has ${pages.length} pages) — skipping figure.`);
+    return null;
+  }
+
   const trailing = tokenAfterPattern(figureToken);
 
   // Prefer caption-style: "Figure N." or "Figure N:" at/near line start — this
@@ -286,15 +310,13 @@ function rasterisePage(pdfPath: string, page: number, dpi: number, cropArgs?: st
   return candidates[0];
 }
 
-function pageWidthPixels(pdfPath: string, dpi: number): number | null {
+function pageWidthPoints(pdfPath: string): number | null {
   const result = spawnSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
   if (result.error || result.status !== 0) return null;
   const match = result.stdout.match(/Page size:\s*([\d.]+)\s+x\s+([\d.]+)\s+pts/i);
   if (!match) return null;
-  const widthPts = Number.parseFloat(match[1]);
-  return Number.isFinite(widthPts) && widthPts > 0
-    ? Math.ceil(widthPts * (dpi / 72))
-    : null;
+  const w = Number.parseFloat(match[1]);
+  return Number.isFinite(w) && w > 0 ? w : null;
 }
 
 interface FigureCrop {
@@ -304,6 +326,8 @@ interface FigureCrop {
   figureTopY: number | null;
   /** Estimated bottom edge of the figure region (pts), or null if no clear gap detected below */
   figureBottomY: number | null;
+  /** Horizontal column the caption sits in, or null if page is single-column. */
+  column: ColumnBounds | null;
 }
 
 /** Minimum vertical gap (pts) adjacent to caption to count as a figure region. */
@@ -311,18 +335,35 @@ const MIN_FIGURE_GAP_PTS = 25;
 /** Assumed line height when projecting figure top below the last text row. */
 const LINE_HEIGHT_PTS = 12;
 
-function readBboxWords(pdfPath: string, page: number): Array<{ yMin: number; text: string }> | null {
+interface Word {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  text: string;
+}
+
+function readBboxWords(pdfPath: string, page: number): Word[] | null {
   const bbox = spawnSync(
     'pdftotext',
     ['-bbox', '-f', String(page), '-l', String(page), pdfPath, '-'],
     { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
   );
   if (!bbox.error && bbox.status === 0) {
-    const wordPattern = /<word[^>]+yMin="([\d.]+)"[^>]*>([^<]+)<\/word>/g;
-    const words: Array<{ yMin: number; text: string }> = [];
+    const wordPattern = /<word\s+([^>]+)>([^<]+)<\/word>/g;
+    const words: Word[] = [];
     let m: RegExpExecArray | null;
     while ((m = wordPattern.exec(bbox.stdout)) !== null) {
-      words.push({ yMin: parseFloat(m[1]), text: m[2].trim() });
+      const attrs = m[1];
+      const xMinM = attrs.match(/xMin="([\d.]+)"/);
+      const xMaxM = attrs.match(/xMax="([\d.]+)"/);
+      const yMinM = attrs.match(/yMin="([\d.]+)"/);
+      if (!yMinM) continue;
+      words.push({
+        xMin: xMinM ? parseFloat(xMinM[1]) : 0,
+        xMax: xMaxM ? parseFloat(xMaxM[1]) : 0,
+        yMin: parseFloat(yMinM[1]),
+        text: m[2].trim(),
+      });
     }
     if (words.length > 0) return words;
   }
@@ -339,22 +380,97 @@ function readBboxWords(pdfPath: string, page: number): Array<{ yMin: number; tex
     .slice(1)
     .map(line => line.split('\t'))
     .filter(cols => cols.length >= 12 && cols[0] === '5')
-    .map(cols => ({
-      yMin: Number.parseFloat(cols[7]),
-      text: cols.slice(11).join('\t').trim(),
-    }))
+    .map(cols => {
+      const xMin = Number.parseFloat(cols[6]);
+      const width = Number.parseFloat(cols[8]);
+      return {
+        xMin,
+        xMax: Number.isFinite(xMin) && Number.isFinite(width) ? xMin + width : 0,
+        yMin: Number.parseFloat(cols[7]),
+        text: cols.slice(11).join('\t').trim(),
+      };
+    })
     .filter(word => Number.isFinite(word.yMin) && word.text.length > 0);
 }
 
-function locateCaptionY(words: Array<{ yMin: number; text: string }>, figureToken: string): number | null {
+function locateCaptionWord(words: Word[], figureToken: string): Word | null {
   const escaped = figureToken.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
   const tokenPattern = new RegExp(String.raw`^${escaped}(?:[.:,]|$)`, 'i');
   for (let i = 0; i < words.length - 1; i++) {
     if (/^(Figure|Fig\.?)$/i.test(words[i].text) && tokenPattern.test(words[i + 1].text)) {
-      return words[i].yMin;
+      return words[i];
     }
   }
   return null;
+}
+
+export interface ColumnBounds {
+  left: number;
+  right: number;
+}
+
+/**
+ * Detect two-column layout by binning word x-centres and looking for a
+ * low-density gutter near the page midline. Single-column or ambiguous → null
+ * so the caller falls back to full-width crop.
+ */
+function findColumnBounds(words: Word[], pageWidthPts: number): { left: ColumnBounds; right: ColumnBounds } | null {
+  if (!Number.isFinite(pageWidthPts) || pageWidthPts <= 0 || words.length < 40) return null;
+
+  const BIN_PTS = 6;
+  const binCount = Math.ceil(pageWidthPts / BIN_PTS);
+  const bins = new Array<number>(binCount).fill(0);
+  for (const w of words) {
+    const centre = (w.xMin + w.xMax) / 2;
+    if (!Number.isFinite(centre) || centre < 0 || centre >= pageWidthPts) continue;
+    bins[Math.floor(centre / BIN_PTS)] += 1;
+  }
+  const total = bins.reduce((s, n) => s + n, 0);
+  if (total === 0) return null;
+
+  const mid = pageWidthPts / 2;
+  const midBin = Math.floor(mid / BIN_PTS);
+  const searchRadius = Math.ceil(80 / BIN_PTS);
+  const lowThreshold = Math.max(1, (total / binCount) * 0.2);
+
+  let gutterStart = -1;
+  let gutterEnd = -1;
+  let bestGutterWidth = 0;
+  for (let i = Math.max(0, midBin - searchRadius); i < Math.min(binCount, midBin + searchRadius); i++) {
+    if (bins[i] <= lowThreshold) {
+      let j = i;
+      while (j < Math.min(binCount, midBin + searchRadius) && bins[j] <= lowThreshold) j++;
+      const width = (j - i) * BIN_PTS;
+      if (width > bestGutterWidth) {
+        bestGutterWidth = width;
+        gutterStart = i * BIN_PTS;
+        gutterEnd = j * BIN_PTS;
+      }
+      i = j;
+    }
+  }
+  if (bestGutterWidth < 30) return null;
+
+  const leftWords = words.filter(w => (w.xMin + w.xMax) / 2 < gutterStart);
+  const rightWords = words.filter(w => (w.xMin + w.xMax) / 2 > gutterEnd);
+  if (leftWords.length < 20 || rightWords.length < 20) return null;
+
+  const leftXs = leftWords.flatMap(w => [w.xMin, w.xMax]);
+  const rightXs = rightWords.flatMap(w => [w.xMin, w.xMax]);
+  const left: ColumnBounds = { left: Math.min(...leftXs), right: Math.max(...leftXs) };
+  const right: ColumnBounds = { left: Math.min(...rightXs), right: Math.max(...rightXs) };
+  if (!Number.isFinite(left.left) || !Number.isFinite(right.right)) return null;
+  return { left, right };
+}
+
+function captionColumn(
+  captionWord: Word,
+  columns: { left: ColumnBounds; right: ColumnBounds },
+): ColumnBounds {
+  const centre = (captionWord.xMin + captionWord.xMax) / 2;
+  const distLeft = Math.abs(centre - (columns.left.left + columns.left.right) / 2);
+  const distRight = Math.abs(centre - (columns.right.left + columns.right.right) / 2);
+  return distLeft <= distRight ? columns.left : columns.right;
 }
 
 /**
@@ -372,13 +488,70 @@ function findFigureCropPoints(pdfPath: string, page: number, figureToken: string
   const words = readBboxWords(pdfPath, page);
   if (!words || words.length === 0) return null;
 
-  const captionY = locateCaptionY(words, figureToken);
-  if (captionY === null) return null;
+  const captionWord = locateCaptionWord(words, figureToken);
+  if (captionWord === null) return null;
+  const captionY = captionWord.yMin;
+
+  const pageWidthPts = pageWidthPoints(pdfPath);
+  const columns = pageWidthPts !== null ? findColumnBounds(words, pageWidthPts) : null;
+  const column = columns ? captionColumn(captionWord, columns) : null;
 
   const figureTopY = findGapAbove(words, captionY);
   const figureBottomY = findGapBelow(words, captionY, pageHeightPoints(pdfPath));
 
-  return { captionY, figureTopY, figureBottomY };
+  return { captionY, figureTopY, figureBottomY, column };
+}
+
+/**
+ * Single source of truth for the figure crop rectangle. Both the rasteriser
+ * and the text-density gate consume this so they evaluate the same region.
+ */
+export function deriveFigureCrop(
+  pdfPath: string,
+  figureLabel: string,
+  opts: { pageHint?: number } = {},
+): FigureCropResult | null {
+  if (!fs.existsSync(pdfPath)) return null;
+  const figureToken = parseFigureToken(figureLabel);
+  if (figureToken === null) return null;
+
+  const page = locateFigurePage(pdfPath, figureToken, opts.pageHint);
+  if (page === null) return null;
+
+  const pageWidthPts = pageWidthPoints(pdfPath);
+  const pageHeightPts = pageHeightPoints(pdfPath);
+  if (pageWidthPts === null || pageHeightPts === null) return null;
+
+  const tier: 'embedded' | 'vector' = hasEmbeddedImage(pdfPath, page) ? 'embedded' : 'vector';
+
+  const crop = findFigureCropPoints(pdfPath, page, figureToken);
+  if (!crop) return null;
+
+  const topPts = crop.figureTopY !== null
+    ? crop.figureTopY
+    : Math.max(0, crop.captionY - CAPTION_MARGIN_PTS);
+  const bottomPts = crop.figureBottomY !== null
+    ? crop.figureBottomY
+    : Math.min(pageHeightPts, crop.captionY + CAPTION_MARGIN_PTS);
+  if (!(bottomPts > topPts)) return null;
+
+  let xMin = 0;
+  let xMax = pageWidthPts;
+  if (crop.column) {
+    const COLUMN_BLEED_PTS = 6;
+    xMin = Math.max(0, crop.column.left - COLUMN_BLEED_PTS);
+    xMax = Math.min(pageWidthPts, crop.column.right + COLUMN_BLEED_PTS);
+    if (!(xMax > xMin)) { xMin = 0; xMax = pageWidthPts; }
+  }
+
+  return {
+    page,
+    pageWidthPts,
+    pageHeightPts,
+    cropPts: { xMin, yMin: topPts, xMax, yMax: bottomPts },
+    column: crop.column,
+    tier,
+  };
 }
 
 function findGapAbove(words: Array<{ yMin: number }>, captionY: number): number | null {
@@ -450,28 +623,18 @@ function pageHeightPoints(pdfPath: string): number | null {
   return Number.isFinite(h) && h > 0 ? h : null;
 }
 
-function buildCropArgs(crop: FigureCrop, dpi: number, pdfPath: string): string[] | undefined {
-  // Don't crop unless we found a gap on at least one side. A confident bottom
-  // implies the figure is below the caption (report style); a confident top
-  // implies above (academic style). Both → crop the union including caption.
-  if (crop.figureTopY === null && crop.figureBottomY === null) return undefined;
-
-  const widthPx = pageWidthPixels(pdfPath, dpi);
-  if (widthPx === null) return undefined;
-
+function buildCropArgs(derived: FigureCropResult, dpi: number): string[] | undefined {
   const ptsToPx = dpi / 72;
+  const fullWidthPx = Math.ceil(derived.pageWidthPts * ptsToPx);
+  const { xMin, yMin, xMax, yMax } = derived.cropPts;
 
-  const topPts = crop.figureTopY !== null
-    ? crop.figureTopY
-    : crop.captionY - CAPTION_MARGIN_PTS;
-  const bottomPts = crop.figureBottomY !== null
-    ? crop.figureBottomY
-    : crop.captionY + CAPTION_MARGIN_PTS;
+  const xPx = Math.max(0, Math.floor(xMin * ptsToPx));
+  const yPx = Math.max(0, Math.floor(yMin * ptsToPx));
+  const widthPx = Math.min(fullWidthPx - xPx, Math.ceil((xMax - xMin) * ptsToPx));
+  const heightPx = Math.ceil((yMax - yMin) * ptsToPx);
+  if (widthPx <= 0 || heightPx <= 0) return undefined;
 
-  const yPx = Math.max(0, Math.round(topPts * ptsToPx));
-  const heightPx = Math.round((bottomPts - topPts) * ptsToPx);
-  if (heightPx <= 0) return undefined;
-  return ['-x', '0', '-y', String(yPx), '-W', String(widthPx), '-H', String(heightPx)];
+  return ['-x', String(xPx), '-y', String(yPx), '-W', String(widthPx), '-H', String(heightPx)];
 }
 
 function cleanupDir(dir: string): void {
