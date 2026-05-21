@@ -127,7 +127,18 @@ Use `list` when the source material is genuinely a sequence, taxonomy, or named 
 }
 ```
 
-Use any Chart.js type the data calls for: grouped bar, stacked bar, line, radar, scatter, pie, doughnut. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
+Use any Chart.js type the data calls for: grouped bar, stacked bar, line, radar, scatter. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
+
+**Choose the chart type by trigger, not default.** Bar is not the safe pick — match the shape of the data:
+
+- **radar**: 3-6 systems compared on the same set of 3+ comparable metrics; capability or profile shapes. If the paper itself uses a radar/spider chart, reproduce that shape.
+- **scatter**: two continuous variables plotted against each other (cost vs accuracy, latency vs throughput, parameters vs benchmark score).
+- **line**: any series indexed by time, training steps, or another continuous axis.
+- **grouped or stacked bar**: comparison across discrete categories with a single scalar (or stacked components) each.
+
+Pie and doughnut are off the menu. Share-of-whole splits belong in `top_block.pills` or prose, not a chart.
+
+If the paper's own central figure is a radar, spider, scatter, or line, reproduce that shape. Do not collapse it to a bar.
 
 **Every numeric axis must carry its unit.** Set `options.scales.<axis>.title.text` to the real quantity and unit from the paper, and set `options.scales.<axis>.title.display` to `true`. Examples: `"Tokens per second"`, `"Throughput (tok/s/GPU)"`, `"Latency (ms)"`, `"Cost per million tokens (USD)"`, `"Memory (GB)"`. Never use `"Value"`, `"Amount"`, `"Number"`, a blank string, or leave `display: false` on a numeric axis. Category axes (model names, layer types, stages) do not need a unit — a numeric axis always does.
 
