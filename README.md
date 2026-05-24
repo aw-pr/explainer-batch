@@ -1,7 +1,10 @@
 # explainer-batch
 
-Turn research PDFs into structured JSON explainer articles using the Claude or
-OpenAI batch/sync APIs.
+**Turn research PDFs into structured JSON explainer articles using the Claude or OpenAI batch/sync APIs.**
+
+![Node](https://img.shields.io/badge/node-20%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 - **Input:** local PDFs and/or a list of paper URLs.
 - **Output:** one `output/<slug>.json` per paper — a validated, schema-stable
