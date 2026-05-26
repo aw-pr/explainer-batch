@@ -1,4 +1,4 @@
-# Simple explainers from long-form academic publications.
+# Simple explainers from long-form academic publications
 
 **Turn research PDFs into structured JSON explainer articles using the Claude or OpenAI batch/sync APIs.**
 
