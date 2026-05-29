@@ -24,6 +24,13 @@ export interface ExtractOptions {
   dpi?: number;
   /** Override page detection — when set, skip caption scan and use this page. */
   pageHint?: number;
+  /**
+   * Skip the embedded-raster (tier 1) extraction and force a vector page-crop.
+   * Needed for composite figures where the only large embedded image is a
+   * sub-panel (e.g. a heatmap strip), so tier 1 would return that fragment
+   * instead of the full figure drawn from vector primitives.
+   */
+  forceRaster?: boolean;
 }
 
 const MIN_EMBEDDED_WIDTH = 600;
@@ -65,7 +72,7 @@ export function extractFigureAsDataUrl(
     return null;
   }
 
-  if (derived.tier === 'embedded') {
+  if (derived.tier === 'embedded' && !opts.forceRaster) {
     const embedded = extractEmbeddedImage(pdfPath, page);
     if (embedded) return embedded;
   }

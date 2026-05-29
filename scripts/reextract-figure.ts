@@ -4,10 +4,14 @@
  * want to apply the new crop without burning another batch.
  *
  * Usage:
- *   npm run reextract -- <json> <pdf> <figure-label> [--page <n>] [--caption "..."] [--alt "..."]
+ *   npm run reextract -- <json> <pdf> <figure-label> [--page <n>] [--caption "..."] [--alt "..."] [--raster]
  *
  * Example:
  *   npm run reextract -- output/2026-05-21_liu_explainer.json input/2604.14228v1.pdf "Figure 3" --page 8
+ *
+ * Pass --raster for composite figures whose only large embedded image is a
+ * sub-panel (e.g. a heatmap strip): it skips tier-1 embedded extraction and
+ * rasterises the full vector region instead.
  */
 import fs from 'fs';
 import { extractFigureAsDataUrl } from '../src/figure-extract';
@@ -39,11 +43,12 @@ if (pageHint !== undefined && (!Number.isInteger(pageHint) || pageHint <= 0)) {
 }
 const captionOverride = arg('--caption');
 const altOverride = arg('--alt');
+const forceRaster = process.argv.includes('--raster');
 
 const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-console.log(`Re-extracting "${figureLabel}" from ${pdfPath}${pageHint ? ` (page ${pageHint})` : ''}...`);
+console.log(`Re-extracting "${figureLabel}" from ${pdfPath}${pageHint ? ` (page ${pageHint})` : ''}${forceRaster ? ' [raster]' : ''}...`);
 
-const src = extractFigureAsDataUrl(pdfPath, figureLabel, { pageHint });
+const src = extractFigureAsDataUrl(pdfPath, figureLabel, { pageHint, forceRaster });
 if (!src) {
   console.error('Extraction returned null - check the figure label and (if vector) the page hint.');
   process.exit(1);
