@@ -22,7 +22,7 @@ export function buildSystemPrompt(): string {
 export function buildUserInstruction(expectedDate: string, focusHint?: string): string {
   const base = [
     'Create a JSON explainer for this paper following the skill instructions.',
-    'Read the figures and tables as well as the prose — recreate data-bearing figures as Chart.js charts. If the paper has a single standout conceptual figure (visual abstract, architecture overview, taxonomy), emit it as an `image` block per skill.md; otherwise omit `image`. Never invent figure content.',
+    'Read the figures and tables as well as the prose. Put value grids (metric × system breakdowns) in `table` blocks; reserve Chart.js charts for genuine trends, relationships, or capability profiles per skill.md, and prefer a table over a bar chart when in doubt. If the paper has a single standout conceptual figure (visual abstract, architecture overview, taxonomy), emit it as an `image` block per skill.md; otherwise omit `image`. Never invent figure content.',
     'When a visual detail is unclear, state the uncertainty or omit it rather than guessing.',
     `Use ${expectedDate} as metadata.date_created and as the YYYY-MM-DD prefix of metadata.filename_slug (slug format: YYYY-MM-DD_authorsurname_short-title_explainer).`,
     'hero.publication_date must use the format "Published Month Year".',

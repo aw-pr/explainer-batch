@@ -109,6 +109,16 @@ Include `end_takeaway` only when `top_block.kind` is `"pills"`.
       { "label": "Decision 1", "body": "What the first decision covers." },
       { "label": "Decision 2", "body": "What the second decision covers." }
     ]
+  },
+  "table": {
+    "caption": "Author (Year), Table/Figure N. What the numbers are.",
+    "columns": ["Dataset", "Mistral 7B", "Llama 3.1 8B", "Yi 9B"],
+    "rows": [
+      ["HotpotQA",  "58.4", "52.0", "52.1"],
+      ["MuSiQue",   "63.6", "58.8", "58.4"],
+      ["MultiNews", "20.1", "17.7", "16.4"]
+    ],
+    "align": ["left", "right", "right", "right"]
   }
 }
 ```
@@ -116,6 +126,14 @@ Include `end_takeaway` only when `top_block.kind` is `"pills"`.
 `paragraphs_html` mirrors `paragraphs` with inline markup (`<strong>`, `<em>`, `<a href="..." target="_blank" rel="noopener noreferrer">`). Include it whenever a paragraph has useful inline emphasis.
 
 Use `list` when the source material is genuinely a sequence, taxonomy, or named set of roles or steps — not to decorate ordinary prose.
+
+### table
+
+Use `table` for a grid of values the reader *reads off and scans* rather than compares by magnitude — a metric × system matrix, a per-dataset breakdown, a feature comparison. `columns` are the headers (first column is usually the row label), `rows` are plain-text cells aligned to `columns` by index, and `align` (optional) sets per-column text alignment (default: first column left, the rest right). Cells are strings so units and ranges render verbatim (`"32.3"`, `"16-64%"`, `"OOM"`, `"O(N²)"`).
+
+**A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart.** A grouped bar chart of `metric × system` (e.g. an overhead percentage across six datasets and three models) is almost always a table wearing a costume: bar height encodes a number the reader could read more precisely from a cell, and the grouping adds clutter, not insight. Put that data in a `table`. Reserve charts for the cases in the chart-decision rules below: a genuine trend (line), a two-variable relationship (scatter), or a capability profile (radar). When in doubt between a bar chart and a table, choose the table.
+
+Architecture, systems-design, framework, and position papers are *table-and-prose* papers, not chart papers. They typically warrant **zero or one** chart (only if there is a real trend or relationship worth a line/scatter), with supporting numbers carried by `table` blocks and the argument by prose. Do not manufacture bar charts to fill space.
 
 ### chart
 
@@ -180,6 +198,7 @@ Then, for what does qualify:
 - For a **data-bearing figure** (measured values, comparisons, trends): reproduce it as a Chart.js chart in `charts`. Match the axes, groupings, and data points. If multiple central results figures exist and each adds a distinct story, include multiple charts.
 - **Never chart a checklist, conformance table, or category list.** If every value would be the same number (all 100%, all `true`, all `2`, all "yes"), or the axis has no meaningful scale, it is not a chart — rewrite it as a `list` inside a prose section, or a `takeaway` / `pills` block. Charts exist to show *variation*; equal-height bars communicate nothing.
 - **Never chart a single number or a single proportion.** One headline figure, a share-of-whole split (whether pie, doughnut, or bar), or one metric with no second series is a *pill*, not a chart — emit it in `top_block.pills` and state it in prose. A chart must carry at least two genuinely different data points with real magnitudes that a reader compares against each other (a trend over time, categories at different measured magnitudes, multiple series). If the figure collapses to "the number is X" or "the split is X/Y", it belongs in pills.
+- **Prefer a `table` over a grouped/stacked bar for a value grid.** A metric × system matrix (per-dataset, per-model, per-config breakdowns) reads more precisely as a `table` than as bars, and a reader rarely needs bar height to compare them. Default such data to a `table` block in a prose section. A bar chart earns its place only when the *shape* of the magnitudes across a handful of categories is itself the point and a table would bury it.
 - Put the most important chart first — it renders after the first prose section, below the opening text.
 
 **Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream from a per-paper directive sidecar (`<paper>.focus.md`). Your job is to author the prose, pills, charts, and structure; the image is supplied externally or omitted entirely.
@@ -228,8 +247,9 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] No chart has uniform values (all bars equal, all rows `true`, all categories the same count). If a "chart" is really a checklist or membership table, it belongs in a `list` or `takeaway`, not `charts`.
 - [ ] No chart conveys just a single number or one share-of-whole split (whether pie, doughnut, or 2-bar). Single figures and proportions go in `top_block.pills`; a chart must compare at least two genuinely different data points with real magnitudes.
 - [ ] No chart encodes an ordinal ranking as bar height (datasets like `[1, 2, 3, 4]` or `[0, 1, 2, 3]` where the numbers mean "order", not "amount"). Rank order goes in a numbered list or prose.
+- [ ] No grouped/stacked bar chart is doing a `table`'s job. A metric × system value grid is a `table` block, not bars. Architecture/systems/framework papers carry their numbers in `table` blocks and cap at zero or one chart.
 - [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true` — never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
 - [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
-- [ ] `sections` has 2–5 entries, each with a `label` and either `paragraphs` or `list`.
+- [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
 - [ ] `references` contains the primary source with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`).
 - [ ] No em dashes, corporate jargon, or AI tell-tales in prose.

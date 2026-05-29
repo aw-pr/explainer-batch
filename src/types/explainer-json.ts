@@ -153,6 +153,12 @@ export interface ExplainerSection {
    * ordered frameworks, named steps, or explicit taxonomies.
    */
   list?: ExplainerSectionList;
+  /**
+   * Structured tabular content. Preferred over a bar chart when the source
+   * material is a grid of values (e.g. metric × system) that a reader scans
+   * rather than compares by magnitude. See ExplainerSectionTable.
+   */
+  table?: ExplainerSectionTable;
 }
 
 export interface ExplainerSectionList {
@@ -175,4 +181,22 @@ export interface ExplainerSectionListItem {
   body: string;
   /** Optional HTML version of the item body */
   body_html?: string;
+}
+
+export interface ExplainerSectionTable {
+  /** Optional caption shown below the table, e.g. "Hu et al. (2025), Figure 10." */
+  caption?: string;
+  /** Column headers in display order. First column is usually the row label. */
+  columns: string[];
+  /**
+   * Rows in source order. Each row is an array of plain-text cell values
+   * aligned to `columns` by index. Cells are strings so units and ranges
+   * ("32.3", "16-64%", "OOM") render verbatim.
+   */
+  rows: string[][];
+  /**
+   * Optional per-column text alignment, aligned to `columns` by index.
+   * Default: first column left, remaining columns right (numeric).
+   */
+  align?: Array<'left' | 'right' | 'center'>;
 }

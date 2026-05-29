@@ -101,8 +101,11 @@ function resolveSourcePdf(customId: string): string | null {
 function lookupImageOverride(customId: string): { source_figure: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
   try {
     const state = readState();
-    for (const batch of state.batches) {
-      const req = batch.requests[customId];
+    // Iterate newest-first: when a paper is re-run, the most recent batch's
+    // override wins. Oldest-first would resurrect a stale figure directive
+    // from a superseded run.
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const req = state.batches[i].requests[customId];
       if (req?.imageOverride) return req.imageOverride;
     }
   } catch { /* ignore */ }
