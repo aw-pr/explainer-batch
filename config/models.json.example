@@ -1,9 +1,9 @@
 {
   "_comment": "Copy to config/models.json (gitignored) for per-provider model overrides. Any key may be omitted; env vars (MODEL_BATCH, etc.) take precedence over this file, which takes precedence over the built-in defaults shown here.",
   "claude": {
-    "batchModel": "claude-opus-4-7",
-    "laneModel": "claude-opus-4-7",
-    "synthesisModel": "claude-opus-4-7",
+    "batchModel": "claude-opus-4-8",
+    "laneModel": "claude-opus-4-8",
+    "synthesisModel": "claude-opus-4-8",
     "repairModel": "claude-sonnet-4-6",
     "maxTokens": 16384,
     "laneMaxTokens": 16384,

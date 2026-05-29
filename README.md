@@ -123,6 +123,7 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
+| `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
 | `npm run guards:install` | Arm the local publish git hooks (contributors) |
 
 Always pass `--provider claude` or `--provider openai` explicitly. With no flag
@@ -175,7 +176,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
-Model defaults — Claude: batch/lane/synthesis `claude-opus-4-7`, repair
+Model defaults — Claude: batch/lane/synthesis `claude-opus-4-8`, repair
 `claude-sonnet-4-6`. OpenAI: batch/synthesis `gpt-5.4`, lane/repair
 `gpt-5.4-mini`. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).

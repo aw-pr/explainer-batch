@@ -32,7 +32,7 @@ content across three files and it drifted — keep it single-source.)
 - **`state.json`** — auto-managed (Files API IDs, batch IDs, per-request
   results), gitignored, never hand-edited.
 - **Model defaults** — `src/model-config.ts`. Claude: batch/lane/synthesis
-  `claude-opus-4-7`, repair `claude-sonnet-4-6`.
+  `claude-opus-4-8`, repair `claude-sonnet-4-6`.
 - **Output post-processing** — every save path funnels through `saveResult`
   (`src/output.ts`): `normalizeSchemaDrift` then `attachFigureImage`. Opus
   consistently emits `paragraphs_html`/`heading` variants; the normaliser

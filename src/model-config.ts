@@ -56,9 +56,9 @@ export function getModelConfig(provider: ProviderName): ModelConfig {
   if (provider === 'claude') {
     return {
       provider,
-      batchModel: process.env.MODEL_BATCH ?? process.env.MODEL ?? file.batchModel ?? 'claude-opus-4-7',
-      laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'claude-opus-4-7',
-      synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'claude-opus-4-7',
+      batchModel: process.env.MODEL_BATCH ?? process.env.MODEL ?? file.batchModel ?? 'claude-opus-4-8',
+      laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'claude-opus-4-8',
+      synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'claude-opus-4-8',
       repairModel: process.env.MODEL_REPAIR ?? file.repairModel ?? 'claude-sonnet-4-6',
       maxTokens: parsePositiveInt(process.env.MAX_TOKENS, file.maxTokens ?? 16384),
       laneMaxTokens: parsePositiveInt(process.env.LANE_MAX_TOKENS, file.laneMaxTokens ?? 16384),
