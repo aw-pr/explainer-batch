@@ -162,7 +162,11 @@ If the paper's own central figure is a radar, spider, scatter, or line, reproduc
 
 ### references
 
-One entry per primary source. Raw HTML string with the URL wrapped in an anchor:
+**Exactly one entry: the paper being explained.** This is the source citation
+for *this* explainer, not a bibliography. Do not add the works the paper itself
+cites (baselines, prior methods, related systems) — they belong in the original
+paper's reference list, not here. A single-element array, raw HTML string with
+the URL wrapped in an anchor:
 
 ```json
 [
@@ -251,5 +255,5 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true` — never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
 - [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
-- [ ] `references` contains the primary source with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`).
+- [ ] `references` is a single entry — the paper being explained — with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`). No cited-work bibliography.
 - [ ] No em dashes, corporate jargon, or AI tell-tales in prose.
