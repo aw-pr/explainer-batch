@@ -24,7 +24,7 @@
 ## Architecture
 
 ```mermaid
-flowchart TD
+flowchart LR
   subgraph IN["Inputs"]
     A1["Local PDFs<br/>(input/*.pdf)"]
     A2["Paper URLs<br/>(input/urls.txt)"]
