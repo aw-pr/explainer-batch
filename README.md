@@ -23,30 +23,11 @@
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph IN["Inputs"]
-    A1["Local PDFs<br/>(input/*.pdf)"]
-    A2["Paper URLs<br/>(input/urls.txt)"]
-  end
+<p align="center">
+  <img src="docs/architecture.svg" width="900" alt="Explainer pipeline: inputs (local PDFs + paper URLs) → preprocess → run mode (batch at 50% discount, or synchronous) → validate and repair, normalise schema drift, extract figure → output/<slug>.json → optional staged website HTML when WEBSITE_REPO is set.">
+</p>
 
-  IN --> B["Preprocess"]
-
-  B --> C{"Run mode"}
-  C -->|"batch (50% discount)"| D["Submit + poll provider batch"]
-  C -->|"--sync (fast, single)"| E["Synchronous run"]
-
-  D --> F["Validate + one-pass repair"]
-  E --> F
-  F --> G["Normalise schema drift"]
-  G --> H["Extract figure from source PDF"]
-  H --> R(["output/&lt;slug&gt;.json"])
-
-  R -. "only if WEBSITE_REPO set" .-> S["Stage + render website HTML"]
-
-  classDef opt stroke-dasharray:4 4;
-  class S opt;
-```
+<sub>Diagram source: <a href="./docs/architecture.mmd"><code>docs/architecture.mmd</code></a> — regenerate with <code>npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg -b white</code>.</sub>
 
 Claude and OpenAI are both supported as the provider; the website step (`S`) is
 entirely optional.
