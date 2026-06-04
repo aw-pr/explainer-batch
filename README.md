@@ -64,7 +64,7 @@ entirely optional.
 - **tmux** — only required for the secure headless route
   (`npm run process:secure:tmux`).
 
-## Quick start (no 1Password — primary path)
+## Quick start
 
 ```bash
 npm install
@@ -94,7 +94,8 @@ Generated JSON lands in `output/` (or `EXPLAINER_OUTPUT_DIR`). **No website
 repo is required** — staging and website-HTML export are skipped unless
 `WEBSITE_REPO` is set.
 
-## Quick start (with 1Password — optional)
+<details>
+<summary><strong>Headless / 1Password route (optional)</strong></summary>
 
 For non-interactive/headless runs without putting keys in `.env` or your shell:
 
@@ -110,6 +111,8 @@ PROVIDER=claude npm run process:secure:tmux # Claude batch
 selected route needs via an `op-fetch` resolver on `PATH`, and runs the child
 in a detached tmux session with a sanitised environment. If `op-fetch` or
 `op-refs.local.sh` is absent it falls back to running directly with `.env`.
+
+</details>
 
 ## Commands
 
@@ -140,7 +143,8 @@ and no `PROVIDER` env var the default is `claude`.
   - PDF: sidecar `input/<basename>.focus.md` (body = emphasis block).
   - URL: append `# focus: …` to the line in `urls.txt`.
 
-### Per-paper directives (`<paper>.focus.md`)
+<details>
+<summary><strong>Per-paper directives (<code>&lt;paper&gt;.focus.md</code>)</strong></summary>
 
 For a PDF at `input/my-paper.pdf`, an optional sidecar at
 `input/my-paper.focus.md` lets you steer one paper without touching the global
@@ -158,10 +162,15 @@ ignored silently.
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
+</details>
+
 ## Configuration
 
 All variables are optional except a provider credential. Set them in `.env`,
 `.env.local`, or the shell.
+
+<details>
+<summary><strong>Environment variables, model defaults, and auth routes</strong></summary>
 
 | Variable | Purpose | Default |
 |---|---|---|
@@ -190,8 +199,10 @@ Model defaults — Claude: batch/lane/synthesis `claude-opus-4-8`, repair
 | OpenAI batch | `OPENAI_API_KEY` | semantic-lane extraction + synthesis |
 | OpenAI sync | Codex CLI auth (no key fetched) or `OPENAI_API_KEY` | fast single runs, no batch wait |
 
-1Password is optional and orthogonal to the route — see *Quick start (with
-1Password)* and `docs/SECURITY.md`.
+1Password is optional and orthogonal to the route — see the headless route
+above and `docs/SECURITY.md`.
+
+</details>
 
 ## How it works
 
@@ -230,6 +241,9 @@ land in both repos.
 
 ## Troubleshooting
 
+<details>
+<summary><strong>Common symptoms and fixes</strong></summary>
+
 | Symptom | Cause / fix |
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
@@ -237,6 +251,8 @@ land in both repos.
 | `JSON parse failed — raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
 | `op-fetch is not installed` | Not fatal — the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
+
+</details>
 
 ## Development
 
