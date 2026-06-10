@@ -182,6 +182,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
 | `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
 | `EXPLAINER_OUTPUT_DIR` | Where JSON is written | `<repo>/output` |
+| `EXPLAINER_OBSIDIAN_DIR` | Extra always-on mirror for each saved JSON (independent of the output dir and website staging) | `~/obsidian/explainers` (set empty to disable) |
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
@@ -221,7 +222,8 @@ above and `docs/SECURITY.md`.
      deterministically locates the named figure in the source PDF (poppler +
      `sips`), re-encodes to a downscaled JPEG, and inlines it as a base64 data
      URL. Failures drop the image block silently — the explainer still renders.
-   - JSON is written to the output dir; if `WEBSITE_REPO` is set it is also
+   - JSON is written to the output dir, mirrored to `EXPLAINER_OBSIDIAN_DIR`
+     (`~/obsidian/explainers` by default), and, if `WEBSITE_REPO` is set, also
      staged and rendered to standalone HTML.
 
 The system prompt is `skill.md` (after its YAML frontmatter) sent verbatim.

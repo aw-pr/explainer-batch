@@ -48,9 +48,11 @@ code default is `claude`.
 - Schema-drift fixes belong in `normalizeSchemaDrift` (`src/output.ts`), not in
   the prompt. OpenAI and Claude save paths are deliberately in sync.
 - Input/output locations and integrations are parameterised
-  (`EXPLAINER_INPUT_DIR`, `EXPLAINER_OUTPUT_DIR`, `WEBSITE_REPO`,
-  `EXPLAINER_JOBS_DIR`); code degrades gracefully / uses repo defaults when
-  unset.
+  (`EXPLAINER_INPUT_DIR`, `EXPLAINER_OUTPUT_DIR`, `EXPLAINER_OBSIDIAN_DIR`,
+  `WEBSITE_REPO`, `EXPLAINER_JOBS_DIR`); code degrades gracefully / uses repo
+  defaults when unset. Each saved JSON lands in the output dir, the Obsidian
+  mirror (`~/obsidian/explainers` unless disabled), and website staging when
+  configured.
 
 ## Publishing
 

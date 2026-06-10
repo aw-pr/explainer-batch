@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
@@ -36,11 +37,28 @@ export const WEBSITE_STAGING_DIR: string | null = WEBSITE_REPO_ROOT
   ? path.join(WEBSITE_REPO_ROOT, 'explainers-new')
   : null;
 
+/**
+ * Always-on mirror for generated explainers into a local knowledge base (an
+ * Obsidian vault by default). Independent of OUTPUT_DIR and the optional
+ * WEBSITE_REPO staging copy, so a saved explainer lands in every configured
+ * destination at once. Defaults to `~/obsidian/explainers`; override the
+ * location with EXPLAINER_OBSIDIAN_DIR, or set it to an empty string to turn
+ * the mirror off.
+ */
+export const OBSIDIAN_MIRROR_DIR: string | null = (() => {
+  const raw = process.env.EXPLAINER_OBSIDIAN_DIR;
+  if (raw === '') return null;
+  if (raw) return path.resolve(raw);
+  return path.join(os.homedir(), 'obsidian', 'explainers');
+})();
+
 export interface SaveResult {
   jsonFile: string;
   jsonPath: string;
   /** null when WEBSITE_REPO is not configured (staging skipped). */
   stagedJsonPath: string | null;
+  /** null when the Obsidian mirror is disabled (EXPLAINER_OBSIDIAN_DIR=""). */
+  mirroredJsonPath: string | null;
 }
 
 /**
@@ -351,9 +369,18 @@ export async function saveResult(customId: string, rawText: string): Promise<Sav
     fs.copyFileSync(outPath, stagedPath);
   }
 
+  // Mirror into the local knowledge base (Obsidian vault) unless disabled.
+  let mirroredPath: string | null = null;
+  if (OBSIDIAN_MIRROR_DIR) {
+    fs.mkdirSync(OBSIDIAN_MIRROR_DIR, { recursive: true });
+    mirroredPath = path.join(OBSIDIAN_MIRROR_DIR, filename);
+    fs.copyFileSync(outPath, mirroredPath);
+  }
+
   return {
     jsonFile: filename,
     jsonPath: outPath,
     stagedJsonPath: stagedPath,
+    mirroredJsonPath: mirroredPath,
   };
 }
