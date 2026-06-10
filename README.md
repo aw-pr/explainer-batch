@@ -191,6 +191,15 @@ Model defaults — Claude: batch/lane/synthesis `claude-opus-4-8`, repair
 `gpt-5.4-mini`. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
 
+Fable 5 is opt-in, not a default. The Claude `synthesisModel` is only consulted
+on the `--sync` (OAuth/subscription) path; the batch path generates on
+`batchModel`. So reach for Fable on the route where it is cheapest:
+
+- **API batch (preferred):** `MODEL_BATCH=claude-fable-5 npm run process -- --provider claude`. The batch API applies its 50% discount, and Fable 5 needs your Console admin to have accepted 30-day data retention (misuse detection only, not training).
+- **Sync/OAuth:** `MODEL_SYNTHESIS=claude-fable-5 npm run process -- --provider claude --sync`. On the Claude.ai subscription, Fable 5 is free until 22 June 2026, then pre-paid with no batch discount, so prefer the API-batch route once that window closes.
+
+Fable runs once per paper, so its cost multiplies by paper count.
+
 ### Auth routes
 
 | Route | Credential | Notes |
