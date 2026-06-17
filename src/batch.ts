@@ -871,6 +871,12 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
 async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void> {
   const modelConfig = getModelConfig('claude');
   const authMode = detectClaudeAuthMode(true);
+  if (authMode !== 'claude_cli') {
+    throw new Error(
+      'Sync mode runs only on the Claude max-plan OAuth route (CLAUDE_CODE_OAUTH_TOKEN). ' +
+      'Use batch mode (drop --sync) for ANTHROPIC_API_KEY.'
+    );
+  }
   const client = getClaudeClient();
   const freshState = readState();
   const freshBatch = getBatchById(freshState, batchId);
@@ -878,30 +884,18 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
   const savedResults: SaveResult[] = [];
   const expectedDate = dateFromIso(freshBatch.submitted_at);
 
-  if (authMode === 'claude_cli') {
-    console.log(`  Using Claude max-plan route (CLAUDE_CODE_OAUTH_TOKEN) — no API credits consumed`);
-  }
+  console.log(`  Using Claude max-plan route (CLAUDE_CODE_OAUTH_TOKEN) — no API credits consumed`);
 
   for (const item of items) {
     const req = freshBatch.requests[item.customId];
     if (!req) continue;
     const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
     try {
-      let response: ProviderMessageResponse;
-      if (authMode === 'claude_cli') {
-        response = await client.createMessageViaCli(
-          modelConfig.synthesisModel,
-          buildSystemPrompt(),
-          buildClaudeRequestContent(item, userInstruction)
-        );
-      } else {
-        response = await client.createMessageWithContent(
-          modelConfig.synthesisModel,
-          modelConfig.synthesisMaxTokens,
-          buildSystemPrompt(),
-          buildClaudeRequestContent(item, userInstruction)
-        );
-      }
+      const response = await client.createMessageViaCli(
+        modelConfig.synthesisModel,
+        buildSystemPrompt(),
+        buildClaudeRequestContent(item, userInstruction)
+      );
       const repaired = await maybeRepairClaude(
         client,
         authMode,
