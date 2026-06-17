@@ -5,6 +5,15 @@ import { spawnSync } from 'child_process';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
 import { extractFigureAsDataUrl, deriveFigureCrop } from './figure-extract';
 import { readState } from './state';
+import { loadDotEnv } from './env';
+
+// Fill-only .env load must run before the path consts below read process.env.
+// These are evaluated at import time, and every entry point (index.ts and the
+// standalone scripts) imports this module — so loading here guarantees
+// .env.local values (WEBSITE_REPO, EXPLAINER_*_DIR) are present regardless of
+// import order. Without this, a .env.local-only WEBSITE_REPO is read too late
+// and silently disables website staging + HTML sidecar export.
+loadDotEnv();
 
 const ROOT_DIR = path.join(__dirname, '..');
 
