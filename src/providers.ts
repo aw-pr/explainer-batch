@@ -88,17 +88,16 @@ function hasCodexChatGPTAuth(): boolean {
 // ESM-only package in a CommonJS repo — opaque import keeps TS emitter from rewriting it
 const agentSdkImport = new Function('m', 'return import(m)') as (m: string) => Promise<{ query: ClaudeAgentQuery }>;
 
-type ClaudeAgentQuery = (args: { prompt: string; options?: Record<string, unknown> }) => AsyncIterable<ClaudeSdkMessage>;
+type ClaudeSdkUserMessage = {
+  type: 'user';
+  message: { role: 'user'; content: Anthropic.MessageParam['content'] };
+  parent_tool_use_id: null;
+};
+type ClaudeAgentQuery = (args: { prompt: string | AsyncIterable<ClaudeSdkUserMessage>; options?: Record<string, unknown> }) => AsyncIterable<ClaudeSdkMessage>;
 type ClaudeSdkMessage =
   | { type: 'assistant'; message: { content: Array<{ type: string; text?: string }> } }
   | { type: 'result'; subtype: string; usage?: { input_tokens?: number; output_tokens?: number }; is_error?: boolean; message?: string }
   | { type: string };
-
-const CLI_DISALLOWED_TOOLS = [
-  'Write', 'Edit', 'MultiEdit', 'Bash', 'BashOutput', 'KillShell',
-  'Glob', 'Grep', 'NotebookEdit', 'TodoWrite', 'Task', 'SlashCommand',
-  'ListMcpResources',
-];
 
 export class ClaudeProvider {
   readonly name: ProviderName = 'claude';
@@ -203,18 +202,29 @@ export class ClaudeProvider {
     };
   }
 
-  async createMessageViaCli(model: string, system: string, prompt: string): Promise<ProviderMessageResponse> {
-    const maxTurns = Number.parseInt(process.env.CLAUDE_AGENT_MAX_TURNS ?? '3', 10);
+  async createMessageViaCli(
+    model: string,
+    system: string,
+    content: Anthropic.MessageParam['content']
+  ): Promise<ProviderMessageResponse> {
+    // Single-shot: inline the source content and disable tools so the run is
+    // one model turn — equivalent to a Messages API call, billed against the
+    // Max plan. The agentic loop (tools + multiple turns) added no quality for
+    // one-shot synthesis and could exhaust maxTurns on large PDFs, which
+    // surfaced as `error_max_turns`. Inlining mirrors the proven API path
+    // (buildClaudeRequestContent), so PDFs and URLs are handled identically.
     const mod = await agentSdkImport('@anthropic-ai/claude-agent-sdk');
+    async function* singleTurn(): AsyncIterable<ClaudeSdkUserMessage> {
+      yield { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null };
+    }
     const iter = mod.query({
-      prompt,
+      prompt: singleTurn(),
       options: {
         model,
         systemPrompt: system,
-        allowedTools: ['Read', 'WebFetch'],
-        disallowedTools: CLI_DISALLOWED_TOOLS,
+        allowedTools: [],
         permissionMode: 'bypassPermissions',
-        maxTurns: Number.isFinite(maxTurns) && maxTurns > 0 ? maxTurns : 3,
+        maxTurns: 1,
         settingSources: [],
       },
     });

@@ -867,16 +867,6 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
   await exportSavedHtml(savedResults);
 }
 
-function buildClaudeCliPrompt(item: InputItem, userInstruction: string): string {
-  if (item.isUrl) {
-    if (item.htmlContent) {
-      return `Source URL: ${item.source.url ?? item.input}\n\nExtracted page text:\n${item.htmlContent}\n\n${userInstruction}`;
-    }
-    return `The paper is at: ${item.source.url ?? item.input}\n\n${userInstruction}`;
-  }
-  const absPath = item.filePath ?? path.join(__dirname, '..', 'input', item.input);
-  return `Read the PDF at this path: ${absPath}\n\n${userInstruction}`;
-}
 
 async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void> {
   const modelConfig = getModelConfig('claude');
@@ -899,11 +889,10 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
     try {
       let response: ProviderMessageResponse;
       if (authMode === 'claude_cli') {
-        const prompt = buildClaudeCliPrompt(item, userInstruction);
         response = await client.createMessageViaCli(
           modelConfig.synthesisModel,
           buildSystemPrompt(),
-          prompt
+          buildClaudeRequestContent(item, userInstruction)
         );
       } else {
         response = await client.createMessageWithContent(
