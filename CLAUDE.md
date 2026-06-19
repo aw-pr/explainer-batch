@@ -48,7 +48,8 @@ src/
   prompt.ts         Strips skill.md frontmatter; builds system prompt
   batch.ts          Submit/poll/collect for both providers; repair; cost
   output.ts         Extract JSON, normalise drift, figure extract; save/stage
-  figure-extract.ts pdfimages (tier 1) → pdftoppm cropped page (tier 2)
+  figure-vlm.ts     Renders the doc (PDF pages / Playwright page), VLM picks the figure + bbox, crops it
+  vision.ts         Provider-agnostic single-shot vision call; subscription-first routing (OAuth / codex)
   html-export.ts    Spawns website repo's exporter (skipped if unconfigured)
   state.ts          Reads/writes state.json
   providers.ts      Claude/OpenAI providers; auth detection; codex runner

@@ -9,16 +9,19 @@
   explainer object — plus an optional self-contained `output/<slug>.html`.
 - **Cost:** uses the Claude Message Batches API / OpenAI Batch API (50%
   discount) or a synchronous path for fast single runs.
-- **Determinism:** model schema drift is normalised after generation; figures
-  are extracted from the source PDF deterministically, never hallucinated.
+- **Determinism:** model schema drift is normalised after generation. Figures
+  are selected by a vision model looking at the rendered document, then cropped
+  from the source render — never hallucinated or generated. Subscription-first
+  routing keeps cost low (see `docs/FIGURE-EXTRACTION.md`).
 
 ## What this is / is not
 
 - It **is** a focused pipeline that produces a specific JSON schema
   (`src/types/explainer-json.ts`) intended for a separate React renderer.
 - It is **not** a general-purpose PDF summariser or chat tool.
-- Figure extraction is **macOS-first**: it shells out to `sips`. On Linux the
-  pipeline still runs but `image` blocks are dropped (see Troubleshooting).
+- Figure cropping is **macOS-first**: it shells out to `sips` for JPEG
+  re-encoding (Linux falls back to PNG). URL figures additionally need
+  Playwright + Chromium (`npx playwright install chromium`); the PDF path does not.
 - The website integration is **optional**. Without it you still get JSON.
 
 ## Architecture
@@ -39,7 +42,7 @@ flowchart LR
   D --> F["Validate + one-pass repair"]
   E --> F
   F --> G["Normalise schema drift"]
-  G --> H["Extract figure from source PDF"]
+  G --> H["Vision model selects + crops a figure (PDF or URL)"]
   H --> R(["output/&lt;slug&gt;.json"])
 
   R -. "only if WEBSITE_REPO set" .-> S["Stage + render website HTML"]
@@ -155,10 +158,10 @@ ignored silently.
 
 | Directive | Purpose |
 |---|---|
-| `image: Figure N` | Force a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.) |
+| `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). Omit to let the vision model choose. |
 | `image_caption: …` | Override the caption attached to the lead image |
 | `image_alt: …` | Override the alt text for the lead image |
-| `image_page_hint: N` | 1-based page number used by the figure cropper instead of caption search |
+| `image_page_hint: N` | Parsed for backward compatibility; no longer used — the vision model locates the page itself. |
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
@@ -227,10 +230,12 @@ above and `docs/SECURITY.md`.
    - **`normalizeSchemaDrift`** derives canonical `paragraphs` and
      `end_takeaway.label/body` when the model emits `*_html`/`heading`
      variants, so the renderer never shows blank blocks.
-   - **`attachFigureImage`** applies any lead-image override, then
-     deterministically locates the named figure in the source PDF (poppler +
-     `sips`), re-encodes to a downscaled JPEG, and inlines it as a base64 data
-     URL. Failures drop the image block silently — the explainer still renders.
+   - **`attachFigureImage`** renders the source document (PDF pages via poppler,
+     or the live URL via Playwright), asks a vision model to pick the best figure
+     and return its bounding box, crops it from the source render, and inlines it
+     as a base64 data URL. A `.focus.md` override pins a specific figure/caption.
+     Routing is subscription-first (`FIGURE_VLM_*`). Failures drop the image
+     block silently — the explainer still renders.
    - JSON is written to the output dir, mirrored to `EXPLAINER_OBSIDIAN_DIR`
      (`~/obsidian/explainers` by default), and, if `WEBSITE_REPO` is set, also
      staged and rendered to standalone HTML.
@@ -258,7 +263,7 @@ land in both repos.
 | Symptom | Cause / fix |
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
-| Image silently dropped | poppler not installed, or on Linux (`sips` is macOS-only), or the named figure was not found in the PDF. |
+| Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or — for URLs — Playwright/Chromium not installed. |
 | `JSON parse failed — raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
 | `op-fetch is not installed` | Not fatal — the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
