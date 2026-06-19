@@ -2,7 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import type { ProviderName } from './providers';
 
-const STATE_FILE = path.join(__dirname, '..', 'state.json');
+// Overridable so parallel runs can each use an isolated state file (avoids the
+// read-modify-write race on a single shared state.json). Defaults to the repo root.
+const STATE_FILE = process.env.EXPLAINER_STATE_FILE
+  ? path.resolve(process.env.EXPLAINER_STATE_FILE)
+  : path.join(__dirname, '..', 'state.json');
 
 export interface TokenUsage {
   input_tokens: number;
