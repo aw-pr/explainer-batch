@@ -468,7 +468,23 @@ export class OpenAIProvider {
     const result = await runViaCodexCli(model, prompt, useSearch);
     return result;
   }
+
+  /**
+   * Vision call over the ChatGPT/codex subscription route. Unlike `createMessage`,
+   * this attaches real images via `codex exec -i <file>` rather than flattening
+   * them to text, so the model actually sees the rendered pages. Billed against
+   * the ChatGPT plan, not the API. Independent of `authMode()` — codex reads its
+   * own `~/.codex/auth.json`, so this works even when an API key is also present.
+   */
+  async createVisionViaCodex(model: string, prompt: string, imagePaths: string[]): Promise<ProviderMessageResponse> {
+    return runViaCodexCli(model, prompt, false, imagePaths, CODEX_VISION_TIMEOUT_MS);
+  }
 }
+
+/** Vision calls are short; cap them so a wedged socket can't hang the run. */
+const CODEX_VISION_TIMEOUT_MS = 180_000;
+/** Synthesis can legitimately run longer, but still bounded. */
+const CODEX_DEFAULT_TIMEOUT_MS = 600_000;
 
 function extractOutputText(body: ResponsesBody): string {
   if (typeof body.output_text === 'string' && body.output_text.trim()) return body.output_text;
@@ -496,14 +512,16 @@ function flattenInputForCodex(input: Array<{ role: 'user'; content: Array<Record
   return parts.join('\n\n');
 }
 
-async function runViaCodexCli(model: string, prompt: string, useSearch: boolean): Promise<ProviderMessageResponse> {
+async function runViaCodexCli(model: string, prompt: string, useSearch: boolean, imagePaths: string[] = [], timeoutMs: number = CODEX_DEFAULT_TIMEOUT_MS): Promise<ProviderMessageResponse> {
   const outputPath = path.join(os.tmpdir(), `explainer-codex-${Date.now()}.txt`);
+  const imageArgs = imagePaths.flatMap(p => ['--image', p]);
   const args = [
     ...(useSearch ? ['--search'] : []),
     'exec',
     '--json',
     '--model',
     model,
+    ...imageArgs,
     '--sandbox',
     'read-only',
     '--skip-git-repo-check',
@@ -517,10 +535,15 @@ async function runViaCodexCli(model: string, prompt: string, useSearch: boolean)
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`codex exec timed out after ${Math.round(timeoutMs / 1000)}s (killed)`));
+    }, timeoutMs);
     child.stdout.on('data', chunk => stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
     child.stderr.on('data', chunk => stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    child.on('error', reject);
+    child.on('error', err => { clearTimeout(timer); reject(err); });
     child.on('close', code => {
+      clearTimeout(timer);
       if (code === 0) {
         resolve();
         return;
