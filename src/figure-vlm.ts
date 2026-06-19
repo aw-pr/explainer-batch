@@ -110,37 +110,59 @@ function parseSelection(raw: string): FigureSelection | null {
   }
 }
 
+const FIGURE_ATTEMPTS = Math.max(1, Number.parseInt(process.env.FIGURE_VLM_ATTEMPTS ?? '2', 10));
+
 /**
- * Runs the figure-selection vision call with a bounded retry. The codex
- * subscription route is intermittently flaky (timeouts / truncated output), so
- * a single transient failure shouldn't silently drop the figure. Retries on a
- * thrown error or unparseable output; a clean `{found:false}` is terminal.
+ * One figure-selection vision call. The caller owns the retry loop so a retry
+ * can be triggered by a transport failure, an unparseable reply, OR a blank/
+ * uncroppable result. When `avoidPrevious` is set the prompt steers the model
+ * to a different, clearly-rendered figure than the one that just failed.
  */
-async function selectFigure(
+async function selectFigureOnce(
   provider: ReturnType<typeof resolveVisionProvider>,
   imagePaths: string[],
   named: string | undefined,
+  avoidPrevious: boolean,
 ): Promise<{ sel: FigureSelection; vision: VisionResult } | null> {
   const model = process.env.FIGURE_VLM_MODEL ?? getModelConfig(provider).batchModel;
-  const attempts = Math.max(1, Number.parseInt(process.env.FIGURE_VLM_ATTEMPTS ?? '2', 10));
-  for (let i = 1; i <= attempts; i++) {
-    try {
-      const vision = await runVision({
-        provider,
-        model,
-        maxTokens: SELECTION_MAX_TOKENS,
-        system: SELECTION_SYSTEM,
-        prompt: selectionPrompt(named),
-        imagePaths,
-      });
-      const sel = parseSelection(vision.text);
-      if (sel) return { sel, vision };
-      console.warn(`  ⚠ figure-vlm: unparseable selection (attempt ${i}/${attempts}).`);
-    } catch (err) {
-      console.warn(`  ⚠ figure-vlm: vision call failed (attempt ${i}/${attempts}) — ${err instanceof Error ? err.message : String(err)}`);
-    }
+  let prompt = selectionPrompt(named);
+  if (avoidPrevious) {
+    prompt += '\n\nThe figure chosen previously rendered blank or could not be cropped. ' +
+      'Pick a DIFFERENT figure that is clearly rendered with visible content; avoid ' +
+      'interactive/animated charts that may not have painted, and avoid empty regions.';
+  }
+  try {
+    const vision = await runVision({
+      provider, model, maxTokens: SELECTION_MAX_TOKENS, system: SELECTION_SYSTEM, prompt, imagePaths,
+    });
+    const sel = parseSelection(vision.text);
+    if (sel) return { sel, vision };
+    console.warn('  ⚠ figure-vlm: unparseable selection.');
+  } catch (err) {
+    console.warn(`  ⚠ figure-vlm: vision call failed — ${err instanceof Error ? err.message : String(err)}`);
   }
   return null;
+}
+
+/**
+ * Blank-crop guard. A blank/near-uniform PNG compresses to almost nothing, so
+ * bytes-per-pixel is a cheap, dependency-free proxy for "this crop has no
+ * content" — catches interactive charts that screenshot blank and empty snaps.
+ */
+const BLANK_BYTES_PER_PIXEL = 0.02;
+function looksBlank(pngPath: string): boolean {
+  try {
+    const px = pngSizePx(pngPath);
+    if (!px || px.w * px.h === 0) return false;
+    const bpp = fs.statSync(pngPath).size / (px.w * px.h);
+    if (bpp < BLANK_BYTES_PER_PIXEL) {
+      console.warn(`  ⚠ figure-vlm: crop looks blank (${bpp.toFixed(4)} bytes/px) — rejecting.`);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 function clamp01(n: number): number {
@@ -329,7 +351,8 @@ function cropPdfBbox(pdfPath: string, page: number, bbox: [number, number, numbe
     );
     if (result.error || result.status !== 0) return null;
     const png = fs.readdirSync(tmpDir).filter(f => f.endsWith('.png')).map(f => path.join(tmpDir, f))[0];
-    return png ? encodeJpegDataUrl(png) : null;
+    if (!png || looksBlank(png)) return null;
+    return encodeJpegDataUrl(png);
   } finally {
     cleanupTmp(tmpDir);
   }
@@ -346,36 +369,37 @@ async function extractFromPdf(pdfPath: string, named: string | undefined, provid
       return null;
     }
 
-    const selected = await selectFigure(provider, thumbs, named);
-    if (!selected) {
-      console.warn('  ⚠ figure-vlm: figure selection failed after retries.');
-      return null;
+    for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
+      const selected = await selectFigureOnce(provider, thumbs, named, attempt > 1);
+      if (!selected) continue;
+      const { sel, vision } = selected;
+      if (!sel.found) {
+        console.warn('  ⚠ figure-vlm: model found no suitable figure.');
+        return null;
+      }
+      if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
+        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+        return null;
+      }
+      const page = Math.min(Math.max(sel.page, 1), thumbs.length);
+      const src = cropPdfBbox(pdfPath, page, sel.bbox);
+      if (!src) {
+        console.warn(`  ⚠ figure-vlm: crop failed/blank (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
+        continue;
+      }
+      const label = named ?? sel.source_figure ?? 'Figure';
+      return {
+        src,
+        source_figure: label,
+        caption: sel.caption ?? `${label} from the source paper.`,
+        alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source paper.`,
+        route: vision.route,
+        provider: vision.provider,
+        page,
+      };
     }
-    const { sel, vision } = selected;
-    if (!sel.found) {
-      console.warn('  ⚠ figure-vlm: model found no suitable figure.');
-      return null;
-    }
-    if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
-      console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
-      return null;
-    }
-    const page = Math.min(Math.max(sel.page, 1), thumbs.length);
-    const src = cropPdfBbox(pdfPath, page, sel.bbox);
-    if (!src) {
-      console.warn('  ⚠ figure-vlm: crop failed.');
-      return null;
-    }
-    const label = named ?? sel.source_figure ?? 'Figure';
-    return {
-      src,
-      source_figure: label,
-      caption: sel.caption ?? `${label} from the source paper.`,
-      alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source paper.`,
-      route: vision.route,
-      provider: vision.provider,
-      page,
-    };
+    console.warn('  ⚠ figure-vlm: no usable figure after retries.');
+    return null;
   } finally {
     cleanupTmp(tmpDir);
   }
@@ -389,6 +413,32 @@ async function loadPlaywright(): Promise<typeof import('playwright') | null> {
   } catch {
     console.warn('  ⚠ figure-vlm: playwright not installed — run `npm i playwright && npx playwright install chromium` to enable URL figures.');
     return null;
+  }
+}
+
+/**
+ * Triggers lazy-loaded content and chart animations before the figure
+ * screenshot: scrolls through the whole page so IntersectionObserver-gated
+ * images and client-side (canvas/SVG) charts actually paint, then settles.
+ * Without this, interactive charts screenshot blank.
+ */
+async function renderReady(page: import('playwright').Page): Promise<void> {
+  try {
+    await page.evaluate(async () => {
+      const w = globalThis as { innerHeight?: number; scrollTo?: (x: number, y: number) => void; document?: any };
+      const doc = w.document;
+      const max = Math.max(doc?.body?.scrollHeight ?? 0, doc?.documentElement?.scrollHeight ?? 0);
+      const step = Math.max(400, w.innerHeight ?? 800);
+      for (let y = 0; y <= max; y += step) {
+        w.scrollTo?.(0, y);
+        await new Promise(r => setTimeout(r, 120));
+      }
+      w.scrollTo?.(0, 0);
+    });
+    await page.waitForTimeout(800);
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
+  } catch {
+    /* best-effort: render hints only */
   }
 }
 
@@ -414,6 +464,8 @@ async function extractFromUrl(url: string, named: string | undefined, provider: 
       }
     }
 
+    await renderReady(page);
+
     const fullPath = path.join(tmpDir, 'full.png');
     await page.screenshot({ path: fullPath, fullPage: true });
     // Full-page screenshot pixel size ÷ deviceScaleFactor → CSS px for the clip.
@@ -424,23 +476,6 @@ async function extractFromUrl(url: string, named: string | undefined, provider: 
     }
     const dims = { w: px.w / 2, h: px.h / 2 };
 
-    const selected = await selectFigure(provider, [fullPath], named);
-    if (!selected) {
-      console.warn('  ⚠ figure-vlm: figure selection failed after retries.');
-      return null;
-    }
-    const { sel, vision } = selected;
-    if (!sel.found) {
-      console.warn('  ⚠ figure-vlm: model found no suitable figure on page.');
-      return null;
-    }
-    if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
-      console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
-      return null;
-    }
-
-    // A clipped (non-fullPage) screenshot only reaches the current viewport, so
-    // a figure lower than the initial viewport height is "outside the image".
     // Grow the viewport to the full content height (capped at Chromium's max
     // texture size) so any clip on the page is reachable, then clamp to bounds.
     const MAX_DIM = 16384;
@@ -448,30 +483,47 @@ async function extractFromUrl(url: string, named: string | undefined, provider: 
     const vh = Math.min(Math.max(Math.ceil(dims.h), 320), MAX_DIM);
     await page.setViewportSize({ width: vw, height: vh });
 
-    // The VLM bbox over a tall full-page screenshot is imprecise and routinely
-    // includes neighbouring body text. Snap it to the nearest real figure
-    // element so the crop clips to actual element bounds; fall back to the
-    // padded VLM box when nothing matches.
-    const vlmRect = bboxToRect(sel.bbox, dims);
-    const snapped = await snapToFigureElement(page, vlmRect).catch(() => null);
-    const targetRect = snapped ?? padRect(vlmRect, dims);
-    console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
+    for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
+      const selected = await selectFigureOnce(provider, [fullPath], named, attempt > 1);
+      if (!selected) continue;
+      const { sel, vision } = selected;
+      if (!sel.found) {
+        console.warn('  ⚠ figure-vlm: model found no suitable figure on page.');
+        return null;
+      }
+      if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
+        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+        return null;
+      }
 
-    const clip = clampClip(targetRect, dims, MAX_DIM);
-    const cropPath = path.join(tmpDir, 'crop.png');
-    await page.screenshot({ path: cropPath, clip });
+      // Snap the imprecise VLM bbox to the nearest real figure element so the
+      // crop clips to actual element bounds; fall back to the padded VLM box.
+      const vlmRect = bboxToRect(sel.bbox, dims);
+      const snapped = await snapToFigureElement(page, vlmRect).catch(() => null);
+      const targetRect = snapped ?? padRect(vlmRect, dims);
+      const clip = clampClip(targetRect, dims, MAX_DIM);
+      const cropPath = path.join(tmpDir, `crop-${attempt}.png`);
+      await page.screenshot({ path: cropPath, clip });
 
-    const src = encodeJpegDataUrl(cropPath);
-    if (!src) return null;
-    const label = named ?? sel.source_figure ?? 'Figure';
-    return {
-      src,
-      source_figure: label,
-      caption: sel.caption ?? `${label} from the source.`,
-      alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source.`,
-      route: vision.route,
-      provider: vision.provider,
-    };
+      if (looksBlank(cropPath)) {
+        console.warn(`  ⚠ figure-vlm: blank crop (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
+        continue;
+      }
+      const src = encodeJpegDataUrl(cropPath);
+      if (!src) continue;
+      console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
+      const label = named ?? sel.source_figure ?? 'Figure';
+      return {
+        src,
+        source_figure: label,
+        caption: sel.caption ?? `${label} from the source.`,
+        alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source.`,
+        route: vision.route,
+        provider: vision.provider,
+      };
+    }
+    console.warn('  ⚠ figure-vlm: no usable figure after retries.');
+    return null;
   } catch (err) {
     console.warn(`  ⚠ figure-vlm: URL render failed — ${err instanceof Error ? err.message : String(err)}`);
     return null;
