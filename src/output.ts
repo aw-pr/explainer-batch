@@ -1,9 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { spawnSync } from 'child_process';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
-import { extractFigureAsDataUrl, deriveFigureCrop } from './figure-extract';
+import { extractFigureViaVlm } from './figure-vlm';
 import { readState } from './state';
 import { loadDotEnv } from './env';
 
@@ -139,132 +138,62 @@ function lookupImageOverride(customId: string): { source_figure: string; caption
   return undefined;
 }
 
-interface CropRect { xMin: number; yMin: number; xMax: number; yMax: number; }
-interface BboxWord { xMin: number; yMin: number; xMax: number; yMax: number; text: string; }
-interface PageBbox { width: number; height: number; words: BboxWord[]; }
-
-function parseBboxLayout(pdfPath: string, page: number): PageBbox | null {
-  const result = spawnSync(
-    'pdftotext',
-    ['-bbox-layout', '-f', String(page), '-l', String(page), pdfPath, '-'],
-    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
-  );
-  if (result.error || result.status !== 0) return null;
-  const pageMatch = result.stdout.match(/<page[^>]*width="([\d.]+)"[^>]*height="([\d.]+)"/);
-  if (!pageMatch) return null;
-  const width = parseFloat(pageMatch[1]);
-  const height = parseFloat(pageMatch[2]);
-  if (!(width > 0) || !(height > 0)) return null;
-
-  const wordPattern = /<word[^>]*xMin="([\d.]+)"[^>]*yMin="([\d.]+)"[^>]*xMax="([\d.]+)"[^>]*yMax="([\d.]+)"[^>]*>([^<]*)<\/word>/g;
-  const words: BboxWord[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = wordPattern.exec(result.stdout)) !== null) {
-    words.push({
-      xMin: parseFloat(m[1]),
-      yMin: parseFloat(m[2]),
-      xMax: parseFloat(m[3]),
-      yMax: parseFloat(m[4]),
-      text: m[5].trim(),
-    });
-  }
-  return { width, height, words };
+/**
+ * Recovers the original source URL for a URL-sourced explainer from state, so
+ * the vision figure extractor can re-render the live page. Returns null for
+ * local PDFs or when the request is not in state.
+ */
+function resolveSourceUrl(customId: string): string | null {
+  if (!customId.startsWith('explainer-url-')) return null;
+  try {
+    const state = readState();
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const req = state.batches[i].requests[customId];
+      if (req?.source?.url) return req.source.url;
+      if (req?.input && /^https?:\/\//i.test(req.input)) return req.input;
+    }
+  } catch { /* ignore */ }
+  return null;
 }
-
-function textDensityInCrop(bbox: PageBbox, crop: CropRect): number {
-  const cropArea = (crop.xMax - crop.xMin) * (crop.yMax - crop.yMin);
-  if (!(cropArea > 0)) return 0;
-  let textArea = 0;
-  for (const w of bbox.words) {
-    const ix0 = Math.max(crop.xMin, w.xMin);
-    const iy0 = Math.max(crop.yMin, w.yMin);
-    const ix1 = Math.min(crop.xMax, w.xMax);
-    const iy1 = Math.min(crop.yMax, w.yMax);
-    if (ix1 > ix0 && iy1 > iy0) textArea += (ix1 - ix0) * (iy1 - iy0);
-  }
-  return textArea / cropArea;
-}
-
-// 0.30 is permissive; audit suggested 0.25. Tune downward if text-prose crops slip through.
-const FIGURE_TEXT_DENSITY_THRESHOLD = 0.30;
 
 /**
- * Returns true if the crop is mostly text (likely body prose, not a figure)
- * and the caller should drop `json.image`. Returns false when the gate cannot
- * be evaluated (no PDF, tier 1 embedded raster, or no derivable crop bbox).
+ * Vision-driven figure attachment. The deterministic caption/gap-finder has
+ * been retired: a vision model now looks at the rendered document (PDF pages
+ * or a live web page) and picks the single most useful figure, returning a
+ * bounding box we crop from the source render.
  *
- * Both gate and extraction consume `deriveFigureCrop` so they evaluate the
- * same {page, cropPts} — no split-brain geometry.
+ * A `.focus.md` image override is no longer required — when present it pins a
+ * specific figure and supplies caption/alt overrides; when absent the model
+ * selects autonomously. Always async (the vision call is remote); never throws.
  */
-function cropIsMostlyText(pdfPath: string, figureLabel: string, customId: string, pageHint?: number): boolean {
-  const derived = deriveFigureCrop(pdfPath, figureLabel, { pageHint });
-  if (!derived) return false;
-  if (derived.tier === 'embedded') return false;
-
-  const bbox = parseBboxLayout(pdfPath, derived.page);
-  if (!bbox) return false;
-
-  const ratio = textDensityInCrop(bbox, derived.cropPts);
-  if (ratio > FIGURE_TEXT_DENSITY_THRESHOLD) {
-    console.warn(
-      `  ⚠ ${customId} p.${derived.page} ${figureLabel}: text density ${ratio.toFixed(2)} > ${FIGURE_TEXT_DENSITY_THRESHOLD.toFixed(2)} — dropping image block.`,
-    );
-    return true;
-  }
-  return false;
-}
-
-function attachFigureImage(json: ExplainerJson, customId: string): void {
+async function attachFigureImage(json: ExplainerJson, customId: string): Promise<void> {
   const override = lookupImageOverride(customId);
+  if (json.image?.src) return; // already populated
 
-  // Directive-only: the image block is supplied externally via .focus.md, never
-  // by the model. Empirically the model cannot reliably pick a figure from a
-  // PDF document block, so we drop anything it emits and only attach when a
-  // sidecar override exists.
-  if (!override) {
+  const pdfPath = resolveSourcePdf(customId);
+  const url = pdfPath ? null : resolveSourceUrl(customId);
+  if (!pdfPath && !url) {
     if (json.image) delete json.image;
     return;
   }
 
+  const result = await extractFigureViaVlm({ pdfPath, url, override });
+  if (!result) {
+    if (json.image) delete json.image;
+    return;
+  }
+
+  // Caption/alt sidecar overrides win over model-generated text; the model
+  // supplies them otherwise. The figure label follows the override when pinned.
   const existing = json.image;
   json.image = {
     ...(existing ?? {}),
-    source_figure: override.source_figure,
-    caption: override.caption ?? existing?.caption ?? `${override.source_figure} from the source paper.`,
-    alt_text: override.alt_text ?? existing?.alt_text ?? `${override.source_figure} from the source paper.`,
+    source_figure: override?.source_figure ?? result.source_figure,
+    caption: override?.caption ?? existing?.caption ?? result.caption,
+    alt_text: override?.alt_text ?? existing?.alt_text ?? result.alt_text,
+    src: result.src,
   };
-
-  const image = json.image;
-  if (!image.source_figure) return;
-  if (image.src) return; // already populated
-
-  const pdfPath = resolveSourcePdf(customId);
-  if (!pdfPath) {
-    console.warn(`  ⚠ ${customId}: no local PDF found for figure extraction — dropping image block.`);
-    delete json.image;
-    return;
-  }
-
-  const dataUrl = extractFigureAsDataUrl(pdfPath, image.source_figure, { pageHint: override?.pageHint });
-  if (!dataUrl) {
-    console.warn(`  ⚠ ${customId}: could not locate ${image.source_figure} in PDF — dropping image block.`);
-    delete json.image;
-    return;
-  }
-
-  // Text-density gate: drop the image if the crop is mostly body prose.
-  // Image attachment is directive-only, so the user has named the figure -
-  // but the crop rectangle is still computed by the extractor, so the gate
-  // runs unconditionally to catch a bad image_page_hint or a caption match
-  // that landed on the wrong region. Skipped only when deriveFigureCrop
-  // returns null (tier-1 embedded raster, unclear layout - handled inside
-  // cropIsMostlyText). Gate measures the same region extraction will crop.
-  if (cropIsMostlyText(pdfPath, image.source_figure, customId, override.pageHint)) {
-    delete json.image;
-    return;
-  }
-
-  image.src = dataUrl;
+  console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);
 }
 
 /** Strip HTML tags + decode common entities. Used to derive plain-text fields from *_html variants. */
@@ -357,7 +286,7 @@ export async function saveResult(customId: string, rawText: string): Promise<Sav
   try {
     const parsed = extractJson(rawText);
     json = normalizeExplainerJson(parsed as ExplainerJson);
-    attachFigureImage(json, customId);
+    await attachFigureImage(json, customId);
   } catch {
     // Non-parseable output — save the raw text as a .txt for inspection
     const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);

@@ -1,20 +1,24 @@
 /**
- * Re-extract a figure from a PDF and patch the image block on an existing
- * explainer JSON in place. Useful when figure-extract.ts changes and you
- * want to apply the new crop without burning another batch.
+ * Re-extract a figure from a PDF (or URL) and patch the image block on an
+ * existing explainer JSON in place. Useful when you want to refresh the lead
+ * figure without burning another synthesis batch.
+ *
+ * Figure selection is vision-driven (see src/figure-vlm.ts): the model looks at
+ * the rendered document and picks the figure. Pass a figure label to pin a
+ * specific one, or omit it to let the model choose. Routing/cost is controlled
+ * by FIGURE_VLM_PROVIDER / FIGURE_VLM_ROUTE (subscription-first by default).
  *
  * Usage:
- *   npm run reextract -- <json> <pdf> <figure-label> [--page <n>] [--caption "..."] [--alt "..."] [--raster]
+ *   npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."]
  *
  * Example:
- *   npm run reextract -- output/2026-05-21_liu_explainer.json input/2604.14228v1.pdf "Figure 3" --page 8
- *
- * Pass --raster for composite figures whose only large embedded image is a
- * sub-panel (e.g. a heatmap strip): it skips tier-1 embedded extraction and
- * rasterises the full vector region instead.
+ *   npm run reextract -- output/2026-05-21_liu_explainer.json input/2604.14228v1.pdf "Figure 3"
  */
 import fs from 'fs';
-import { extractFigureAsDataUrl } from '../src/figure-extract';
+import { extractFigureViaVlm } from '../src/figure-vlm';
+import { loadDotEnv } from '../src/env';
+
+loadDotEnv();
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -28,40 +32,50 @@ const positional = process.argv.slice(2).filter((a, i, all) => {
   if (prev && prev.startsWith('--')) return false;
   return true;
 });
-const [jsonPath, pdfPath, figureLabel] = positional;
+const [jsonPath, source, figureLabel] = positional;
 
-if (!jsonPath || !pdfPath || !figureLabel) {
-  console.error('Usage: npm run reextract -- <json> <pdf> <figure-label> [--page <n>] [--caption "..."] [--alt "..."]');
+if (!jsonPath || !source) {
+  console.error('Usage: npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."]');
   process.exit(1);
 }
 
-const pageHintRaw = arg('--page');
-const pageHint = pageHintRaw !== undefined ? Number(pageHintRaw) : undefined;
-if (pageHint !== undefined && (!Number.isInteger(pageHint) || pageHint <= 0)) {
-  console.error(`--page must be a positive integer (got ${pageHintRaw})`);
-  process.exit(1);
-}
 const captionOverride = arg('--caption');
 const altOverride = arg('--alt');
-const forceRaster = process.argv.includes('--raster');
+const isUrl = /^https?:\/\//i.test(source);
 
-const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-console.log(`Re-extracting "${figureLabel}" from ${pdfPath}${pageHint ? ` (page ${pageHint})` : ''}${forceRaster ? ' [raster]' : ''}...`);
+async function main(): Promise<void> {
+  const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  console.log(`Re-extracting ${figureLabel ? `"${figureLabel}"` : 'best figure'} from ${source}...`);
 
-const src = extractFigureAsDataUrl(pdfPath, figureLabel, { pageHint, forceRaster });
-if (!src) {
-  console.error('Extraction returned null - check the figure label and (if vector) the page hint.');
-  process.exit(1);
+  const override = figureLabel || captionOverride || altOverride
+    ? { source_figure: figureLabel ?? 'Figure', caption: captionOverride, alt_text: altOverride }
+    : undefined;
+
+  const result = await extractFigureViaVlm({
+    pdfPath: isUrl ? null : source,
+    url: isUrl ? source : null,
+    override,
+  });
+
+  if (!result) {
+    console.error('Extraction returned null — no usable figure found (check auth: FIGURE_VLM_ROUTE / subscription session).');
+    process.exit(1);
+  }
+
+  const existing = data.image ?? {};
+  data.image = {
+    ...existing,
+    source_figure: override?.source_figure ?? result.source_figure,
+    caption: captionOverride ?? existing.caption ?? result.caption,
+    alt_text: altOverride ?? existing.alt_text ?? result.alt_text,
+    src: result.src,
+  };
+
+  fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+  console.log(`Patched ${jsonPath} via ${result.provider}/${result.route}${result.page ? ` p.${result.page}` : ''} (src ${result.src.length} chars)`);
 }
 
-const existing = data.image ?? {};
-data.image = {
-  ...existing,
-  source_figure: figureLabel,
-  caption: captionOverride ?? existing.caption ?? `${figureLabel} from the source paper.`,
-  alt_text: altOverride ?? existing.alt_text ?? `${figureLabel} from the source paper.`,
-  src,
-};
-
-fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
-console.log(`Patched ${jsonPath} (src ${src.length} chars)`);
+main().catch(err => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
