@@ -36,9 +36,9 @@ pub_match="$(git config --get publishguard.publicmatch || true)"
 pub_remote="$(git config --get publishguard.publicremote || true)"
 priv_remote="$(git config --default origin --get publishguard.privateremote)"
 # The local branch that fast-forwards onto the public default branch.
-# Deterministic + portable across machines (don't infer from HEAD).
+# Never inferred from HEAD: whichever branch happened to be checked out would
+# silently become the publish line, varying per machine and per session.
 pub_branch="$(git config --get publishguard.publishbranch || true)"
-[ -z "$pub_branch" ] && pub_branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo publish)"
 
 if [ -z "$pub_match" ] || [ -z "$pub_remote" ]; then
   echo "install-guards: publish gate INERT — set the public remote once:"
@@ -47,6 +47,13 @@ if [ -z "$pub_match" ] || [ -z "$pub_remote" ]; then
   echo "  git config publishguard.publishbranch 'publish'   # local line that ff's to main"
   echo "  git config publishguard.privateremote 'origin'    # optional, default origin"
 else
+  if [ -z "$pub_branch" ]; then
+    echo "install-guards: ERROR: publishguard.publishbranch is not set." >&2
+    echo "  Refusing to guess the publish branch from the current HEAD." >&2
+    echo "  Set it explicitly, then re-run this script:" >&2
+    echo "    git config publishguard.publishbranch 'publish'" >&2
+    exit 1
+  fi
   sentinel="$(git config --get publishguard.sentinel)"
   want_alias="!git push ${priv_remote} ${pub_branch} && ${sentinel}=1 git push ${pub_remote} ${pub_branch}:main"
   if [ "$(git config --get alias.publish || true)" != "$want_alias" ]; then
