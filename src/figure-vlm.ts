@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
-import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp, type VisionResult } from './vision';
+import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp, downscaleLongEdge, type VisionResult } from './vision';
 import { getModelConfig } from './model-config';
 import type { ExplainerJson } from './types/explainer-json';
 
@@ -61,8 +61,10 @@ interface PreviousAttempt {
  *
  * Two input modes:
  *   - PDF  → `pdftoppm` thumbnails for selection, high-DPI crop for output.
- *   - URL  → Playwright full-page screenshot for selection, clipped
- *            re-screenshot for output (lazy import; only loaded for URLs).
+ *   - URL  → Playwright element screenshots of figure-like DOM candidates;
+ *            the model picks one by number and the crop is a fresh element
+ *            screenshot (lazy import; Chromium only loaded for URLs). Pages
+ *            with no candidates fall back to tiled full-page bbox selection.
  */
 
 export interface VlmFigureResult {
@@ -546,6 +548,144 @@ async function renderReady(page: import('playwright').Page): Promise<void> {
   }
 }
 
+// URL candidate flow: element screenshots are downscaled to this long edge for
+// the selection call (the final crop is re-shot at full quality).
+const CANDIDATE_SEND_PX = 1568;
+const MAX_CANDIDATES = 12;
+const MIN_CANDIDATE_W = 160;
+const MIN_CANDIDATE_H = 120;
+
+interface DomCandidate { id: number; x: number; y: number; w: number; h: number; tag: string; }
+
+/**
+ * Finds figure-like elements, tags each with a data-vlm-cand attribute (so a
+ * Playwright locator can re-find it later), and returns their geometry.
+ * Near-identical overlaps collapse to the tighter element: the inner img wins
+ * over the <figure> that also wraps the caption. Capped at MAX_CANDIDATES by
+ * area, returned in document (top-to-bottom) order.
+ */
+async function markFigureCandidates(page: import('playwright').Page): Promise<DomCandidate[]> {
+  return page.evaluate(({ maxCandidates, minW, minH }) => {
+    const doc = (globalThis as { document?: any }).document;
+    const win = globalThis as { scrollX?: number; scrollY?: number };
+    if (!doc) return [] as DomCandidate[];
+    const selector = 'figure,picture,svg,canvas,img,[class*="chart" i],[class*="figure" i],[class*="graph" i]';
+    doc.querySelectorAll('[data-vlm-cand]').forEach((el: any) => el.removeAttribute('data-vlm-cand'));
+    const cands: Array<{ el: any; x: number; y: number; w: number; h: number }> = [];
+    doc.querySelectorAll(selector).forEach((el: any) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < minW || r.height < minH) return;
+      cands.push({ el, x: r.left + (win.scrollX || 0), y: r.top + (win.scrollY || 0), w: r.width, h: r.height });
+    });
+    cands.sort((a, b) => a.w * a.h - b.w * b.h);
+    const kept: typeof cands = [];
+    for (const c of cands) {
+      const dup = kept.some(k => {
+        const ix = Math.max(0, Math.min(c.x + c.w, k.x + k.w) - Math.max(c.x, k.x));
+        const iy = Math.max(0, Math.min(c.y + c.h, k.y + k.h) - Math.max(c.y, k.y));
+        return (ix * iy) / Math.min(c.w * c.h, k.w * k.h) >= 0.85;
+      });
+      if (!dup) kept.push(c);
+    }
+    kept.sort((a, b) => b.w * b.h - a.w * a.h);
+    const top = kept.slice(0, maxCandidates);
+    top.sort((a, b) => a.y - b.y || a.x - b.x);
+    return top.map((c, i) => {
+      c.el.setAttribute('data-vlm-cand', String(i + 1));
+      return { id: i + 1, x: c.x, y: c.y, w: c.w, h: c.h, tag: String(c.el.tagName || '').toLowerCase() };
+    });
+  }, { maxCandidates: MAX_CANDIDATES, minW: MIN_CANDIDATE_W, minH: MIN_CANDIDATE_H });
+}
+
+const CANDIDATE_SYSTEM =
+  'You are a figure-selection assistant for a research-explainer pipeline. You ' +
+  'are shown candidate images cropped from a single web page, each labelled with ' +
+  'its candidate number, in page order. Choose the single most useful figure to ' +
+  'illustrate a lay-audience explainer: a diagram, chart, schematic, or visual ' +
+  "abstract that conveys the page's core idea or headline result. Avoid logos, " +
+  'author photos, decorative banners, and navigation imagery. Reply with ONLY a ' +
+  'JSON object.';
+
+interface CandidateSelection {
+  found: boolean;
+  candidate: number;
+  source_figure?: string;
+  caption?: string;
+  alt_text?: string;
+  confidence?: number;
+}
+
+function candidatePrompt(opts: SelectionOpts, count: number): string {
+  const target = opts.named
+    ? `The explainer requires a specific figure: "${opts.named}". Choose the candidate showing exactly that figure.`
+    : 'No specific figure was requested, so choose the candidate that best illustrates the work.';
+  return [
+    target,
+    '',
+    ...contextBlock(opts.context),
+    ...previousBlock(opts.prev),
+    `You are shown ${count} candidate images, labelled "Candidate 1" to "Candidate ${count}".`,
+    '',
+    'Return ONLY this JSON (no prose, no code fence):',
+    '{',
+    '  "found": <true|false>,',
+    '  "candidate": <1-based candidate number, as given by the image labels>,',
+    '  "source_figure": "<e.g. Figure 3, or a short label if unnumbered>",',
+    '  "caption": "<one-sentence plain caption>",',
+    '  "alt_text": "<concise alt text>",',
+    '  "confidence": <0..1>',
+    '}',
+    'If no candidate is a suitable figure, return {"found": false}.',
+  ].join('\n');
+}
+
+function parseCandidateSelection(raw: string): CandidateSelection | null {
+  try {
+    const fence = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const slice = fence ? fence[1] : (start !== -1 && end > start ? raw.slice(start, end + 1) : raw);
+    const obj = JSON.parse(slice) as Partial<CandidateSelection>;
+    if (!obj || obj.found === false) return { found: false, candidate: 0 };
+    const candidate = Number(obj.candidate);
+    if (!Number.isInteger(candidate) || candidate < 1) return null;
+    return {
+      found: true,
+      candidate,
+      source_figure: typeof obj.source_figure === 'string' ? obj.source_figure : undefined,
+      caption: typeof obj.caption === 'string' ? obj.caption : undefined,
+      alt_text: typeof obj.alt_text === 'string' ? obj.alt_text : undefined,
+      confidence: typeof obj.confidence === 'number' ? obj.confidence : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function chooseCandidateOnce(
+  provider: ReturnType<typeof resolveVisionProvider>,
+  sendPaths: string[],
+  opts: SelectionOpts,
+): Promise<{ sel: CandidateSelection; vision: VisionResult } | null> {
+  try {
+    const vision = await runVision({
+      provider,
+      model: visionModel(provider),
+      maxTokens: SELECTION_MAX_TOKENS,
+      system: CANDIDATE_SYSTEM,
+      prompt: candidatePrompt(opts, sendPaths.length),
+      imagePaths: sendPaths,
+      labels: sendPaths.map((_, i) => `Candidate ${i + 1}`),
+    });
+    const sel = parseCandidateSelection(vision.text);
+    if (sel) return { sel, vision };
+    console.warn('  ⚠ figure-vlm: unparseable candidate selection.');
+  } catch (err) {
+    console.warn(`  ⚠ figure-vlm: vision call failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return null;
+}
+
 async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
   const pw = await loadPlaywright();
   if (!pw) return null;
@@ -570,54 +710,60 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
 
     await renderReady(page);
 
-    const fullPath = path.join(tmpDir, 'full.png');
-    await page.screenshot({ path: fullPath, fullPage: true });
-    // Full-page screenshot pixel size ÷ deviceScaleFactor → CSS px for the clip.
-    const px = pngSizePx(fullPath);
-    if (!px) {
-      console.warn('  ⚠ figure-vlm: could not read screenshot dimensions.');
-      return null;
+    // Candidate-choose flow: screenshot each figure-like element and let the
+    // model pick one by number. Element screenshots carry exact DOM bounds, so
+    // there is no bounding-box regression at all on this path.
+    const candidates = await markFigureCandidates(page).catch(() => [] as DomCandidate[]);
+    const shots: Array<{ id: number; sendPath: string }> = [];
+    for (const cand of candidates) {
+      const shotPath = path.join(tmpDir, `cand-${cand.id}.png`);
+      try {
+        await page.locator(`[data-vlm-cand="${cand.id}"]`).first().screenshot({ path: shotPath, timeout: 10_000 });
+        if (looksBlank(shotPath)) continue;
+        const sendPath = downscaleLongEdge(shotPath, CANDIDATE_SEND_PX, path.join(tmpDir, `cand-${cand.id}-send.png`)) ?? shotPath;
+        shots.push({ id: cand.id, sendPath });
+      } catch {
+        // Hidden or detached elements simply drop out of the candidate set.
+      }
     }
-    const dims = { w: px.w / 2, h: px.h / 2 };
 
-    // Grow the viewport to the full content height (capped at Chromium's max
-    // texture size) so any clip on the page is reachable, then clamp to bounds.
-    const MAX_DIM = 16384;
-    const vw = Math.min(Math.max(Math.ceil(dims.w), 320), MAX_DIM);
-    const vh = Math.min(Math.max(Math.ceil(dims.h), 320), MAX_DIM);
-    await page.setViewportSize({ width: vw, height: vh });
+    if (shots.length === 0) {
+      console.warn('  ⚠ figure-vlm: no DOM figure candidates found; falling back to full-page selection.');
+      return await extractFromFullPage(page, tmpDir, provider, baseOpts);
+    }
+    console.log(`  · figure-vlm: ${shots.length} figure candidate(s) on page.`);
 
     let prev: PreviousAttempt | undefined;
     for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
-      const selected = await selectFigureOnce(provider, [fullPath], ['Full page screenshot'], { ...baseOpts, prev });
+      const selected = await chooseCandidateOnce(provider, shots.map(s => s.sendPath), { ...baseOpts, prev });
       if (!selected) continue;
       const { sel, vision } = selected;
       if (!sel.found) {
-        console.warn('  ⚠ figure-vlm: model found no suitable figure on page.');
+        console.warn('  ⚠ figure-vlm: model found no suitable figure among candidates.');
         return null;
       }
       if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
         console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
         return null;
       }
+      // The model numbers candidates from its labels (1-based positions in the
+      // sent set), so map position back to the element id.
+      const chosen = shots[sel.candidate - 1];
+      if (!chosen) {
+        prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: 'that candidate number does not exist' };
+        continue;
+      }
 
-      // Snap the imprecise VLM bbox to the nearest real figure element so the
-      // crop clips to actual element bounds; fall back to the padded VLM box.
-      const vlmRect = bboxToRect(sel.bbox, dims);
-      const snapped = await snapToFigureElement(page, vlmRect).catch(() => null);
-      const targetRect = snapped ?? padRect(vlmRect, dims);
-      const clip = clampClip(targetRect, dims, MAX_DIM);
       const cropPath = path.join(tmpDir, `crop-${attempt}.png`);
-      await page.screenshot({ path: cropPath, clip });
-
+      await page.locator(`[data-vlm-cand="${chosen.id}"]`).first().screenshot({ path: cropPath, timeout: 15_000 });
       if (looksBlank(cropPath)) {
         console.warn(`  ⚠ figure-vlm: blank crop (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
-        prev = { source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank' };
+        prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: 'the crop rendered blank' };
         continue;
       }
       const src = encodeJpegDataUrl(cropPath);
       if (!src) continue;
-      console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
+      console.log(`  · figure-vlm: candidate ${sel.candidate} chosen, cropped to element bounds.`);
       const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
       return {
         src,
@@ -637,6 +783,101 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
     await browser.close().catch(() => undefined);
     cleanupTmp(tmpDir);
   }
+}
+
+// Fallback tiling: page segments stay under the vision size cap so the model
+// sees them at full width instead of a provider-side shrink of the whole page.
+// 1150 CSS px at deviceScaleFactor 2 is ~2300 device px, inside the 2500 cap.
+const TILE_HEIGHT_CSS = 1150;
+const MAX_TILES = 10;
+
+/**
+ * Fallback for pages with no figure-like DOM elements: tile the page into
+ * viewport-width segments, ask for a page/bbox selection over the labelled
+ * tiles, and map the bbox back through the tile offset before cropping.
+ */
+async function extractFromFullPage(
+  page: import('playwright').Page,
+  tmpDir: string,
+  provider: ReturnType<typeof resolveVisionProvider>,
+  baseOpts: SelectionOpts,
+): Promise<VlmFigureResult | null> {
+  const fullPath = path.join(tmpDir, 'full.png');
+  await page.screenshot({ path: fullPath, fullPage: true });
+  // Full-page screenshot pixel size divided by deviceScaleFactor gives CSS px.
+  const px = pngSizePx(fullPath);
+  if (!px) {
+    console.warn('  ⚠ figure-vlm: could not read screenshot dimensions.');
+    return null;
+  }
+  const dims = { w: px.w / 2, h: px.h / 2 };
+
+  // Grow the viewport to the full content height (capped at Chromium's max
+  // texture size) so any clip on the page is reachable, then clamp to bounds.
+  const MAX_DIM = 16384;
+  const vw = Math.min(Math.max(Math.ceil(dims.w), 320), MAX_DIM);
+  const vh = Math.min(Math.max(Math.ceil(dims.h), 320), MAX_DIM);
+  await page.setViewportSize({ width: vw, height: vh });
+
+  const tiles: Array<{ path: string; top: number; h: number }> = [];
+  for (let top = 0, i = 0; top < dims.h && i < MAX_TILES; top += TILE_HEIGHT_CSS, i++) {
+    const h = Math.min(TILE_HEIGHT_CSS, dims.h - top);
+    if (h < 40) break;
+    const tilePath = path.join(tmpDir, `tile-${i + 1}.png`);
+    await page.screenshot({ path: tilePath, clip: { x: 0, y: top, width: dims.w, height: h } });
+    tiles.push({ path: tilePath, top, h });
+  }
+  if (tiles.length === 0) return null;
+  if (dims.h > MAX_TILES * TILE_HEIGHT_CSS) {
+    console.warn(`  ⚠ figure-vlm: page taller than ${MAX_TILES} tiles; ignoring content below ${MAX_TILES * TILE_HEIGHT_CSS}px.`);
+  }
+  const labels = tiles.map((_, i) => `Page ${i + 1} of ${tiles.length}`);
+
+  let prev: PreviousAttempt | undefined;
+  for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
+    const selected = await selectFigureOnce(provider, tiles.map(t => t.path), labels, { ...baseOpts, prev });
+    if (!selected) continue;
+    const { sel, vision } = selected;
+    if (!sel.found) {
+      console.warn('  ⚠ figure-vlm: model found no suitable figure on page.');
+      return null;
+    }
+    if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
+      console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+      return null;
+    }
+
+    const tile = tiles[Math.min(Math.max(sel.page, 1), tiles.length) - 1];
+    const tileRect = bboxToRect(sel.bbox, { w: dims.w, h: tile.h });
+    const vlmRect = { ...tileRect, y: tileRect.y + tile.top };
+    // Snap the imprecise VLM bbox to the nearest real figure element so the
+    // crop clips to actual element bounds; fall back to the padded VLM box.
+    const snapped = await snapToFigureElement(page, vlmRect).catch(() => null);
+    const targetRect = snapped ?? padRect(vlmRect, dims);
+    const clip = clampClip(targetRect, dims, MAX_DIM);
+    const cropPath = path.join(tmpDir, `crop-${attempt}.png`);
+    await page.screenshot({ path: cropPath, clip });
+
+    if (looksBlank(cropPath)) {
+      console.warn(`  ⚠ figure-vlm: blank crop (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
+      prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank' };
+      continue;
+    }
+    const src = encodeJpegDataUrl(cropPath);
+    if (!src) continue;
+    console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
+    const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
+    return {
+      src,
+      source_figure: label,
+      caption: sel.caption ?? `${label} from the source.`,
+      alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source.`,
+      route: vision.route,
+      provider: vision.provider,
+    };
+  }
+  console.warn('  ⚠ figure-vlm: no usable figure after retries.');
+  return null;
 }
 
 export interface VlmFigureInput {
