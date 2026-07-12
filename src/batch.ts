@@ -13,7 +13,7 @@ import { calcCost, formatUsd, BATCH_DISCOUNT } from './pricing';
 import { buildRepairInstruction, validateJsonOutput } from './quality';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
-import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse } from './providers';
+import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
 
 // Optional shared batch-dashboard integration. Defaults to `<repo>/jobs`;
 // override with EXPLAINER_JOBS_DIR. Job-file writes are best-effort: if the
@@ -23,12 +23,63 @@ const JOBS_DIR = process.env.EXPLAINER_JOBS_DIR
   ? path.resolve(process.env.EXPLAINER_JOBS_DIR)
   : path.join(__dirname, '..', 'jobs');
 
-// Polling: wait 3 min before first check, then every 30s
-// (Batches take minutes — poll eagerly once the initial window passes)
+// Polling: check once immediately (a re-poll of a finished batch should not
+// wait), then a longer initial window, then every 30s. Providers allow up to
+// 24h per batch; the total budget stops a stuck loop holding a terminal
+// forever - the batch id stays in state.json, so polling can simply re-run.
 const POLL_INITIAL_WAIT_MS = 3 * 60_000;
 const POLL_INTERVAL_MS = 30_000;
 const POLL_SYNTH_INITIAL_WAIT_MS = 90_000; // synthesis batches are smaller/faster
+const POLL_MAX_TOTAL_MS = 12 * 60 * 60_000;
+const POLL_MAX_CONSECUTIVE_ERRORS = 5;
+const POLL_ERROR_BACKOFF_CAP_MS = 8 * 60_000;
 const MAX_REPAIR_ATTEMPTS = 2;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function pollUntilEnded(
+  label: string,
+  initialWaitMs: number,
+  fetchStatus: () => Promise<ProviderBatchStatus>,
+): Promise<void> {
+  const startedAt = Date.now();
+  let consecutiveErrors = 0;
+  let checkedOnce = false;
+
+  while (true) {
+    if (Date.now() - startedAt > POLL_MAX_TOTAL_MS) {
+      throw new Error(
+        `${label} polling gave up after ${Math.round(POLL_MAX_TOTAL_MS / 3_600_000)}h; ` +
+        're-run poll later to resume (the batch id is saved in state.json).'
+      );
+    }
+
+    try {
+      const snapshot = await fetchStatus();
+      consecutiveErrors = 0;
+      const counts = snapshot.counts;
+      console.log(`  ${label} status: ${snapshot.status} (processing: ${counts.processing}, succeeded: ${counts.succeeded}, errored: ${counts.errored})`);
+      if (snapshot.status === 'ended') return;
+    } catch (error) {
+      consecutiveErrors += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      if (consecutiveErrors > POLL_MAX_CONSECUTIVE_ERRORS) {
+        throw new Error(`${label} status polling failed ${consecutiveErrors} times in a row: ${message}`);
+      }
+      const backoffMs = Math.min(POLL_INTERVAL_MS * 2 ** (consecutiveErrors - 1), POLL_ERROR_BACKOFF_CAP_MS);
+      console.warn(`  ${label} status check failed (${consecutiveErrors}/${POLL_MAX_CONSECUTIVE_ERRORS}): ${message}; retrying in ${Math.round(backoffMs / 1000)}s`);
+      await sleep(backoffMs);
+      continue;
+    }
+
+    const waitMs = checkedOnce ? POLL_INTERVAL_MS : initialWaitMs;
+    checkedOnce = true;
+    console.log(`  Next ${label} poll in ${Math.round(waitMs / 1000)}s…`);
+    await sleep(waitMs);
+  }
+}
 
 interface RepairResult {
   html: string;
@@ -543,7 +594,6 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
   const freshState = readState();
   const freshBatch = getBatchById(freshState, batchState.id);
   if (!freshBatch) return;
-  freshBatch.status = 'ended';
   const lanesPresent = Object.values(freshBatch.requests).some(r => r.type === 'lane');
   const savedResults: SaveResult[] = [];
   const expectedDate = dateFromIso(freshBatch.submitted_at);
@@ -593,6 +643,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
         console.error(`  ✗ ${entry.customId} — ${req.error}`);
       }
     }
+    freshBatch.status = 'ended';
     mergeBatch(freshBatch);
     await exportSavedHtml(savedResults);
     return;
@@ -667,27 +718,28 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     }));
   }
 
-  if (synthesisLines.length === 0) {
+  let synthBatchId = freshBatch.synthesis_batch_id;
+  if (synthBatchId) {
+    console.log(`  Resuming synthesis batch from state: ${synthBatchId}`);
+  } else {
+    if (synthesisLines.length === 0) {
+      freshBatch.status = 'ended';
+      mergeBatch(freshBatch);
+      return;
+    }
+    const synthInputFileId = await client.uploadJsonl(synthesisLines.join('\n'));
+    const synthBatch = await client.createBatch(synthInputFileId);
+    synthBatchId = synthBatch.id;
+    // Persist the id (and lane results) before polling: a crash mid-poll
+    // must resume this batch, not resubmit and pay for it again.
+    freshBatch.synthesis_batch_id = synthBatchId;
     mergeBatch(freshBatch);
-    return;
+    console.log(`  Submitted OpenAI synthesis batch: ${synthBatchId} (${synthesisLines.length} request(s), model: ${synthesisModel})`);
   }
 
-  const synthInputFileId = await client.uploadJsonl(synthesisLines.join('\n'));
-  const synthBatch = await client.createBatch(synthInputFileId);
-  console.log(`  Submitted OpenAI synthesis batch: ${synthBatch.id} (${synthesisLines.length} request(s), model: ${synthesisModel})`);
+  await pollUntilEnded('synthesis', POLL_SYNTH_INITIAL_WAIT_MS, () => client.retrieveBatch(synthBatchId));
 
-  console.log(`  Waiting ${Math.round(POLL_SYNTH_INITIAL_WAIT_MS / 1000)}s before first synthesis poll…`);
-  await new Promise(r => setTimeout(r, POLL_SYNTH_INITIAL_WAIT_MS));
-  while (true) {
-    const synthStatus = await client.retrieveBatch(synthBatch.id);
-    const counts = synthStatus.counts;
-    console.log(`  Synthesis status: ${synthStatus.status} — processing: ${counts.processing}, succeeded: ${counts.succeeded}, errored: ${counts.errored}`);
-    if (synthStatus.status === 'ended') break;
-    console.log(`  Next synthesis poll in ${Math.round(POLL_INTERVAL_MS / 1000)}s…`);
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-  }
-
-  for await (const entry of client.iterateBatchResults(synthBatch.id)) {
+  for await (const entry of client.iterateBatchResults(synthBatchId)) {
     const req = freshBatch.requests[entry.customId];
     if (!req || req.type !== 'explainer') continue;
 
@@ -735,6 +787,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     }
   }
 
+  freshBatch.status = 'ended';
   mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
@@ -1196,16 +1249,7 @@ export async function pollAndRetrieve(provider: ProviderName, batchId?: string):
     return;
   }
 
-  console.log(`  Waiting ${Math.round(POLL_INITIAL_WAIT_MS / 1000)}s before first poll…`);
-  await new Promise(r => setTimeout(r, POLL_INITIAL_WAIT_MS));
-  while (true) {
-    const batch = await pollBatchStatus(batchProvider, batchState.id);
-    const counts = batch.counts;
-    console.log(`  Status: ${batch.status} — processing: ${counts.processing}, succeeded: ${counts.succeeded}, errored: ${counts.errored}`);
-    if (batch.status === 'ended') break;
-    console.log(`  Next poll in ${Math.round(POLL_INTERVAL_MS / 1000)}s…`);
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-  }
+  await pollUntilEnded('batch', POLL_INITIAL_WAIT_MS, () => pollBatchStatus(batchProvider, batchState.id));
 
   console.log('  Batch complete. Retrieving results…');
 

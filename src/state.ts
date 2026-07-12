@@ -45,6 +45,9 @@ export interface BatchState {
   model: string;
   lane_model?: string;
   synthesis_model?: string;
+  /** Second-stage OpenAI batch id, persisted at creation so a crash during
+   *  the synthesis poll can resume instead of resubmitting (and repaying). */
+  synthesis_batch_id?: string;
   submitted_at: string;
   status: 'processing' | 'ended';
   requests: Record<string, RequestState>;
