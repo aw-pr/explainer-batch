@@ -4,13 +4,53 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp, type VisionResult } from './vision';
 import { getModelConfig } from './model-config';
+import type { ExplainerJson } from './types/explainer-json';
 
-/** Subset of the focus-sidecar image override consumed here (mirrors preprocess.ImageOverride). */
+/**
+ * Subset of the focus-sidecar image override consumed here (structural
+ * superset of preprocess.ImageOverride: source_figure is optional so a bare
+ * page hint or caption override does not pin a figure name).
+ */
 export interface ImageOverride {
-  source_figure: string;
+  source_figure?: string;
   caption?: string;
   alt_text?: string;
   pageHint?: number;
+}
+
+/**
+ * What the explainer already says, threaded into the selection prompt so the
+ * model picks a figure that complements the article instead of duplicating
+ * the charts it already contains.
+ */
+export interface FigureContext {
+  headline?: string;
+  subtitle?: string;
+  sectionLabels: string[];
+  chartTitles: string[];
+}
+
+export function contextFromExplainer(json: ExplainerJson): FigureContext {
+  const charts = Array.isArray(json.charts) ? json.charts : (json.chart ? [json.chart] : []);
+  return {
+    headline: json.hero?.headline,
+    subtitle: json.hero?.subtitle,
+    sectionLabels: (json.sections ?? [])
+      .map(s => s?.label)
+      .filter((l): l is string => typeof l === 'string' && l.length > 0),
+    chartTitles: charts
+      .map(c => (c as { title?: unknown })?.title)
+      .filter((t): t is string => typeof t === 'string' && t.length > 0),
+  };
+}
+
+/** A failed prior selection, fed back so a retry can avoid it (stateful retry). */
+interface PreviousAttempt {
+  page?: number;
+  candidate?: number;
+  source_figure?: string;
+  bbox?: [number, number, number, number];
+  reason: string;
 }
 
 /**
@@ -75,17 +115,65 @@ const SELECTION_SYSTEM =
   "paper's core idea or headline result. Avoid pages that are pure prose, " +
   'reference lists, equations, or dense tables. Reply with ONLY a JSON object.';
 
-function selectionPrompt(named?: string): string {
-  const target = named
-    ? `The explainer requires a specific figure: "${named}". Locate exactly that figure.`
-    : 'No specific figure was requested — choose the one figure that best illustrates the work.';
+/** Options shared by the selection prompt builders. */
+interface SelectionOpts {
+  named?: string;
+  context?: FigureContext;
+  pageHint?: number;
+  prev?: PreviousAttempt;
+}
+
+function contextBlock(context?: FigureContext): string[] {
+  if (!context) return [];
+  const lines: string[] = ['Explainer context (what the article already covers):'];
+  if (context.headline) lines.push(`- Headline: ${context.headline}`);
+  if (context.subtitle) lines.push(`- Subtitle: ${context.subtitle}`);
+  if (context.sectionLabels.length > 0) lines.push(`- Sections: ${context.sectionLabels.join('; ')}`);
+  if (context.chartTitles.length > 0) {
+    lines.push(`- The explainer ALREADY recreates these results as its own charts: ${context.chartTitles.join('; ')}.`);
+    lines.push('  Prefer a complementary CONCEPTUAL figure (architecture, pipeline, schematic, visual abstract) over a results plot those charts duplicate.');
+  }
+  lines.push('');
+  return lines;
+}
+
+function previousBlock(prev?: PreviousAttempt): string[] {
+  if (!prev) return [];
+  const what = [
+    prev.candidate !== undefined ? `candidate ${prev.candidate}` : '',
+    prev.page !== undefined ? `page ${prev.page}` : '',
+    prev.source_figure ? `"${prev.source_figure}"` : '',
+    prev.bbox ? `bbox [${prev.bbox.map(n => n.toFixed(2)).join(', ')}]` : '',
+  ].filter(Boolean).join(', ');
+  return [
+    `A previous attempt selected ${what || 'a figure'} and it failed: ${prev.reason}.`,
+    'Pick a DIFFERENT figure this time. Choose one that is clearly rendered with visible ' +
+    'content; avoid interactive or animated charts that may not have painted, and avoid empty regions.',
+    '',
+  ];
+}
+
+function pageHintLine(pageHint?: number): string[] {
+  if (!pageHint || !Number.isInteger(pageHint) || pageHint < 1) return [];
+  return [`The user suggests the figure is on page ${pageHint}. Check that page first, but choose a better figure elsewhere if that page has none.`, ''];
+}
+
+function selectionPrompt(opts: SelectionOpts): string {
+  const target = opts.named
+    ? `The explainer requires a specific figure: "${opts.named}". Locate exactly that figure.`
+    : 'No specific figure was requested, so choose the one figure that best illustrates the work.';
   return [
     target,
+    '',
+    ...contextBlock(opts.context),
+    ...pageHintLine(opts.pageHint),
+    ...previousBlock(opts.prev),
+    'Each page image is preceded by its label ("Page N of M"); use those labels for the "page" field.',
     '',
     'Return ONLY this JSON (no prose, no code fence):',
     '{',
     '  "found": <true|false>,',
-    '  "page": <1-based index of the page image containing the figure>,',
+    '  "page": <1-based page number, as given by the image labels>,',
     '  "bbox": [x0, y0, x1, y1],   // normalized 0..1 within that page image; tight around the figure BODY, excluding its caption text',
     '  "source_figure": "<e.g. Figure 3, or a short label if unnumbered>",',
     '  "caption": "<one-sentence plain caption>",',
@@ -125,28 +213,31 @@ function parseSelection(raw: string): FigureSelection | null {
 
 const FIGURE_ATTEMPTS = Math.max(1, Number.parseInt(process.env.FIGURE_VLM_ATTEMPTS ?? '2', 10));
 
+function visionModel(provider: ReturnType<typeof resolveVisionProvider>): string {
+  return process.env.FIGURE_VLM_MODEL ?? getModelConfig(provider).batchModel;
+}
+
 /**
  * One figure-selection vision call. The caller owns the retry loop so a retry
  * can be triggered by a transport failure, an unparseable reply, OR a blank/
- * uncroppable result. When `avoidPrevious` is set the prompt steers the model
- * to a different, clearly-rendered figure than the one that just failed.
+ * uncroppable result. When `opts.prev` carries a failed prior selection the
+ * prompt names it explicitly, so "pick a different figure" is actionable.
  */
 async function selectFigureOnce(
   provider: ReturnType<typeof resolveVisionProvider>,
   imagePaths: string[],
-  named: string | undefined,
-  avoidPrevious: boolean,
+  labels: string[],
+  opts: SelectionOpts,
 ): Promise<{ sel: FigureSelection; vision: VisionResult } | null> {
-  const model = process.env.FIGURE_VLM_MODEL ?? getModelConfig(provider).batchModel;
-  let prompt = selectionPrompt(named);
-  if (avoidPrevious) {
-    prompt += '\n\nThe figure chosen previously rendered blank or could not be cropped. ' +
-      'Pick a DIFFERENT figure that is clearly rendered with visible content; avoid ' +
-      'interactive/animated charts that may not have painted, and avoid empty regions.';
-  }
   try {
     const vision = await runVision({
-      provider, model, maxTokens: SELECTION_MAX_TOKENS, system: SELECTION_SYSTEM, prompt, imagePaths,
+      provider,
+      model: visionModel(provider),
+      maxTokens: SELECTION_MAX_TOKENS,
+      system: SELECTION_SYSTEM,
+      prompt: selectionPrompt(opts),
+      imagePaths,
+      labels,
     });
     const sel = parseSelection(vision.text);
     if (sel) return { sel, vision };
@@ -218,15 +309,17 @@ function intersectionOverUnion(a: Rect, b: Rect): number {
   return union > 0 ? inter / union : 0;
 }
 
-interface DomRect { x: number; y: number; w: number; h: number; container: boolean; }
+interface DomRect { x: number; y: number; w: number; h: number; }
 
 /**
  * Snaps the (imprecise) VLM bounding box to a real figure element so the crop
  * clips to actual element bounds instead of swallowing neighbouring body text.
- * Scores candidates by overlap with the VLM box, with a bonus for figure-like
- * containers and for containing the box centre. Returns null when nothing fits
- * (caller falls back to the padded VLM box).
+ * Requires a minimum genuine overlap (IoU) before an element is eligible at
+ * all, then prefers the SMALLEST eligible element: a tight inner img/svg beats
+ * the page-wide wrapper that also happens to overlap. Returns null when
+ * nothing fits (caller falls back to the padded VLM box).
  */
+const MIN_SNAP_IOU = 0.1;
 async function snapToFigureElement(page: import('playwright').Page, vlmRect: Rect): Promise<Rect | null> {
   const cands: DomRect[] = await page.evaluate(() => {
     const doc = (globalThis as { document?: any }).document;
@@ -237,30 +330,25 @@ async function snapToFigureElement(page: import('playwright').Page, vlmRect: Rec
     doc.querySelectorAll(selector).forEach((el: any) => {
       const r = el.getBoundingClientRect();
       if (r.width < 60 || r.height < 60) return;
-      const cls = (el.getAttribute('class') || '').toLowerCase();
-      const tag = el.tagName.toLowerCase();
       out.push({
         x: r.left + (win.scrollX || 0),
         y: r.top + (win.scrollY || 0),
         w: r.width,
         h: r.height,
-        container: tag === 'figure' || tag === 'picture' || /chart|figure|graph|card/.test(cls),
       });
     });
     return out;
   });
 
   if (!cands || cands.length === 0) return null;
-  const cx = vlmRect.x + vlmRect.w / 2;
-  const cy = vlmRect.y + vlmRect.h / 2;
   let best: DomRect | null = null;
-  let bestScore = 0;
+  let bestArea = Infinity;
   for (const c of cands) {
-    const holds = cx >= c.x && cx <= c.x + c.w && cy >= c.y && cy <= c.y + c.h;
-    const score = intersectionOverUnion(vlmRect, c) + (c.container ? 0.15 : 0) + (holds ? 0.1 : 0);
-    if (score > bestScore) { bestScore = score; best = c; }
+    if (intersectionOverUnion(vlmRect, c) < MIN_SNAP_IOU) continue;
+    const area = c.w * c.h;
+    if (area < bestArea) { bestArea = area; best = c; }
   }
-  if (!best || bestScore < 0.2) return null;
+  if (!best) return null;
   return { x: best.x - 6, y: best.y - 6, w: best.w + 12, h: best.h + 12 };
 }
 
@@ -371,7 +459,7 @@ function cropPdfBbox(pdfPath: string, page: number, bbox: [number, number, numbe
   }
 }
 
-async function extractFromPdf(pdfPath: string, named: string | undefined, provider: ReturnType<typeof resolveVisionProvider>): Promise<VlmFigureResult | null> {
+async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
   const total = pageCount(pdfPath);
   const lastPage = Math.min(total ?? MAX_PAGES, MAX_PAGES);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-pages-'));
@@ -381,9 +469,11 @@ async function extractFromPdf(pdfPath: string, named: string | undefined, provid
       console.warn('  ⚠ figure-vlm: page render produced no images.');
       return null;
     }
+    const labels = thumbs.map((_, i) => `Page ${i + 1} of ${thumbs.length}`);
 
+    let prev: PreviousAttempt | undefined;
     for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
-      const selected = await selectFigureOnce(provider, thumbs, named, attempt > 1);
+      const selected = await selectFigureOnce(provider, thumbs, labels, { ...baseOpts, prev });
       if (!selected) continue;
       const { sel, vision } = selected;
       if (!sel.found) {
@@ -398,9 +488,10 @@ async function extractFromPdf(pdfPath: string, named: string | undefined, provid
       const src = cropPdfBbox(pdfPath, page, sel.bbox);
       if (!src) {
         console.warn(`  ⚠ figure-vlm: crop failed/blank (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
+        prev = { page, source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank or could not be produced' };
         continue;
       }
-      const label = named ?? sel.source_figure ?? 'Figure';
+      const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
       return {
         src,
         source_figure: label,
@@ -455,7 +546,7 @@ async function renderReady(page: import('playwright').Page): Promise<void> {
   }
 }
 
-async function extractFromUrl(url: string, named: string | undefined, provider: ReturnType<typeof resolveVisionProvider>): Promise<VlmFigureResult | null> {
+async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
   const pw = await loadPlaywright();
   if (!pw) return null;
 
@@ -496,8 +587,9 @@ async function extractFromUrl(url: string, named: string | undefined, provider: 
     const vh = Math.min(Math.max(Math.ceil(dims.h), 320), MAX_DIM);
     await page.setViewportSize({ width: vw, height: vh });
 
+    let prev: PreviousAttempt | undefined;
     for (let attempt = 1; attempt <= FIGURE_ATTEMPTS; attempt++) {
-      const selected = await selectFigureOnce(provider, [fullPath], named, attempt > 1);
+      const selected = await selectFigureOnce(provider, [fullPath], ['Full page screenshot'], { ...baseOpts, prev });
       if (!selected) continue;
       const { sel, vision } = selected;
       if (!sel.found) {
@@ -520,12 +612,13 @@ async function extractFromUrl(url: string, named: string | undefined, provider: 
 
       if (looksBlank(cropPath)) {
         console.warn(`  ⚠ figure-vlm: blank crop (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
+        prev = { source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank' };
         continue;
       }
       const src = encodeJpegDataUrl(cropPath);
       if (!src) continue;
       console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
-      const label = named ?? sel.source_figure ?? 'Figure';
+      const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
       return {
         src,
         source_figure: label,
@@ -550,6 +643,7 @@ export interface VlmFigureInput {
   pdfPath?: string | null;
   url?: string | null;
   override?: ImageOverride;
+  context?: FigureContext;
 }
 
 /**
@@ -563,13 +657,17 @@ export async function extractFigureViaVlm(input: VlmFigureInput): Promise<VlmFig
     return null;
   }
   const provider = resolveVisionProvider();
-  const named = input.override?.source_figure;
+  const opts: SelectionOpts = {
+    named: input.override?.source_figure,
+    context: input.context,
+    pageHint: input.override?.pageHint,
+  };
   try {
     if (input.pdfPath && fs.existsSync(input.pdfPath)) {
-      return await extractFromPdf(input.pdfPath, named, provider);
+      return await extractFromPdf(input.pdfPath, provider, opts);
     }
     if (input.url) {
-      return await extractFromUrl(input.url, named, provider);
+      return await extractFromUrl(input.url, provider, opts);
     }
   } catch (err) {
     console.warn(`  ⚠ figure-vlm: extraction failed — ${err instanceof Error ? err.message : String(err)}`);

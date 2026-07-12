@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
-import { extractFigureViaVlm } from './figure-vlm';
+import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { readState } from './state';
 import { loadDotEnv } from './env';
 
@@ -177,7 +177,9 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
     return;
   }
 
-  const result = await extractFigureViaVlm({ pdfPath, url, override });
+  // Explainer context steers selection towards a figure that complements the
+  // article (the charts already recreate the headline results).
+  const result = await extractFigureViaVlm({ pdfPath, url, override, context: contextFromExplainer(json) });
   if (!result) {
     if (json.image) delete json.image;
     return;

@@ -9,13 +9,13 @@
  * by FIGURE_VLM_PROVIDER / FIGURE_VLM_ROUTE (subscription-first by default).
  *
  * Usage:
- *   npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."]
+ *   npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."] [--page N]
  *
  * Example:
  *   npm run reextract -- output/2026-05-21_liu_explainer.json input/2604.14228v1.pdf "Figure 3"
  */
 import fs from 'fs';
-import { extractFigureViaVlm } from '../src/figure-vlm';
+import { extractFigureViaVlm, contextFromExplainer } from '../src/figure-vlm';
 import { loadDotEnv } from '../src/env';
 
 loadDotEnv();
@@ -35,26 +35,29 @@ const positional = process.argv.slice(2).filter((a, i, all) => {
 const [jsonPath, source, figureLabel] = positional;
 
 if (!jsonPath || !source) {
-  console.error('Usage: npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."]');
+  console.error('Usage: npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."] [--page N]');
   process.exit(1);
 }
 
 const captionOverride = arg('--caption');
 const altOverride = arg('--alt');
+const pageArg = arg('--page');
+const pageHint = pageArg && Number.isInteger(Number(pageArg)) && Number(pageArg) > 0 ? Number(pageArg) : undefined;
 const isUrl = /^https?:\/\//i.test(source);
 
 async function main(): Promise<void> {
   const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   console.log(`Re-extracting ${figureLabel ? `"${figureLabel}"` : 'best figure'} from ${source}...`);
 
-  const override = figureLabel || captionOverride || altOverride
-    ? { source_figure: figureLabel ?? 'Figure', caption: captionOverride, alt_text: altOverride }
+  const override = figureLabel || captionOverride || altOverride || pageHint
+    ? { source_figure: figureLabel, caption: captionOverride, alt_text: altOverride, pageHint }
     : undefined;
 
   const result = await extractFigureViaVlm({
     pdfPath: isUrl ? null : source,
     url: isUrl ? source : null,
     override,
+    context: contextFromExplainer(data),
   });
 
   if (!result) {

@@ -115,28 +115,45 @@ function openaiRoute(route: VisionRoute): 'subscription' | 'api' {
   throw new Error('OpenAI vision auth not configured. Log in with codex ChatGPT auth or set OPENAI_API_KEY.');
 }
 
-function buildClaudeContent(prompt: string, imagePaths: string[]): Anthropic.MessageParam['content'] {
+interface LabelledImage {
+  path: string;
+  label?: string;
+}
+
+function buildClaudeContent(prompt: string, images: LabelledImage[]): Anthropic.MessageParam['content'] {
   const blocks: Anthropic.ContentBlockParam[] = [{ type: 'text', text: prompt }];
-  for (const p of imagePaths) {
+  for (const img of images) {
+    if (img.label) blocks.push({ type: 'text', text: img.label });
     blocks.push({
       type: 'image',
       source: {
         type: 'base64',
-        media_type: mediaTypeFor(p),
-        data: fs.readFileSync(p).toString('base64'),
+        media_type: mediaTypeFor(img.path),
+        data: fs.readFileSync(img.path).toString('base64'),
       },
     });
   }
   return blocks;
 }
 
-function buildOpenAIInput(prompt: string, imagePaths: string[]): Array<{ role: 'user'; content: Array<Record<string, unknown>> }> {
+function buildOpenAIInput(prompt: string, images: LabelledImage[]): Array<{ role: 'user'; content: Array<Record<string, unknown>> }> {
   const content: Array<Record<string, unknown>> = [{ type: 'input_text', text: prompt }];
-  for (const p of imagePaths) {
-    const dataUrl = `data:${mediaTypeFor(p)};base64,${fs.readFileSync(p).toString('base64')}`;
+  for (const img of images) {
+    if (img.label) content.push({ type: 'input_text', text: img.label });
+    const dataUrl = `data:${mediaTypeFor(img.path)};base64,${fs.readFileSync(img.path).toString('base64')}`;
     content.push({ type: 'input_image', image_url: dataUrl });
   }
   return [{ role: 'user', content }];
+}
+
+/**
+ * The codex CLI attaches images as bare files with no way to interleave text,
+ * so labels are appended to the prompt as an ordered manifest instead.
+ */
+function labelManifest(images: LabelledImage[]): string {
+  if (!images.some(img => img.label)) return '';
+  const lines = images.map((img, i) => `${i + 1}. ${img.label ?? '(unlabelled image)'}`);
+  return `\n\nAttached images, in order:\n${lines.join('\n')}`;
 }
 
 export interface VisionCallOptions {
@@ -146,6 +163,12 @@ export interface VisionCallOptions {
   system: string;
   prompt: string;
   imagePaths: string[];
+  /**
+   * Optional per-image labels aligned with imagePaths (e.g. "Page 3",
+   * "Candidate 2"), placed immediately before each image so the model's
+   * returned indices are unambiguous.
+   */
+  labels?: string[];
 }
 
 /**
@@ -154,14 +177,18 @@ export interface VisionCallOptions {
  * figure step can fall back to dropping the image block.
  */
 export async function runVision(opts: VisionCallOptions): Promise<VisionResult> {
-  const present = opts.imagePaths.filter(p => fs.existsSync(p));
+  const present: LabelledImage[] = opts.imagePaths
+    .map((p, i) => ({ path: p, label: opts.labels?.[i] }))
+    .filter(img => fs.existsSync(img.path));
   if (present.length === 0) throw new Error('runVision: no readable image paths');
   const route = resolveRoute();
 
   const capDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vision-cap-'));
   try {
-    const capped = present.map((p, i) =>
-      downscaleLongEdge(p, VISION_MAX_LONG_EDGE, path.join(capDir, `cap-${i}${path.extname(p) || '.png'}`)) ?? p);
+    const capped: LabelledImage[] = present.map((img, i) => ({
+      label: img.label,
+      path: downscaleLongEdge(img.path, VISION_MAX_LONG_EDGE, path.join(capDir, `cap-${i}${path.extname(img.path) || '.png'}`)) ?? img.path,
+    }));
 
     if (opts.provider === 'claude') {
       const decided = claudeRoute(route);
@@ -179,8 +206,8 @@ export async function runVision(opts: VisionCallOptions): Promise<VisionResult> 
     const decided = openaiRoute(route);
     const provider = new OpenAIProvider();
     if (decided === 'subscription') {
-      const flat = `${opts.system}\n\n${opts.prompt}`;
-      const res = await provider.createVisionViaCodex(opts.model, flat, capped);
+      const flat = `${opts.system}\n\n${opts.prompt}${labelManifest(capped)}`;
+      const res = await provider.createVisionViaCodex(opts.model, flat, capped.map(img => img.path));
       return { ...res, route: 'subscription', provider: 'openai' };
     }
     const input = buildOpenAIInput(opts.prompt, capped);
