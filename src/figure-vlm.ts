@@ -258,12 +258,24 @@ async function selectFigureOnce(
  * Blank-crop guard. A blank/near-uniform PNG compresses to almost nothing, so
  * bytes-per-pixel is a cheap, dependency-free proxy for "this crop has no
  * content" — catches interactive charts that screenshot blank and empty snaps.
+ *
+ * The threshold sits at 0.006: flat fills compress to roughly 0.001-0.003
+ * bytes/px while sparse line diagrams on white can dip to ~0.01, so the old
+ * 0.02 threshold false-rejected legitimate minimal diagrams. The semantic
+ * verification pass now catches junk crops this cruder guard lets through.
+ * Crops under 48px on either side are rejected outright; nothing that small
+ * is a readable figure.
  */
-const BLANK_BYTES_PER_PIXEL = 0.02;
+const BLANK_BYTES_PER_PIXEL = 0.006;
+const MIN_CROP_DIM_PX = 48;
 function looksBlank(pngPath: string): boolean {
   try {
     const px = pngSizePx(pngPath);
     if (!px || px.w * px.h === 0) return false;
+    if (px.w < MIN_CROP_DIM_PX || px.h < MIN_CROP_DIM_PX) {
+      console.warn(`  ⚠ figure-vlm: crop too small (${px.w}x${px.h}px) — rejecting.`);
+      return true;
+    }
     const bpp = fs.statSync(pngPath).size / (px.w * px.h);
     if (bpp < BLANK_BYTES_PER_PIXEL) {
       console.warn(`  ⚠ figure-vlm: crop looks blank (${bpp.toFixed(4)} bytes/px) — rejecting.`);
@@ -272,6 +284,48 @@ function looksBlank(pngPath: string): boolean {
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Semantic crop verification: one cheap vision call confirming the crop is a
+ * single complete figure without surrounding body text. Fails open (returns
+ * ok) on transport or parse errors so a flaky check can never discard a good
+ * crop; a strict `ok: false` feeds its reason into the retry prompt.
+ * FIGURE_VLM_VERIFY=0 disables; FIGURE_VLM_VERIFY_MODEL overrides the model.
+ */
+async function verifyCrop(
+  provider: ReturnType<typeof resolveVisionProvider>,
+  cropPath: string,
+): Promise<{ ok: boolean; reason: string }> {
+  if (process.env.FIGURE_VLM_VERIFY === '0') return { ok: true, reason: 'verification disabled' };
+  const model = process.env.FIGURE_VLM_VERIFY_MODEL ?? visionModel(provider);
+  const prompt = [
+    'Does this image show a single complete figure (diagram, chart, schematic, or visual abstract) with no surrounding body text?',
+    'A visible axis label, legend, or in-figure annotation is fine; paragraphs of article text, or a figure cut off at an edge, are not.',
+    'Reply with ONLY strict JSON: {"ok": <true|false>, "reason": "<short reason>"}',
+  ].join('\n');
+  try {
+    const vision = await runVision({
+      provider,
+      model,
+      maxTokens: 150,
+      system: 'You are a strict image QA checker for cropped figures. Reply with ONLY a JSON object.',
+      prompt,
+      imagePaths: [cropPath],
+    });
+    const raw = vision.text;
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end <= start) return { ok: true, reason: 'unparseable verification reply' };
+    const obj = JSON.parse(raw.slice(start, end + 1)) as { ok?: unknown; reason?: unknown };
+    if (obj.ok === false) {
+      return { ok: false, reason: typeof obj.reason === 'string' ? obj.reason : 'verifier rejected the crop' };
+    }
+    return { ok: true, reason: typeof obj.reason === 'string' ? obj.reason : 'ok' };
+  } catch (err) {
+    console.warn(`  ⚠ figure-vlm: verification call failed (${err instanceof Error ? err.message : String(err)}); accepting crop.`);
+    return { ok: true, reason: 'verification unavailable' };
   }
 }
 
@@ -492,8 +546,12 @@ function encodeJpegDataUrl(pngPath: string): string | null {
   }
 }
 
-/** Crop the chosen PDF page to the (normalized) bbox at high DPI and return a JPEG data URL. */
-function cropPdfBbox(pdfPath: string, page: number, bbox: [number, number, number, number]): string | null {
+/**
+ * Crop the chosen PDF page to the (normalized) bbox at high DPI. Returns the
+ * crop's PNG path inside `outDir` (so the caller can verify it before
+ * encoding), or null when the crop fails or looks blank.
+ */
+function cropPdfBboxPng(pdfPath: string, page: number, bbox: [number, number, number, number], outDir: string): string | null {
   const size = pageSizePts(pdfPath);
   if (!size) return null;
   const [x0, y0, x1, y1] = padBbox(bbox);
@@ -504,22 +562,18 @@ function cropPdfBbox(pdfPath: string, page: number, bbox: [number, number, numbe
   const hPx = Math.ceil((y1 - y0) * size.h * ptsToPx);
   if (wPx <= 4 || hPx <= 4) return null;
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-crop-'));
-  const prefix = path.join(tmpDir, 'crop');
-  try {
-    const result = spawnSync(
-      'pdftoppm',
-      ['-png', '-r', String(CROP_DPI), '-f', String(page), '-l', String(page),
-        '-x', String(xPx), '-y', String(yPx), '-W', String(wPx), '-H', String(hPx), pdfPath, prefix],
-      { encoding: 'utf8' },
-    );
-    if (result.error || result.status !== 0) return null;
-    const png = fs.readdirSync(tmpDir).filter(f => f.endsWith('.png')).map(f => path.join(tmpDir, f))[0];
-    if (!png || looksBlank(png)) return null;
-    return encodeJpegDataUrl(png);
-  } finally {
-    cleanupTmp(tmpDir);
-  }
+  const stamp = `pdfcrop-${page}-${Date.now()}`;
+  const prefix = path.join(outDir, stamp);
+  const result = spawnSync(
+    'pdftoppm',
+    ['-png', '-r', String(CROP_DPI), '-f', String(page), '-l', String(page),
+      '-x', String(xPx), '-y', String(yPx), '-W', String(wPx), '-H', String(hPx), pdfPath, prefix],
+    { encoding: 'utf8' },
+  );
+  if (result.error || result.status !== 0) return null;
+  const png = fs.readdirSync(outDir).filter(f => f.startsWith(stamp) && f.endsWith('.png')).map(f => path.join(outDir, f))[0];
+  if (!png || looksBlank(png)) return null;
+  return png;
 }
 
 async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
@@ -558,12 +612,20 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         if (refined) bbox = refined;
       }
 
-      const src = cropPdfBbox(pdfPath, page, bbox);
-      if (!src) {
+      const cropPng = cropPdfBboxPng(pdfPath, page, bbox, tmpDir);
+      if (!cropPng) {
         console.warn(`  ⚠ figure-vlm: crop failed/blank (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
         prev = { page, source_figure: sel.source_figure, bbox, reason: 'the crop rendered blank or could not be produced' };
         continue;
       }
+      const verdict = await verifyCrop(provider, cropPng);
+      if (!verdict.ok) {
+        console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
+        prev = { page, source_figure: sel.source_figure, bbox, reason: `the crop failed verification: ${verdict.reason}` };
+        continue;
+      }
+      const src = encodeJpegDataUrl(cropPng);
+      if (!src) continue;
       const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
       return {
         src,
@@ -832,6 +894,12 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
         prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: 'the crop rendered blank' };
         continue;
       }
+      const verdict = await verifyCrop(provider, cropPath);
+      if (!verdict.ok) {
+        console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
+        prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: `the crop failed verification: ${verdict.reason}` };
+        continue;
+      }
       const src = encodeJpegDataUrl(cropPath);
       if (!src) continue;
       console.log(`  · figure-vlm: candidate ${sel.candidate} chosen, cropped to element bounds.`);
@@ -932,6 +1000,12 @@ async function extractFromFullPage(
     if (looksBlank(cropPath)) {
       console.warn(`  ⚠ figure-vlm: blank crop (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
       prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank' };
+      continue;
+    }
+    const verdict = await verifyCrop(provider, cropPath);
+    if (!verdict.ok) {
+      console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
+      prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: `the crop failed verification: ${verdict.reason}` };
       continue;
     }
     const src = encodeJpegDataUrl(cropPath);
