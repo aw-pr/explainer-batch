@@ -302,8 +302,14 @@ function deriveFilename(customId: string, json: ExplainerJson | null): string {
   const today = new Date().toISOString().slice(0, 10);
 
   if (json?.metadata?.filename_slug) {
-    const slug = json.metadata.filename_slug.replace(/\.json$/, '');
-    return `${slug}.json`;
+    // Model-supplied value goes into path.join: strip separators and dot
+    // sequences so it can only ever name a file inside OUTPUT_DIR.
+    const slug = json.metadata.filename_slug
+      .replace(/\.json$/, '')
+      .replace(/[/\\\0]/g, '-')
+      .replace(/\.{2,}/g, '.')
+      .replace(/^\.+/, '');
+    if (slug.length > 0) return `${slug}.json`;
   }
 
   // Fallback: use the custom_id slug
@@ -314,17 +320,25 @@ function deriveFilename(customId: string, json: ExplainerJson | null): string {
 export async function saveResult(customId: string, rawText: string): Promise<SaveResult> {
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  let json: ExplainerJson | null = null;
+  let json: ExplainerJson;
   try {
     const parsed = extractJson(rawText);
     json = normalizeExplainerJson(parsed as ExplainerJson);
-    await attachFigureImage(json, customId);
   } catch {
     // Non-parseable output — save the raw text as a .txt for inspection
     const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
     const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
     fs.writeFileSync(errFile, rawText, 'utf8');
     throw new Error(`JSON parse failed — raw output saved to ${path.basename(errFile)}`);
+  }
+
+  // A figure failure must not discard a valid explainer: warn and save it
+  // without an image instead of routing to the parse-error path.
+  try {
+    await attachFigureImage(json, customId);
+  } catch (err) {
+    console.warn(`  ⚠ ${customId}: figure attachment failed, saving without an image (${err instanceof Error ? err.message : String(err)})`);
+    if (json.image) delete json.image;
   }
 
   const filename = deriveFilename(customId, json);
