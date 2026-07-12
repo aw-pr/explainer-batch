@@ -275,7 +275,7 @@ land in both repos.
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
 | Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or (for URLs) Playwright/Chromium not installed. |
-| `JSON parse failed — raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
+| `JSON parse failed; raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
 | `op-fetch is not installed` | Not fatal: the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
 

@@ -320,7 +320,7 @@ export async function saveResult(customId: string, rawText: string): Promise<Sav
     const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
     const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
     fs.writeFileSync(errFile, rawText, 'utf8');
-    throw new Error(`JSON parse failed — raw output saved to ${path.basename(errFile)}`);
+    throw new Error(`JSON parse failed; raw output saved to ${path.basename(errFile)}`);
   }
 
   // A figure failure must not discard a valid explainer: warn and save it
