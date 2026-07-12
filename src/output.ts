@@ -4,6 +4,7 @@ import path from 'path';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { readState } from './state';
+import { htmlToPlain } from './text';
 import { loadDotEnv } from './env';
 
 // Fill-only .env load must run before the path consts below read process.env.
@@ -199,19 +200,6 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
     src: result.src,
   };
   console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);
-}
-
-/** Strip HTML tags + decode common entities. Used to derive plain-text fields from *_html variants. */
-function htmlToPlain(s: string): string {
-  return String(s ?? '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
 }
 
 /**

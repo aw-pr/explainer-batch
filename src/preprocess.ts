@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { INPUT_DIR } from './output';
+import { stripHtml } from './text';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
@@ -114,21 +115,6 @@ function dedupeCustomId(base: string, used: Set<string>, maxLen: number): string
 function isPdfUrl(url: string): boolean {
   const lower = url.toLowerCase().split('?')[0];
   return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s{2,}/g, ' ')
-    .trim();
 }
 
 async function fetchHtmlContent(url: string): Promise<string | undefined> {
