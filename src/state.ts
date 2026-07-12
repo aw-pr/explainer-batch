@@ -35,6 +35,7 @@ export interface RequestState {
     source_figure: string;
     caption?: string;
     alt_text?: string;
+    pageHint?: number;
   };
 }
 
