@@ -24,6 +24,17 @@
   Playwright + Chromium (`npx playwright install chromium`); the PDF path does not.
 - The website integration is **optional**. Without it you still get JSON.
 
+> **Lineage — why a vision model picks the figures.** The figure step is
+> inspired by [PixelRAG](https://pixelrag.ai/) ([StarTrail-org/PixelRAG](https://github.com/StarTrail-org/PixelRAG)),
+> whose thesis is that you should stop parsing a document to text and instead
+> *render it to pixels and let a vision-language model read it the way a person
+> does* — layout, charts, and diagrams intact. We don't use PixelRAG itself (it
+> is a whole-page visual **retrieval** system; we need sub-page figure
+> **selection + cropping**), but we borrowed the idea: render the paper, let the
+> model choose the most useful figure, then crop it from the source render. It
+> replaced a brittle deterministic caption/gap-finder that never worked on
+> HTML and often clipped prose. See `docs/FIGURE-EXTRACTION.md`.
+
 ## Architecture
 
 ```mermaid
