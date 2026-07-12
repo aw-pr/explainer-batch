@@ -98,6 +98,19 @@ function splitUrlAndFocus(line: string): { url: string; focusHint?: string; imag
   return { url: m[1], ...parsed };
 }
 
+// Sanitising + truncating filenames/URLs can collapse distinct inputs onto
+// the same customId, which would silently overwrite one request with the
+// other. Suffix deterministically (-2, -3, ...) within the length budget.
+function dedupeCustomId(base: string, used: Set<string>, maxLen: number): string {
+  let id = base;
+  for (let n = 2; used.has(id); n += 1) {
+    const suffix = `-${n}`;
+    id = base.slice(0, maxLen - suffix.length) + suffix;
+  }
+  used.add(id);
+  return id;
+}
+
 function isPdfUrl(url: string): boolean {
   const lower = url.toLowerCase().split('?')[0];
   return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
@@ -146,13 +159,18 @@ async function fetchHtmlContent(url: string): Promise<string | undefined> {
  */
 export async function preprocessInputs(): Promise<InputItem[]> {
   const items: InputItem[] = [];
+  const usedCustomIds = new Set<string>();
 
   // ── Local PDFs ──────────────────────────────────────────────────────────────
   const pdfs = fs.readdirSync(INPUT_DIR)
     .filter(f => f.toLowerCase().endsWith('.pdf'));
 
   for (const filename of pdfs) {
-    const customId = ('explainer-' + filename.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9_-]/g, '-')).slice(0, 64);
+    const customId = dedupeCustomId(
+      ('explainer-' + filename.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9_-]/g, '-')).slice(0, 64),
+      usedCustomIds,
+      64,
+    );
     const filePath = path.join(INPUT_DIR, filename);
     const sizeKb   = Math.round(fs.statSync(filePath).size / 1024);
     const base64Data = fs.readFileSync(filePath).toString('base64');
@@ -187,7 +205,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         .replace(/^https?:\/\//, '')
         .replace(/[^a-zA-Z0-9_-]/g, '-')
         .slice(0, 80);
-      const customId = 'explainer-url-' + slug;
+      const customId = dedupeCustomId('explainer-url-' + slug, usedCustomIds, 'explainer-url-'.length + 80);
 
       let htmlContent: string | undefined;
       if (!isPdfUrl(url)) {
