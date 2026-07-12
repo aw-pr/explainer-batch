@@ -86,6 +86,8 @@ Concept pills use the same shape, with a short label in `number`:
 { "number": "Agentic AI", "description": "pursues complex goals with limited supervision and crosses into genuine decision rights", "accent_color": "#ff6b6b" }
 ```
 
+**Pill `description` strings are lowercase continuation phrases that complete the headline `number`** (e.g. `"of tasks completed without intervention"`), never standalone capitalised sentences.
+
 Otherwise use a takeaway:
 
 ```json
@@ -231,12 +233,13 @@ Plain-text lead clause + `, ` + contrast clause. Wrap the key phrase after the c
 
 Write like a well-edited long-form blog post. Second person is fine where it helps. Concrete numbers, plain explanations of jargon on first use, 2–3 short paragraphs per section. A reader who never opens the PDF should understand the paper's contribution in under four minutes.
 
-**Voice:** Professional-informal. Serious ideas, light touch. British dry wit and understatement. Assertive — take positions, state findings directly. Mix short punchy sentences with longer analytical ones. End sections on a sharp closer, not a trailing observation.
+**Voice:** Professional-informal. Serious ideas, light touch. British dry wit and understatement. Assertive — take positions, state findings directly. Mix short punchy sentences with longer analytical ones. Close each section and the `end_takeaway` on a reversal or a quiet punchline, never a summary restating what was just said (no "In summary", no recap sentences, no trailing observations).
 
 **Hard rules:**
 - No em dashes anywhere. Use a comma, parenthesis, or restructure.
+- British English spelling throughout: colour, behaviour, analyse, optimise, and the other -ise verbs.
 - No corporate jargon: leverage, ecosystem, robust, seamless, pain points, bandwidth (metaphorical), synergy, circle back.
-- No AI tell-tales: delve, it's worth noting, in conclusion, fascinating, certainly.
+- No AI tell-tales: delve, it's worth noting, in conclusion, fascinating, certainly, unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry.
 - No hedging openers ("In today's rapidly changing world...").
 - No rhetorical questions as section labels.
 
@@ -248,6 +251,7 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] `metadata.filename_slug` follows `YYYY-MM-DD_authorsurname_short-title_explainer`.
 - [ ] `hero.publication_date` uses `"Published Month Year"`.
 - [ ] `top_block` is `pills` when the paper has measured results or a central 2–6 item sequence; otherwise `takeaway`. `end_takeaway` is present iff `top_block.kind === "pills"`.
+- [ ] Every pill `description` is a lowercase continuation phrase completing its `number`, not a standalone capitalised sentence.
 - [ ] Every chart comes from real data or a faithfully recreated figure from the paper. The most important chart is first.
 - [ ] No chart has uniform values (all bars equal, all rows `true`, all categories the same count). If a "chart" is really a checklist or membership table, it belongs in a `list` or `takeaway`, not `charts`.
 - [ ] No chart conveys just a single number or one share-of-whole split (whether pie, doughnut, or 2-bar). Single figures and proportions go in `top_block.pills`; a chart must compare at least two genuinely different data points with real magnitudes.
@@ -258,4 +262,6 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
 - [ ] `references` is a single entry — the paper being explained — with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`). No cited-work bibliography.
-- [ ] No em dashes, corporate jargon, or AI tell-tales in prose.
+- [ ] No em dashes, corporate jargon, or AI tell-tales in prose (the banned lists include unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry).
+- [ ] British English spelling throughout (colour, behaviour, -ise verbs).
+- [ ] Every section and the `end_takeaway` closes on a reversal or a quiet punchline, not a recap sentence ("In summary" and restatement closers are out).
