@@ -5,13 +5,13 @@
 ![Node](https://img.shields.io/badge/node-20%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 - **Input:** local PDFs and/or a list of paper URLs.
-- **Output:** one `output/<slug>.json` per paper — a validated, schema-stable
-  explainer object — plus an optional self-contained `output/<slug>.html`.
+- **Output:** one `output/<slug>.json` per paper (a validated, schema-stable
+  explainer object) plus an optional self-contained `output/<slug>.html`.
 - **Cost:** uses the Claude Message Batches API / OpenAI Batch API (50%
   discount) or a synchronous path for fast single runs.
 - **Determinism:** model schema drift is normalised after generation. Figures
   are selected by a vision model looking at the rendered document, then cropped
-  from the source render — never hallucinated or generated. Subscription-first
+  from the source render, never hallucinated or generated. Subscription-first
   routing keeps cost low (see `docs/FIGURE-EXTRACTION.md`).
 
 ## What this is / is not
@@ -24,11 +24,11 @@
   Playwright + Chromium (`npx playwright install chromium`); the PDF path does not.
 - The website integration is **optional**. Without it you still get JSON.
 
-> **Lineage — why a vision model picks the figures.** The figure step is
+> **Lineage: why a vision model picks the figures.** The figure step is
 > inspired by [PixelRAG](https://pixelrag.ai/) ([StarTrail-org/PixelRAG](https://github.com/StarTrail-org/PixelRAG)),
 > whose thesis is that you should stop parsing a document to text and instead
 > *render it to pixels and let a vision-language model read it the way a person
-> does* — layout, charts, and diagrams intact. We don't use PixelRAG itself (it
+> does*, with layout, charts, and diagrams intact. We don't use PixelRAG itself (it
 > is a whole-page visual **retrieval** system; we need sub-page figure
 > **selection + cropping**), but we borrowed the idea: render the paper, let the
 > model choose the most useful figure, then crop it from the source render. It
@@ -68,14 +68,14 @@ entirely optional.
 ## Prerequisites
 
 - **Node 20+** (`.nvmrc` pins 20; `package.json` enforces `engines`).
-- **One provider credential** — an Anthropic or OpenAI API key, a Claude
+- **One provider credential**: an Anthropic or OpenAI API key, a Claude
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
-- **poppler** — `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
+- **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
   figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
-- **`sips`** — ships with macOS; used to downscale extracted figures. Not
+- **`sips`**: ships with macOS; used to downscale extracted figures. Not
   available on Linux: figures are skipped there, the rest of the pipeline is
   unaffected.
-- **tmux** — only required for the secure headless route
+- **tmux**: only required for the secure headless route
   (`npm run process:secure:tmux`).
 
 ## Quick start
@@ -105,7 +105,7 @@ variable is not already set, so it never overrides a real shell export or a
 1Password-injected key.
 
 Generated JSON lands in `output/` (or `EXPLAINER_OUTPUT_DIR`). **No website
-repo is required** — staging and website-HTML export are skipped unless
+repo is required**: staging and website-HTML export are skipped unless
 `WEBSITE_REPO` is set.
 
 <details>
@@ -148,11 +148,11 @@ and no `PROVIDER` env var the default is `claude`.
 
 ## Inputs
 
-- **Local PDFs** — drop any `.pdf` into `input/`. OpenAI uploads are cached in
+- **Local PDFs**: drop any `.pdf` into `input/`. OpenAI uploads are cached in
   `state.json` by filename + content hash; unchanged files are reused.
-- **Remote URLs** — `input/urls.txt`, one HTTP(S) link per line (`#` comments
+- **Remote URLs**: `input/urls.txt`, one HTTP(S) link per line (`#` comments
   ignored).
-- **Per-paper focus hint (optional)** — steer emphasis for one paper without
+- **Per-paper focus hint (optional)**: steer emphasis for one paper without
   changing the global prompt:
   - PDF: sidecar `input/<basename>.focus.md` (body = emphasis block).
   - URL: append `# focus: …` to the line in `urls.txt`.
@@ -172,7 +172,7 @@ ignored silently.
 | `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). Omit to let the vision model choose. |
 | `image_caption: …` | Override the caption attached to the lead image |
 | `image_alt: …` | Override the alt text for the lead image |
-| `image_page_hint: N` | Parsed for backward compatibility; no longer used — the vision model locates the page itself. |
+| `image_page_hint: N` | Parsed for backward compatibility; no longer used. The vision model locates the page itself. |
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
@@ -188,9 +188,9 @@ All variables are optional except a provider credential. Set them in `.env`,
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Claude batch / API | — |
-| `OPENAI_API_KEY` | OpenAI batch / API | — |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Max/Pro sync route | — |
+| `ANTHROPIC_API_KEY` | Claude batch / API | unset |
+| `OPENAI_API_KEY` | OpenAI batch / API | unset |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Max/Pro sync route | unset |
 | `PROVIDER` | Default provider when no `--provider` flag | `claude` |
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
@@ -200,7 +200,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
-Model defaults — Claude: batch/lane/synthesis `claude-opus-4-8`, repair
+Model defaults. Claude: batch/lane/synthesis `claude-opus-4-8`, repair
 `claude-sonnet-4-6`. OpenAI: batch/synthesis `gpt-5.4`, lane/repair
 `gpt-5.4-mini`. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
@@ -223,20 +223,20 @@ Fable runs once per paper, so its cost multiplies by paper count.
 | OpenAI batch | `OPENAI_API_KEY` | semantic-lane extraction + synthesis |
 | OpenAI sync | Codex CLI auth (no key fetched) or `OPENAI_API_KEY` | fast single runs, no batch wait |
 
-1Password is optional and orthogonal to the route — see the headless route
+1Password is optional and orthogonal to the route: see the headless route
 above and `docs/SECURITY.md`.
 
 </details>
 
 ## How it works
 
-1. **Preprocess** — read local PDFs and the optional URL list.
-2. **Submit** — Claude: one explainer request per paper. OpenAI: semantic lane
-   extraction (`methods/results/limitations/implications`) with a smaller lane
-   model.
-3. **Poll** — exponential backoff (30 s → 5 min cap) until the batch ends
+1. **Preprocess**: read local PDFs and the optional URL list.
+2. **Submit**: Claude sends one explainer request per paper. OpenAI runs
+   semantic lane extraction (`methods/results/limitations/implications`) with a
+   smaller lane model.
+3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
    (skipped for `--sync`).
-4. **Synthesis + save** — OpenAI runs a second synthesis stage; all providers
+4. **Synthesis + save**: OpenAI runs a second synthesis stage; all providers
    get validation + an optional one-pass repair, then:
    - **`normalizeSchemaDrift`** derives canonical `paragraphs` and
      `end_takeaway.label/body` when the model emits `*_html`/`heading`
@@ -246,7 +246,7 @@ above and `docs/SECURITY.md`.
      and return its bounding box, crops it from the source render, and inlines it
      as a base64 data URL. A `.focus.md` override pins a specific figure/caption.
      Routing is subscription-first (`FIGURE_VLM_*`). Failures drop the image
-     block silently — the explainer still renders.
+     block silently; the explainer still renders.
    - JSON is written to the output dir, mirrored to `EXPLAINER_OBSIDIAN_DIR`
      (`~/obsidian/explainers` by default), and, if `WEBSITE_REPO` is set, also
      staged and rendered to standalone HTML.
@@ -274,10 +274,10 @@ land in both repos.
 | Symptom | Cause / fix |
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
-| Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or — for URLs — Playwright/Chromium not installed. |
+| Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or (for URLs) Playwright/Chromium not installed. |
 | `JSON parse failed — raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
-| `op-fetch is not installed` | Not fatal — the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
+| `op-fetch is not installed` | Not fatal: the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
 
 </details>
 
@@ -289,7 +289,7 @@ npm run build          # compile to dist/
 npm run guards:install # arm local publish hooks (one-time, per clone)
 ```
 
-`state.json` is auto-managed — do not hand-edit. Agent guidance lives in
+`state.json` is auto-managed; do not hand-edit. Agent guidance lives in
 `AGENTS.md`; Claude Code specifics in `CLAUDE.md`. The private-work →
 public-mirror branching/publish model is documented in
 `docs/PUBLISH-WORKFLOW.md`.
@@ -305,4 +305,4 @@ See `docs/SECURITY.md`.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT. See `LICENSE`.

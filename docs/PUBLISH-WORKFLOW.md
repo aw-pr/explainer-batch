@@ -11,7 +11,7 @@ Placeholders used below: `PRIV` = your private remote (default `origin`),
 
 ## Model
 
-- **One private working repo.** Full, messy history is fine — it never goes
+- **One private working repo.** Full, messy history is fine; it never goes
   public.
 - **One public mirror**, seeded from a single sanitised **orphan** commit
   (no shared ancestry with the messy history → nothing leaks through).
@@ -28,7 +28,7 @@ have collaborators, PRs, or CI that need one. The gap between your local
 
 Whatever commit `PUB/main` points at is **immutable**. Rewrite/squash freely
 *above* it (commits not yet published); never *at or below* it. Rewriting a
-published commit forces a history-rewriting push to the public remote — the
+published commit forces a history-rewriting push to the public remote, the
 exact hazard the orphan-squash exists to avoid. Treat that as an incident, not
 routine.
 
@@ -36,7 +36,7 @@ routine.
 
 1. **Back up** the full private history: `git bundle create ~/<repo>-history.bundle --all`.
 2. **Sanitise the working tree** (parameterise machine paths, move secrets to
-   gitignored `*.local`, add `.env.example`, scrub org/repo names — see
+   gitignored `*.local`, add `.env.example`, scrub org/repo names; see
    `docs/SECURITY.md`).
 3. **Orphan squash** to one clean commit:
    ```bash
@@ -67,7 +67,7 @@ routine.
    `pre-commit`/`pre-push`, seeds `.publish-guard.local`, reconciles the
    `git publish` alias from the config above).
 8. **Restore real personal patterns** in `.publish-guard.local` (install-guards
-   seeds it from the placeholder example — it is toothless until you put your
+   seeds it from the placeholder example; it is toothless until you put your
    real machine/org strings back). Verify: a planted personal string in a
    staged file is blocked by `pre-commit`.
 9. Flip the public repo to public when satisfied.
@@ -85,7 +85,7 @@ git switch PUBLISH_BRANCH
 git merge --ff-only wip/<thing>  # fast-forward when publish hasn't moved
 # or: git merge --no-ff wip/<thing> -m "merge wip/<thing>: <topic>"
 git publish                      # PRIV PUBLISH_BRANCH, then ff PUB/main
-git branch -d wip/<thing>        # -d (not -D) — commits live on publish now
+git branch -d wip/<thing>        # -d (not -D): commits live on publish now
 ```
 
 ```bash
@@ -96,7 +96,7 @@ git switch PUBLISH_BRANCH
 git merge --squash wip/<thing>
 git commit -m "One clean message"
 git publish
-git branch -D wip/<thing>        # -D — commits don't live on publish
+git branch -D wip/<thing>        # -D: commits don't live on publish
 ```
 
 Mode is a per-merge choice, not a per-repo flag. Use squash when you'd
@@ -119,7 +119,7 @@ It backs up to the private remote first, then publishes.
 So a hand-typed `git push PUB PUBLISH_BRANCH:main` is blocked and told to use
 `git publish` (which guarantees the private backup happened first). Deliberate
 one-off override: `git push --no-verify`. Org/repo names live only in local
-`git config` — never in the committed tree, so this file stays publishable.
+`git config`, never in the committed tree, so this file stays publishable.
 
 Why fail-closed, not a warning: publishing is effectively irreversible (objects
 stay fetchable by SHA, content gets cached/indexed). A guardrail for an
@@ -128,14 +128,14 @@ narrate the mistake as it completes.
 
 ## Squashing and rewriting
 
-- Squash *unpublished* commits at will — topic-branch `--squash` merge keeps
+- Squash *unpublished* commits at will: topic-branch `--squash` merge keeps
   the publish line append-only (every push is a clean ff, no force anywhere),
   or `git rebase -i <PUB/main commit>` for a quick local tidy (then the
   private push needs `--force-with-lease`).
 - Never squash/rebase commits already on `PUB/main`. If you do (incident, not
   routine), the public push needs `--force-with-lease` and the
   `PUBLISH_GUARD_OK=1` sentinel. Content already fetched downstream stays
-  fetchable by SHA — assume the original commits are not actually erased.
+  fetchable by SHA, so assume the original commits are not actually erased.
 
 ## Applying to other repos
 
@@ -147,7 +147,7 @@ Nothing in the committed tree is repo-specific.
 
 Notes when porting:
 - If a repo's default public branch is `master`, the `pre-push` hook already
-  allows `main` or `master`; the alias pushes `PUBLISH_BRANCH:main` — adjust
+  allows `main` or `master`; the alias pushes `PUBLISH_BRANCH:main`, so adjust
   the alias target if you want `master`.
 - A repo that already has `.env`/secrets wrappers (e.g. an `op-refs` +
   `.env.example` setup) only needs the publish-gate config + guards armed; the

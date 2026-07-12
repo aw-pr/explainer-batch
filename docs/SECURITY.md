@@ -39,11 +39,11 @@ Each route fetches only the secrets it needs:
 `scripts/install-guards.sh` arms two local git hooks (sources in
 `scripts/git-hooks/`):
 
-- **pre-commit** — refuses to stage `.env`, `*.local`, `op-refs.local.sh`,
+- **pre-commit**: refuses to stage `.env`, `*.local`, `op-refs.local.sh`,
   `*settings.local.json`, `state.json`, logs, and any content matching the
   personal regex patterns in a gitignored `.publish-guard.local` (seeded from
   `.publish-guard.local.example`).
-- **pre-push** — fail-closed publish gate. On the public remote (matched by
+- **pre-push**: fail-closed publish gate. On the public remote (matched by
   the local `git config publishguard.publicmatch`) only the default branch may
   be pushed, **and** that push must arrive via the sanctioned path: the
   `git publish` alias sets a sentinel env var (`PUBLISH_GUARD_OK=1`) which the
