@@ -116,12 +116,6 @@ export function mergeOpenAIFileCache(cache: NonNullable<State['openai_file_cache
   writeState(state);
 }
 
-export function getLatestPendingBatch(state: State): BatchState | undefined {
-  return [...state.batches]
-    .reverse()
-    .find(b => b.status === 'processing');
-}
-
 export function getLatestPendingBatchByProvider(state: State, provider: ProviderName): BatchState | undefined {
   return [...state.batches]
     .reverse()
