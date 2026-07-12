@@ -68,13 +68,27 @@ export function readState(): State {
   if (!fs.existsSync(STATE_FILE)) return empty();
   try {
     return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as State;
-  } catch {
+  } catch (error) {
+    // Never silently discard a state file that fails to parse: it holds batch
+    // ids and Files API ids that cannot be recovered any other way.
+    const backupFile = `${STATE_FILE}.corrupt-${Date.now()}`;
+    fs.copyFileSync(STATE_FILE, backupFile);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `\n  ✗ state: FAILED to parse ${path.basename(STATE_FILE)}: ${message}\n` +
+      `  ✗ state: corrupt file preserved at ${backupFile}\n` +
+      `  ✗ state: continuing with EMPTY state; restore the backup to recover batch ids\n`
+    );
     return empty();
   }
 }
 
 export function writeState(state: State): void {
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+  // Write-then-rename so a crash mid-write can never leave a truncated
+  // state.json (the rename is atomic on the same filesystem).
+  const tmpFile = `${STATE_FILE}.tmp-${process.pid}`;
+  fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2), 'utf8');
+  fs.renameSync(tmpFile, STATE_FILE);
 }
 
 export function addBatch(state: State, batch: BatchState): void {
