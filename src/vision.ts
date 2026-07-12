@@ -1,5 +1,7 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { spawnSync } from 'child_process';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
   ClaudeProvider,
@@ -28,6 +30,42 @@ export interface VisionResult extends ProviderMessageResponse {
 
 function mediaTypeFor(imagePath: string): 'image/png' | 'image/jpeg' {
   return /\.jpe?g$/i.test(imagePath) ? 'image/jpeg' : 'image/png';
+}
+
+/**
+ * Hard cap on the long edge of any image sent to a vision model. Claude
+ * Opus-tier silently downscales anything above ~2576px on its long edge, so a
+ * 2560x15000 full-page screenshot reaches the model at ~330px wide and every
+ * bounding box it returns is garbage. Capping here means the model always sees
+ * the same geometry we measured.
+ */
+const VISION_MAX_LONG_EDGE = 2500;
+
+/** Reads pixel dimensions via sips. Returns null off-macOS or on failure. */
+export function imageSizePx(imagePath: string): { w: number; h: number } | null {
+  const res = spawnSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', imagePath], { encoding: 'utf8' });
+  if (res.error || res.status !== 0) return null;
+  const w = Number(res.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]);
+  const h = Number(res.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]);
+  return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? { w, h } : null;
+}
+
+/**
+ * Writes a copy of `srcPath` downscaled so its long edge is <= `maxPx`.
+ * Returns the written path, or null when the image is already small enough or
+ * sips is unavailable (Linux); callers keep the original in both cases.
+ */
+export function downscaleLongEdge(srcPath: string, maxPx: number, destPath: string): string | null {
+  const size = imageSizePx(srcPath);
+  if (size && Math.max(size.w, size.h) <= maxPx) return null;
+  const res = spawnSync('sips', ['-Z', String(maxPx), '--out', destPath, srcPath], { encoding: 'utf8' });
+  if (res.error || res.status !== 0 || !fs.existsSync(destPath)) {
+    if (size) {
+      console.warn(`  ⚠ vision: cannot downscale ${size.w}x${size.h} image (sips unavailable?); sending as-is.`);
+    }
+    return null;
+  }
+  return destPath;
 }
 
 function hasClaudeOAuth(): boolean {
@@ -120,29 +158,37 @@ export async function runVision(opts: VisionCallOptions): Promise<VisionResult> 
   if (present.length === 0) throw new Error('runVision: no readable image paths');
   const route = resolveRoute();
 
-  if (opts.provider === 'claude') {
-    const decided = claudeRoute(route);
-    const content = buildClaudeContent(opts.prompt, present);
-    if (decided === 'subscription') {
-      const provider = new ClaudeProvider();
-      const res = await provider.createMessageViaCli(opts.model, opts.system, content);
-      return { ...res, route: 'subscription', provider: 'claude' };
-    }
-    const provider = new ClaudeProvider(process.env.ANTHROPIC_API_KEY);
-    const res = await provider.createMessageWithContent(opts.model, opts.maxTokens, opts.system, content);
-    return { ...res, route: 'api', provider: 'claude' };
-  }
+  const capDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vision-cap-'));
+  try {
+    const capped = present.map((p, i) =>
+      downscaleLongEdge(p, VISION_MAX_LONG_EDGE, path.join(capDir, `cap-${i}${path.extname(p) || '.png'}`)) ?? p);
 
-  const decided = openaiRoute(route);
-  const provider = new OpenAIProvider();
-  if (decided === 'subscription') {
-    const flat = `${opts.system}\n\n${opts.prompt}`;
-    const res = await provider.createVisionViaCodex(opts.model, flat, present);
-    return { ...res, route: 'subscription', provider: 'openai' };
+    if (opts.provider === 'claude') {
+      const decided = claudeRoute(route);
+      const content = buildClaudeContent(opts.prompt, capped);
+      if (decided === 'subscription') {
+        const provider = new ClaudeProvider();
+        const res = await provider.createMessageViaCli(opts.model, opts.system, content);
+        return { ...res, route: 'subscription', provider: 'claude' };
+      }
+      const provider = new ClaudeProvider(process.env.ANTHROPIC_API_KEY);
+      const res = await provider.createMessageWithContent(opts.model, opts.maxTokens, opts.system, content);
+      return { ...res, route: 'api', provider: 'claude' };
+    }
+
+    const decided = openaiRoute(route);
+    const provider = new OpenAIProvider();
+    if (decided === 'subscription') {
+      const flat = `${opts.system}\n\n${opts.prompt}`;
+      const res = await provider.createVisionViaCodex(opts.model, flat, capped);
+      return { ...res, route: 'subscription', provider: 'openai' };
+    }
+    const input = buildOpenAIInput(opts.prompt, capped);
+    const res = await provider.createMessage(opts.model, opts.maxTokens, opts.system, input);
+    return { ...res, route: 'api', provider: 'openai' };
+  } finally {
+    cleanupTmp(capDir);
   }
-  const input = buildOpenAIInput(opts.prompt, present);
-  const res = await provider.createMessage(opts.model, opts.maxTokens, opts.system, input);
-  return { ...res, route: 'api', provider: 'openai' };
 }
 
 /** Resolves which provider services figure vision, independent of the synthesis run. */
