@@ -118,3 +118,14 @@ touched, and do not alter code behaviour.
   (reextract script) and eyeball the crops.
 - Workstream B: exercise a dry submit/poll where feasible; unit-style checks
   otherwise.
+
+## Deferred
+
+B10 (batch.ts structural refactor) was noted but not implemented in the
+2026-07-12 workstream B pass. Outstanding work: extract shared
+submit/poll/repair/lane helpers from `src/batch.ts`. Known drift the refactor
+should resolve: `useSearch` is computed as bare `item.isUrl` in
+`collectOpenAILocal` (around :780/:825 pre-refactor numbering) but as
+`mode === 'codex_cli' && item.isUrl` in `runOpenAISync` (around :1021/:1066);
+and the Claude sync path uses `synthesisModel` where the Claude batch path
+uses `batchModel`.
