@@ -185,14 +185,17 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
     return;
   }
 
-  // Caption/alt sidecar overrides win over model-generated text; the model
-  // supplies them otherwise. The figure label follows the override when pinned.
+  // Caption/alt sidecar overrides win over model-generated text. An existing
+  // caption/alt only survives when the model re-picked the SAME figure;
+  // carrying it onto a different figure would mislabel the image.
   const existing = json.image;
+  const pickedFigure = override?.source_figure ?? result.source_figure;
+  const samePick = Boolean(existing?.source_figure && pickedFigure && existing.source_figure === pickedFigure);
   json.image = {
     ...(existing ?? {}),
-    source_figure: override?.source_figure ?? result.source_figure,
-    caption: override?.caption ?? existing?.caption ?? result.caption,
-    alt_text: override?.alt_text ?? existing?.alt_text ?? result.alt_text,
+    source_figure: pickedFigure,
+    caption: override?.caption ?? (samePick ? existing?.caption : undefined) ?? result.caption ?? existing?.caption,
+    alt_text: override?.alt_text ?? (samePick ? existing?.alt_text : undefined) ?? result.alt_text ?? existing?.alt_text,
     src: result.src,
   };
   console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);

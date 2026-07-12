@@ -66,11 +66,14 @@ async function main(): Promise<void> {
   }
 
   const existing = data.image ?? {};
+  const pickedFigure = override?.source_figure ?? result.source_figure;
+  // Stale caption/alt must not carry onto a different figure than they describe.
+  const samePick = Boolean(existing.source_figure && pickedFigure && existing.source_figure === pickedFigure);
   data.image = {
     ...existing,
-    source_figure: override?.source_figure ?? result.source_figure,
-    caption: captionOverride ?? existing.caption ?? result.caption,
-    alt_text: altOverride ?? existing.alt_text ?? result.alt_text,
+    source_figure: pickedFigure,
+    caption: captionOverride ?? (samePick ? existing.caption : undefined) ?? result.caption ?? existing.caption,
+    alt_text: altOverride ?? (samePick ? existing.alt_text : undefined) ?? result.alt_text ?? existing.alt_text,
     src: result.src,
   };
 
