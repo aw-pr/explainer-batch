@@ -273,7 +273,7 @@ function looksBlank(pngPath: string): boolean {
     const px = pngSizePx(pngPath);
     if (!px || px.w * px.h === 0) return false;
     if (px.w < MIN_CROP_DIM_PX || px.h < MIN_CROP_DIM_PX) {
-      console.warn(`  ⚠ figure-vlm: crop too small (${px.w}x${px.h}px) — rejecting.`);
+      console.warn(`  ⚠ figure-vlm: crop too small (${px.w}x${px.h}px); rejecting.`);
       return true;
     }
     const bpp = fs.statSync(pngPath).size / (px.w * px.h);
@@ -598,7 +598,7 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         return null;
       }
       if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
-        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)}; dropping figure.`);
         return null;
       }
       const page = Math.min(Math.max(sel.page, 1), thumbs.length);
@@ -814,7 +814,7 @@ async function chooseCandidateOnce(
     if (sel) return { sel, vision };
     console.warn('  ⚠ figure-vlm: unparseable candidate selection.');
   } catch (err) {
-    console.warn(`  ⚠ figure-vlm: vision call failed — ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`  ⚠ figure-vlm: vision call failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   return null;
 }
@@ -876,7 +876,7 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
         return null;
       }
       if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
-        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+        console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)}; dropping figure.`);
         return null;
       }
       // The model numbers candidates from its labels (1-based positions in the
@@ -982,7 +982,7 @@ async function extractFromFullPage(
       return null;
     }
     if (typeof sel.confidence === 'number' && sel.confidence < MIN_CONFIDENCE) {
-      console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)} — dropping figure.`);
+      console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)}; dropping figure.`);
       return null;
     }
 
