@@ -17,9 +17,21 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+// Parses each anchor's attributes rather than string-matching a fixed
+// attribute order: models emit href/target/rel in any sequence.
 function hasRequiredExternalAnchor(html: string): boolean {
-  return /<a\s[^>]*href=["']https?:\/\/[^"']+["'][^>]*target=["']_blank["'][^>]*rel=["'][^"']*noopener[^"']*noreferrer[^"']*["'][^>]*>/i.test(html)
-    || /<a\s[^>]*href=["']https?:\/\/[^"']+["'][^>]*rel=["'][^"']*noopener[^"']*noreferrer[^"']*["'][^>]*target=["']_blank["'][^>]*>/i.test(html);
+  const anchorTags = html.match(/<a\s[^>]*>/gi) ?? [];
+  return anchorTags.some(tag => {
+    const attrs = new Map<string, string>();
+    for (const m of tag.matchAll(/([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+      attrs.set(m[1].toLowerCase(), m[2] ?? m[3] ?? '');
+    }
+    const rel = (attrs.get('rel') ?? '').toLowerCase();
+    return /^https?:\/\//i.test(attrs.get('href') ?? '')
+      && attrs.get('target') === '_blank'
+      && rel.includes('noopener')
+      && rel.includes('noreferrer');
+  });
 }
 
 function containsBareUrlOutsideAnchor(html: string): boolean {
@@ -114,7 +126,9 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
     }
     if (typeof meta['filename_slug'] === 'string') {
       const slug = meta['filename_slug'];
-      if (!new RegExp(`^${options.expectedDate}_[a-z0-9]+_[a-z0-9-]+_explainer$`).test(slug)) {
+      // Surname segment allows internal hyphens (double-barrelled names)
+      // without permitting a leading/trailing hyphen.
+      if (!new RegExp(`^${options.expectedDate}_[a-z0-9]+(?:-[a-z0-9]+)*_[a-z0-9-]+_explainer$`).test(slug)) {
         issues.push(`metadata.filename_slug must match ${options.expectedDate}_authorsurname_short-title_explainer.`);
       }
     }
