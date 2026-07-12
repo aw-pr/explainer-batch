@@ -481,7 +481,7 @@ async function refineBboxOnPage(
   const target = figureLabel ? `the figure "${figureLabel}"` : 'the previously chosen figure';
   const prompt = [
     `This is page ${pageNum} of the document, rendered at higher resolution. Earlier analysis chose ${target} on this page.`,
-    'Return a tight bounding box around that figure\'s BODY only, excluding its caption text and any surrounding body text or column content.',
+    'Return a tight bounding box around that figure\'s BODY only, excluding its caption text, any surrounding body text or column content, and the page\'s running header or footer line (figures flush with the page edge often sit directly under one).',
     '',
     'Return ONLY this JSON (no prose, no code fence):',
     '{"found": <true|false>, "bbox": [x0, y0, x1, y1]}   // normalised 0..1 within this page image',
