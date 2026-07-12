@@ -1183,6 +1183,11 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
       output: null,
       result: 'pending',
       error: null,
+      // Persisted like the batch path: figure extraction reads these back
+      // from state by customId, so dropping them silently ignores .focus.md
+      // figure pins on sync runs.
+      focusHint: item.focusHint,
+      imageOverride: item.imageOverride,
     };
     if (provider === 'openai' && lanesEnabled) {
       for (const lane of OPENAI_LANES) {
@@ -1194,6 +1199,8 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
           output: null,
           result: 'pending',
           error: null,
+          focusHint: item.focusHint,
+          imageOverride: item.imageOverride,
         };
       }
     }
