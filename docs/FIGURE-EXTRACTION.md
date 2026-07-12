@@ -45,6 +45,18 @@ is cheaper than metered API spend.
 | `FIGURE_VLM_ROUTE` | `auto` (default) \| `subscription` \| `api`. `auto` prefers the subscription route and falls back to the API. |
 | `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `batchModel`). |
 | `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). |
+| `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, or a blank/uncroppable crop (default 2). |
+| `FIGURE_VLM_DPI` | PDF crop render DPI — sharpness (default 150). |
+| `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the inlined base64 size (default 1600). |
+| `FIGURE_VLM_JPEG_QUALITY` | JPEG quality 1–100; size vs fidelity (default 85). |
+| `FIGURE_VLM_PAD` | Fractional padding around the model bbox so tight boxes don't clip outer labels (default 0.022). |
+
+**Resolution vs size.** The crop is rendered at `FIGURE_VLM_DPI`, capped to
+`FIGURE_VLM_MAX_PX` on its longest side, then JPEG-encoded at
+`FIGURE_VLM_JPEG_QUALITY`. Because the result is inlined as a base64 `data:` URL
+inside the explainer JSON, a larger/sharper image inflates the JSON roughly
+4/3× its byte size. Defaults (1600px, q85) land most figures at ~150–250 KB.
+Raise `MAX_PX`/`DPI` for sharper diagrams at the cost of heavier JSON.
 
 Routes by provider/auth (`src/vision.ts`):
 

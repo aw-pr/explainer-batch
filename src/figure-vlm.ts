@@ -49,10 +49,23 @@ interface FigureSelection {
 
 const MAX_PAGES = Number.parseInt(process.env.FIGURE_VLM_MAX_PAGES ?? '24', 10);
 const THUMB_WIDTH_PX = 820;
-const CROP_DPI = 150;
-const JPEG_QUALITY = 85;
 const MIN_CONFIDENCE = 0.35;
 const SELECTION_MAX_TOKENS = 700;
+
+function envNum(name: string, fallback: number): number {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+// Output resolution / size knobs. CROP_DPI drives PDF crop sharpness; MAX_IMAGE_PX
+// caps the longest side (sips -Z) so inlined base64 stays bounded; JPEG_QUALITY
+// trades size for fidelity. Larger = sharper but heavier in the JSON.
+const CROP_DPI = envNum('FIGURE_VLM_DPI', 150);
+const MAX_IMAGE_PX = envNum('FIGURE_VLM_MAX_PX', 1600);
+const JPEG_QUALITY = envNum('FIGURE_VLM_JPEG_QUALITY', 85);
+// Fractional padding added around the model bbox so a slightly-tight box doesn't
+// clip the figure's outer labels (raised from 0.012 after a clipped diagram).
+const CROP_PAD = envNum('FIGURE_VLM_PAD', 0.022);
 
 const SELECTION_SYSTEM =
   'You are a figure-selection assistant for a research-explainer pipeline. You ' +
@@ -181,8 +194,8 @@ function bboxToRect(bbox: [number, number, number, number], dims: Dims): Rect {
 }
 
 function padRect(r: Rect, dims: Dims): Rect {
-  const px = dims.w * 0.012;
-  const py = dims.h * 0.012;
+  const px = dims.w * CROP_PAD;
+  const py = dims.h * CROP_PAD;
   return { x: r.x - px, y: r.y - py, w: r.w + px * 2, h: r.h + py * 2 };
 }
 
@@ -252,7 +265,7 @@ async function snapToFigureElement(page: import('playwright').Page, vlmRect: Rec
 }
 
 /** Pad a normalized bbox slightly and clamp into [0,1]. */
-function padBbox([x0, y0, x1, y1]: [number, number, number, number], pad = 0.012): [number, number, number, number] {
+function padBbox([x0, y0, x1, y1]: [number, number, number, number], pad = CROP_PAD): [number, number, number, number] {
   const ax0 = clamp01(Math.min(x0, x1) - pad);
   const ay0 = clamp01(Math.min(y0, y1) - pad);
   const ax1 = clamp01(Math.max(x0, x1) + pad);
@@ -314,7 +327,7 @@ function encodeJpegDataUrl(pngPath: string): string | null {
   try {
     const result = spawnSync(
       'sips',
-      ['-Z', '1600', '--out', jpegPath, pngPath, '-s', 'format', 'jpeg', '-s', 'formatOptions', String(JPEG_QUALITY)],
+      ['-Z', String(MAX_IMAGE_PX), '--out', jpegPath, pngPath, '-s', 'format', 'jpeg', '-s', 'formatOptions', String(JPEG_QUALITY)],
       { encoding: 'utf8' },
     );
     if (result.error || result.status !== 0 || !fs.existsSync(jpegPath)) {
