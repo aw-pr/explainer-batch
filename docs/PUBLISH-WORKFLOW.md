@@ -17,8 +17,10 @@ Placeholders used below: `PRIV` = your private remote (default `origin`),
   (no shared ancestry with the messy history → nothing leaks through).
 - **One permanent publish line** (`PUBLISH_BRANCH`) that fast-forwards onto the
   public default branch (`main`). It is append-only and always publish-clean.
-- **Ephemeral topic branches** for everything else. Squash-merge them into
-  `PUBLISH_BRANCH` when ready. Messy commits never reach the public line.
+- **Ephemeral topic branches** for everything else. Merge them into
+  `PUBLISH_BRANCH` keeping their atomic commits (the default `preserve`
+  history mode, so per-agent attribution reaches the public mirror). Squash
+  is the per-merge opt-out for genuinely messy WIP, not the default.
 
 Do **not** add a second permanent "integration" branch unless you actually
 have collaborators, PRs, or CI that need one. The gap between your local
@@ -62,6 +64,7 @@ routine.
    git config publishguard.publishbranch 'PUBLISH_BRANCH'
    git config publishguard.privateremote 'PRIV'      # optional, default origin
    git config publishguard.sentinel      'PUBLISH_GUARD_OK'   # optional default
+   git config publishguard.historymode   'preserve'  # optional default; or 'squash'
    ```
 7. **Arm the guards**: `bash scripts/install-guards.sh` (idempotent: installs
    `pre-commit`/`pre-push`, seeds `.publish-guard.local`, reconciles the
@@ -114,7 +117,12 @@ It backs up to the private remote first, then publishes.
 
 - non-default branch to public → rejected;
 - default branch to public → rejected **unless** the `PUBLISH_GUARD_OK=1`
-  sentinel is set, which only `git publish` does.
+  sentinel is set, which only `git publish` does;
+- non-fast-forward push to the public default branch → rejected **even with
+  the sentinel set**. This enforces the immutability invariant directly:
+  history already on `PUB/main` cannot be rewritten through the normal route
+  (critical in `preserve` mode; a no-op in `squash` mode, where publish is
+  always a clean ff).
 
 So a hand-typed `git push PUB PUBLISH_BRANCH:main` is blocked and told to use
 `git publish` (which guarantees the private backup happened first). Deliberate
@@ -142,7 +150,8 @@ narrate the mistake as it completes.
 The mechanism is shipped, not hand-rolled: `scripts/git-hooks/{pre-commit,
 pre-push}` + `scripts/install-guards.sh` + `.publish-guard.local.example` are
 generic and config-driven. To adopt in another repo, copy those four files,
-run the one-time setup above, and set the five `publishguard.*` config keys.
+run the one-time setup above, and set the `publishguard.*` config keys
+(including `historymode` if the repo should default to `squash`).
 Nothing in the committed tree is repo-specific.
 
 Notes when porting:
