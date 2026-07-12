@@ -3,6 +3,8 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import { OUTPUT_DIR, WEBSITE_REPO_ROOT } from '../src/output';
 
+const EXPORT_TIMEOUT_MS = 120_000;
+
 function usage(): never {
   console.error('Usage: ts-node scripts/render-html.ts <input.json> [--out <output.html>]');
   process.exit(1);
@@ -39,12 +41,15 @@ const result = spawnSync(
     '--output',
     outputPath,
   ],
-  { cwd: WEBSITE_REPO_ROOT, encoding: 'utf8' },
+  { cwd: WEBSITE_REPO_ROOT, encoding: 'utf8', timeout: EXPORT_TIMEOUT_MS },
 );
 
 if (result.status !== 0) {
   const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
-  console.error(details || `Export failed with status ${result.status ?? 'unknown'}`);
+  const fallback = result.error
+    ? result.error.message
+    : `Export failed with status ${result.status ?? 'unknown'}`;
+  console.error(details || fallback);
   process.exit(result.status ?? 1);
 }
 

@@ -3,6 +3,10 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import { OUTPUT_DIR, WEBSITE_REPO_ROOT } from './output';
 
+// Guards against a hung exporter (the website repo's script shells out to
+// node + esbuild) blocking the whole collect run indefinitely.
+const EXPORT_TIMEOUT_MS = 120_000;
+
 export interface HtmlExportSummary {
   ok: number;
   failed: number;
@@ -51,7 +55,7 @@ export async function exportHtmlForJsonFiles(jsonPaths: string[]): Promise<HtmlE
     const result = spawnSync(
       process.execPath,
       [scriptPath, '--input', jsonPath, '--output', outputPath],
-      { cwd: WEBSITE_REPO_ROOT as string, encoding: 'utf8' },
+      { cwd: WEBSITE_REPO_ROOT as string, encoding: 'utf8', timeout: EXPORT_TIMEOUT_MS },
     );
 
     if (result.status === 0) {
@@ -60,9 +64,12 @@ export async function exportHtmlForJsonFiles(jsonPaths: string[]): Promise<HtmlE
     }
 
     const details = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+    const fallback = result.error
+      ? result.error.message
+      : `Exporter exited with status ${result.status ?? 'unknown'}`;
     failures.push({
       jsonPath,
-      error: details || `Exporter exited with status ${result.status ?? 'unknown'}`,
+      error: details || fallback,
     });
   }
 
