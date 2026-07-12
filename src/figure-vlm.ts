@@ -106,8 +106,12 @@ const CROP_DPI = envNum('FIGURE_VLM_DPI', 150);
 const MAX_IMAGE_PX = envNum('FIGURE_VLM_MAX_PX', 1600);
 const JPEG_QUALITY = envNum('FIGURE_VLM_JPEG_QUALITY', 85);
 // Fractional padding added around the model bbox so a slightly-tight box doesn't
-// clip the figure's outer labels (raised from 0.012 after a clipped diagram).
-const CROP_PAD = envNum('FIGURE_VLM_PAD', 0.022);
+// clip the figure's outer labels. Small by default: the PDF path refines the
+// box on a high-resolution render of the chosen page, so it is trustworthy and
+// generous padding only drags in neighbouring body text.
+const CROP_PAD = envNum('FIGURE_VLM_PAD', 0.005);
+// Width of the single-page render used by the PDF refine pass.
+const REFINE_WIDTH_PX = 1500;
 
 const SELECTION_SYSTEM =
   'You are a figure-selection assistant for a research-explainer pipeline. You ' +
@@ -396,6 +400,63 @@ function pageCount(pdfPath: string): number | null {
   return m ? Number.parseInt(m[1], 10) : null;
 }
 
+/** Render a single page at the given width. Returns the PNG path or null. */
+function renderPdfPage(pdfPath: string, page: number, widthPx: number, outDir: string): string | null {
+  const prefix = path.join(outDir, `refine-${page}`);
+  const result = spawnSync(
+    'pdftoppm',
+    ['-png', '-scale-to-x', String(widthPx), '-scale-to-y', '-1', '-f', String(page), '-l', String(page), pdfPath, prefix],
+    { encoding: 'utf8' },
+  );
+  if (result.error || result.status !== 0) return null;
+  const png = fs.readdirSync(outDir).filter(f => f.startsWith(`refine-${page}`) && f.endsWith('.png'))[0];
+  return png ? path.join(outDir, png) : null;
+}
+
+/**
+ * Pass 2 of the PDF flow: with the page known, ask for a tight bbox on a
+ * high-resolution render of just that page. The pass-1 thumbnails are too
+ * small for precise coordinates; this render is sharp enough to trust.
+ */
+async function refineBboxOnPage(
+  provider: ReturnType<typeof resolveVisionProvider>,
+  pagePng: string,
+  pageNum: number,
+  figureLabel: string | undefined,
+): Promise<[number, number, number, number] | null> {
+  const target = figureLabel ? `the figure "${figureLabel}"` : 'the previously chosen figure';
+  const prompt = [
+    `This is page ${pageNum} of the document, rendered at higher resolution. Earlier analysis chose ${target} on this page.`,
+    'Return a tight bounding box around that figure\'s BODY only, excluding its caption text and any surrounding body text or column content.',
+    '',
+    'Return ONLY this JSON (no prose, no code fence):',
+    '{"found": <true|false>, "bbox": [x0, y0, x1, y1]}   // normalised 0..1 within this page image',
+    'If the figure is not actually on this page, return {"found": false}.',
+  ].join('\n');
+  try {
+    const vision = await runVision({
+      provider,
+      model: visionModel(provider),
+      maxTokens: 200,
+      system: SELECTION_SYSTEM,
+      prompt,
+      imagePaths: [pagePng],
+    });
+    const raw = vision.text;
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end <= start) return null;
+    const obj = JSON.parse(raw.slice(start, end + 1)) as { found?: boolean; bbox?: number[] };
+    if (obj.found === false || !Array.isArray(obj.bbox) || obj.bbox.length !== 4) return null;
+    const bbox = obj.bbox.map(Number) as [number, number, number, number];
+    if (bbox.some(n => !Number.isFinite(n))) return null;
+    return bbox;
+  } catch (err) {
+    console.warn(`  ⚠ figure-vlm: refine pass failed (${err instanceof Error ? err.message : String(err)}); using pass-1 bbox.`);
+    return null;
+  }
+}
+
 /** Render pages 1..N as width-normalized PNG thumbnails for the selection call. */
 function renderPdfThumbnails(pdfPath: string, tmpDir: string, lastPage: number): string[] {
   const prefix = path.join(tmpDir, 'page');
@@ -487,10 +548,20 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         return null;
       }
       const page = Math.min(Math.max(sel.page, 1), thumbs.length);
-      const src = cropPdfBbox(pdfPath, page, sel.bbox);
+
+      // Two-pass zoom-refine: pass 1 picked the page from small thumbnails;
+      // pass 2 re-reads only that page at high resolution for a tight bbox.
+      let bbox = sel.bbox;
+      const refinePng = renderPdfPage(pdfPath, page, REFINE_WIDTH_PX, tmpDir);
+      if (refinePng) {
+        const refined = await refineBboxOnPage(provider, refinePng, page, sel.source_figure ?? baseOpts.named);
+        if (refined) bbox = refined;
+      }
+
+      const src = cropPdfBbox(pdfPath, page, bbox);
       if (!src) {
         console.warn(`  ⚠ figure-vlm: crop failed/blank (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
-        prev = { page, source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank or could not be produced' };
+        prev = { page, source_figure: sel.source_figure, bbox, reason: 'the crop rendered blank or could not be produced' };
         continue;
       }
       const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
