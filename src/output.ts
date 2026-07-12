@@ -241,6 +241,29 @@ export function normalizeSchemaDrift(json: ExplainerJson): void {
   }
 }
 
+// A chart whose richest data series has fewer than this many points carries
+// almost no information (a 2-point line, a 3-bar comparison) and reads better as
+// pills/table/prose. We drop them in post so a thin chart never ships even when
+// the model ignores the same rule in skill.md. Override with MIN_CHART_POINTS.
+const MIN_CHART_POINTS = (() => {
+  const n = Number(process.env.MIN_CHART_POINTS);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 6;
+})();
+
+/** Longest `data` array across a chart's datasets (Chart.js config), or 0. */
+function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): number {
+  const cfg = (chart as Record<string, unknown>).config_json as
+    | { data?: { datasets?: Array<{ data?: unknown[] }> } }
+    | undefined;
+  const datasets = cfg?.data?.datasets;
+  if (!Array.isArray(datasets)) return 0;
+  let max = 0;
+  for (const d of datasets) {
+    if (Array.isArray(d?.data)) max = Math.max(max, d.data.length);
+  }
+  return max;
+}
+
 function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
   normalizeSchemaDrift(json);
   const legacyChart = isRecord(json.chart) ? normalizeChartEntry(json.chart) : undefined;
@@ -250,14 +273,21 @@ function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
         .map((entry) => normalizeChartEntry(entry))
     : [];
 
-  const normalizedCharts = charts.length > 0
-    ? charts.slice(0, 3)
-    : legacyChart
-      ? [legacyChart]
-      : [];
+  const candidates = charts.length > 0 ? charts : legacyChart ? [legacyChart] : [];
+
+  // Drop information-poor charts (longest series < MIN_CHART_POINTS).
+  const kept = candidates.filter((c) => {
+    const len = chartLongestSeries(c);
+    if (len < MIN_CHART_POINTS) {
+      console.warn(`  ⚠ chart "${(c as ExplainerChart).title ?? '(untitled)'}" dropped — longest series ${len} < ${MIN_CHART_POINTS} points.`);
+      return false;
+    }
+    return true;
+  });
+  const normalizedCharts = kept.slice(0, 3);
 
   json.charts = normalizedCharts.length > 0 ? normalizedCharts : undefined;
-  json.chart = normalizedCharts[0] ?? legacyChart;
+  json.chart = normalizedCharts[0] ?? undefined;
 
   return json;
 }
