@@ -91,8 +91,26 @@ export function writeState(state: State): void {
   fs.renameSync(tmpFile, STATE_FILE);
 }
 
-export function addBatch(state: State, batch: BatchState): void {
-  state.batches.push(batch);
+// Collectors hold a batch in memory across long awaits (repairs, synthesis).
+// Writing back their whole stale State snapshot would clobber anything other
+// runs persisted meanwhile, so merge just this batch into a fresh read.
+export function mergeBatch(batch: BatchState): void {
+  const state = readState();
+  const index = state.batches.findIndex(b => b.id === batch.id);
+  if (index >= 0) {
+    state.batches[index] = batch;
+  } else {
+    state.batches.push(batch);
+  }
+  writeState(state);
+}
+
+// Same stale-snapshot concern as mergeBatch: file uploads happen between the
+// cache read and the write, so merge keys into a fresh read (ours win).
+export function mergeOpenAIFileCache(cache: NonNullable<State['openai_file_cache']>): void {
+  const state = readState();
+  state.openai_file_cache = { ...(state.openai_file_cache ?? {}), ...cache };
+  writeState(state);
 }
 
 export function getLatestPendingBatch(state: State): BatchState | undefined {

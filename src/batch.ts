@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
-  readState, writeState, addBatch, getBatchById, getLatestPendingBatchByProvider,
+  readState, mergeBatch, mergeOpenAIFileCache, getBatchById, getLatestPendingBatchByProvider,
   type BatchState, type RequestState,
 } from './state';
 import { buildSystemPrompt, buildUserInstruction } from './prompt';
@@ -375,8 +375,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
       uploadedFileIds.set(item.customId, fileId);
     }
     if (fileCacheChanged) {
-      state.openai_file_cache = fileCache;
-      writeState(state);
+      mergeOpenAIFileCache(fileCache);
     }
 
     const lines: string[] = [];
@@ -459,9 +458,7 @@ export async function submitBatch(provider: ProviderName, items: InputItem[]): P
     ? await submitClaudeBatch(items)
     : await submitOpenAIBatch(items);
 
-  const state = readState();
-  addBatch(state, batchState);
-  writeState(state);
+  mergeBatch(batchState);
   writeJobFile(batchState, items);
   return batchState.id;
 }
@@ -534,7 +531,7 @@ async function collectClaude(batchState: BatchState): Promise<void> {
     }
   }
 
-  writeState(freshState);
+  mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
 
@@ -596,7 +593,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
         console.error(`  ✗ ${entry.customId} — ${req.error}`);
       }
     }
-    writeState(freshState);
+    mergeBatch(freshBatch);
     await exportSavedHtml(savedResults);
     return;
   }
@@ -671,7 +668,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
   }
 
   if (synthesisLines.length === 0) {
-    writeState(freshState);
+    mergeBatch(freshBatch);
     return;
   }
 
@@ -738,7 +735,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     }
   }
 
-  writeState(freshState);
+  mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
 
@@ -863,7 +860,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
     }
   }
 
-  writeState(freshState);
+  mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
 
@@ -932,7 +929,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
   }
 
   freshBatch.status = 'ended';
-  writeState(freshState);
+  mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
 
@@ -981,8 +978,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
     }
 
     if (fileCacheChanged) {
-      state.openai_file_cache = fileCache;
-      writeState(state);
+      mergeOpenAIFileCache(fileCache);
     }
   } else {
     for (const item of items) uploadedFileIds.set(item.customId, null);
@@ -1104,7 +1100,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
   }
 
   freshBatch.status = 'ended';
-  writeState(freshState);
+  mergeBatch(freshBatch);
   await exportSavedHtml(savedResults);
 }
 
@@ -1150,9 +1146,7 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
     }
   }
 
-  const state = readState();
-  addBatch(state, batchState);
-  writeState(state);
+  mergeBatch(batchState);
 
   if (provider === 'claude') {
     await runClaudeSync(id, items);
