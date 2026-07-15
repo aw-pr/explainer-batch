@@ -832,10 +832,12 @@ function figureLabelKey(label: string): string | null {
 
 function matchesNamedFigure(named: string, cand: FigureCandidate): boolean {
   const wanted = figureLabelKey(named);
-  if (!wanted) return false;
-  if (cand.sourceFigure && figureLabelKey(cand.sourceFigure) === wanted) return true;
-  if (cand.figcaption && figureLabelKey(cand.figcaption) === wanted) return true;
-  return false;
+  if (!wanted || !cand.sourceFigure) return false;
+  // Match only the caption's parsed "Figure N" label (anchored at the caption
+  // start), never a stray digit elsewhere in the text: otherwise pinning
+  // "Figure 4" could latch onto a "Table 4" image or a caption that merely
+  // mentions figure 4.
+  return figureLabelKey(cand.sourceFigure) === wanted;
 }
 
 /**
