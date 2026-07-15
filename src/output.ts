@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
-import { readState } from './state';
+import { readState, type FigureCandidate } from './state';
 import { htmlToPlain } from './text';
 import { loadDotEnv } from './env';
 
@@ -158,6 +158,23 @@ function resolveSourceUrl(customId: string): string | null {
 }
 
 /**
+ * Recovers the preprocess-captured DOM figure candidates for a URL-sourced
+ * explainer from state, so collect can extract a figure from the persisted
+ * asset URLs with no live page render. Returns undefined for local PDFs, when
+ * the request predates this feature, or when the request is not in state.
+ */
+function resolveFigureCandidates(customId: string): FigureCandidate[] | undefined {
+  try {
+    const state = readState();
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const req = state.batches[i].requests[customId];
+      if (req?.figureCandidates) return req.figureCandidates;
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+/**
  * Vision-driven figure attachment. The deterministic caption/gap-finder has
  * been retired: a vision model now looks at the rendered document (PDF pages
  * or a live web page) and picks the single most useful figure, returning a
@@ -178,9 +195,11 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
     return;
   }
 
+  const snapshotCandidates = url ? resolveFigureCandidates(customId) : undefined;
+
   // Explainer context steers selection towards a figure that complements the
   // article (the charts already recreate the headline results).
-  const result = await extractFigureViaVlm({ pdfPath, url, override, context: contextFromExplainer(json) });
+  const result = await extractFigureViaVlm({ pdfPath, url, override, context: contextFromExplainer(json), snapshotCandidates });
   if (!result) {
     if (json.image) delete json.image;
     return;
