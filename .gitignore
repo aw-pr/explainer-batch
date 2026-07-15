@@ -61,3 +61,4 @@ yarn-error.log*
 # Claude Code runtime artefacts
 .claude/
 **/.claude/
+.codegraph/
