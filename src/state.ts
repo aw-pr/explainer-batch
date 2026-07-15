@@ -51,6 +51,7 @@ export interface RequestState {
     alt_text?: string;
     pageHint?: number;
   };
+  figureCandidates?: FigureCandidate[];
 }
 
 export interface BatchState {

@@ -213,6 +213,7 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     filePath: source.filePath,
     focusHint: req.focusHint,
     imageOverride: req.imageOverride,
+    figureCandidates: req.figureCandidates,
   };
 }
 
@@ -352,6 +353,7 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
         error: null,
         focusHint: item.focusHint,
         imageOverride: item.imageOverride,
+        figureCandidates: item.figureCandidates,
       } satisfies RequestState])
     ),
   };
@@ -374,6 +376,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
       error: null,
       focusHint: item.focusHint,
       imageOverride: item.imageOverride,
+      figureCandidates: item.figureCandidates,
     };
     if (lanesEnabled) {
       for (const lane of OPENAI_LANES) {
@@ -1185,9 +1188,10 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
       error: null,
       // Persisted like the batch path: figure extraction reads these back
       // from state by customId, so dropping them silently ignores .focus.md
-      // figure pins on sync runs.
+      // figure pins and DOM figure candidates on sync runs.
       focusHint: item.focusHint,
       imageOverride: item.imageOverride,
+      figureCandidates: item.figureCandidates,
     };
     if (provider === 'openai' && lanesEnabled) {
       for (const lane of OPENAI_LANES) {
