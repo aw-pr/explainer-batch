@@ -8,6 +8,20 @@ const STATE_FILE = process.env.EXPLAINER_STATE_FILE
   ? path.resolve(process.env.EXPLAINER_STATE_FILE)
   : path.join(__dirname, '..', 'state.json');
 
+// Defined here (its persistence home) rather than in preprocess.ts, to avoid a
+// state → preprocess → output → state import cycle; preprocess.ts and
+// figure-vlm.ts both import it from here.
+export interface FigureCandidate {
+  /** Resolved absolute URL (new URL(src, pageUrl)). */
+  imgSrc: string;
+  /** <figcaption> text, kept separate from the asset. */
+  figcaption?: string;
+  /** <img alt>. */
+  alt?: string;
+  /** Parsed "Figure N" label from the figcaption. */
+  sourceFigure?: string;
+}
+
 export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;

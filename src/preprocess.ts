@@ -2,10 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
+import type { FigureCandidate } from './state';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
 const HTML_FETCH_MAX_BYTES = 200_000;
+
+// Bounds how many DOM figure candidates get persisted per paper (state.json
+// is fully re-serialised on every op; a stray page with dozens of inline
+// images should not bloat it unbounded).
+const MAX_FIGURE_CANDIDATES = 20;
 
 export interface InputItem {
   /** Stable identifier used as batch custom_id */
@@ -24,6 +30,8 @@ export interface InputItem {
   focusHint?: string;
   /** Explicit lead-figure override from focus directives (image:/image_caption:/image_alt:) */
   imageOverride?: ImageOverride;
+  /** DOM figure candidates parsed from the raw HTML (URL sources only), persisted so collect-time figure extraction can fetch the asset directly instead of re-rendering the live page. */
+  figureCandidates?: FigureCandidate[];
 }
 
 export interface ImageOverride {
@@ -117,7 +125,86 @@ function isPdfUrl(url: string): boolean {
   return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
 }
 
-async function fetchHtmlContent(url: string): Promise<string | undefined> {
+function extractTagAttr(tag: string, name: string): string | undefined {
+  const m = tag.match(new RegExp(`${name}\\s*=\\s*"([^"]*)"`, 'i')) ?? tag.match(new RegExp(`${name}\\s*=\\s*'([^']*)'`, 'i'));
+  return m?.[1];
+}
+
+function resolveImgSrc(imgTag: string, pageUrl: string): string | undefined {
+  const src = extractTagAttr(imgTag, 'src') ?? extractTagAttr(imgTag, 'data-src') ?? extractTagAttr(imgTag, 'data-original');
+  if (!src) return undefined;
+  try {
+    return new URL(src, pageUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+// Mirrors the "Figure N" normalisation in parseFocusDirectives's figDirective
+// handling ("Fig." / "figure" both fold to "Figure N"), applied here to a
+// figcaption's leading label instead of a whole focus-directive line.
+const FIGCAPTION_LABEL_RE = /^\s*(fig\.?|figure)\s*(\d+(?:\.\d+)?[a-z]?)\b\.?:?/i;
+
+function parseSourceFigureLabel(figcaption: string): string | undefined {
+  const m = figcaption.match(FIGCAPTION_LABEL_RE);
+  return m ? `Figure ${m[2]}` : undefined;
+}
+
+/**
+ * Regex-based DOM figure-candidate scan (Node has no DOM). Primary pass reads
+ * real `<figure>…</figure>` elements; secondary pass catches a bare `<img>`
+ * sitting in a `[class*="figure"]` wrapper (mirrors the live selector in
+ * figure-vlm.ts's markFigureCandidates), for pages that don't use `<figure>`.
+ * Runs on the FULL raw HTML, before the strip+truncate below, so a late
+ * figure is never lost to the size cap.
+ */
+export function parseFigureCandidates(raw: string, pageUrl: string): FigureCandidate[] {
+  const candidates: FigureCandidate[] = [];
+  const seenSrc = new Set<string>();
+
+  const figureRe = /<figure\b[^>]*>([\s\S]*?)<\/figure>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = figureRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
+    const block = m[1];
+    const imgMatch = block.match(/<img\b[^>]*>/i);
+    if (!imgMatch) continue;
+    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
+    if (!imgSrc || seenSrc.has(imgSrc)) continue;
+
+    const alt = extractTagAttr(imgMatch[0], 'alt');
+    const capMatch = block.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
+    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
+
+    seenSrc.add(imgSrc);
+    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+  }
+
+  // Secondary pass: bare <img> inside a [class*="figure"] wrapper that isn't a
+  // real <figure> element. Scans a bounded window after the wrapper's opening
+  // tag rather than trying to balance nested tags with regex.
+  const WRAPPER_WINDOW = 2000;
+  const wrapperRe = /<(?:div|span|section)\b[^>]*class\s*=\s*["'][^"']*figure[^"']*["'][^>]*>/gi;
+  while ((m = wrapperRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
+    const windowText = raw.slice(m.index, m.index + WRAPPER_WINDOW);
+    const imgMatch = windowText.match(/<img\b[^>]*>/i);
+    if (!imgMatch) continue;
+    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
+    if (!imgSrc || seenSrc.has(imgSrc)) continue;
+
+    const alt = extractTagAttr(imgMatch[0], 'alt');
+    const capMatch = windowText.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
+    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
+
+    seenSrc.add(imgSrc);
+    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+  }
+
+  return candidates;
+}
+
+async function fetchHtmlContent(url: string): Promise<{ text?: string; candidates: FigureCandidate[] }> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; explainer-batch/1.0)' },
@@ -125,16 +212,17 @@ async function fetchHtmlContent(url: string): Promise<string | undefined> {
     });
     if (!res.ok) {
       console.warn(`  ⚠ URL fetch failed (${res.status}): ${url}`);
-      return undefined;
+      return { candidates: [] };
     }
     const contentType = res.headers.get('content-type') ?? '';
-    if (contentType.includes('application/pdf')) return undefined; // let document block handle it
+    if (contentType.includes('application/pdf')) return { candidates: [] }; // let document block handle it
     const raw = await res.text();
-    const text = stripHtml(raw.slice(0, HTML_FETCH_MAX_BYTES * 3)); // strip first, then truncate
-    return text.slice(0, HTML_FETCH_MAX_BYTES);
+    const candidates = parseFigureCandidates(raw, url);
+    const text = stripHtml(raw.slice(0, HTML_FETCH_MAX_BYTES * 3)).slice(0, HTML_FETCH_MAX_BYTES); // strip first, then truncate
+    return { text, candidates };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
-    return undefined;
+    return { candidates: [] };
   }
 }
 
@@ -194,9 +282,12 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       const customId = dedupeCustomId('explainer-url-' + slug, usedCustomIds, 'explainer-url-'.length + 80);
 
       let htmlContent: string | undefined;
+      let figureCandidates: FigureCandidate[] | undefined;
       if (!isPdfUrl(url)) {
         process.stdout.write(`  Fetching ${url} …`);
-        htmlContent = await fetchHtmlContent(url);
+        const fetched = await fetchHtmlContent(url);
+        htmlContent = fetched.text;
+        figureCandidates = fetched.candidates.length > 0 ? fetched.candidates : undefined;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
       }
 
@@ -208,6 +299,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         htmlContent,
         focusHint,
         imageOverride,
+        figureCandidates,
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,
