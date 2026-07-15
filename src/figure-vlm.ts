@@ -5,6 +5,7 @@ import { spawnSync } from 'child_process';
 import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp, downscaleLongEdge, type VisionResult } from './vision';
 import { getModelConfig } from './model-config';
 import type { ExplainerJson } from './types/explainer-json';
+import type { FigureCandidate } from './state';
 
 /**
  * Subset of the focus-sidecar image override consumed here (structural
@@ -73,9 +74,9 @@ export interface VlmFigureResult {
   source_figure: string;
   caption: string;
   alt_text: string;
-  /** Diagnostics. */
-  route: VisionResult['route'];
-  provider: VisionResult['provider'];
+  /** Diagnostics. `'dom'` marks the snapshot-candidate path (no vision call at all). */
+  route: VisionResult['route'] | 'dom';
+  provider: VisionResult['provider'] | 'dom';
   page?: number;
 }
 
@@ -819,6 +820,95 @@ async function chooseCandidateOnce(
   return null;
 }
 
+// Timeout for fetching a single DOM candidate asset. Generous relative to the
+// 30s preprocess.ts page-fetch timeout since these are typically small images.
+const SNAPSHOT_FETCH_TIMEOUT_MS = 15_000;
+
+/** Extracts the leading digits/decimal/letter run so "Figure 4" and "Fig. 4a" compare equal. */
+function figureLabelKey(label: string): string | null {
+  const m = label.match(/(\d+(?:\.\d+)?[a-z]?)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
+function matchesNamedFigure(named: string, cand: FigureCandidate): boolean {
+  const wanted = figureLabelKey(named);
+  if (!wanted) return false;
+  if (cand.sourceFigure && figureLabelKey(cand.sourceFigure) === wanted) return true;
+  if (cand.figcaption && figureLabelKey(cand.figcaption) === wanted) return true;
+  return false;
+}
+
+/**
+ * DOM-native snapshot path: fetches each candidate's real `<img>` asset (no
+ * Playwright, no rendered page) and either matches a pinned figure directly or
+ * lets the vision model choose among the fetched assets. The asset is the
+ * genuine caption-free image the page ships, so unlike the live paths this
+ * skips `verifyCrop` and the confidence gate entirely — there is no crop to
+ * verify. Returns null on any miss (fetch failure, no match, blank asset) so
+ * the caller falls through to the live Playwright path.
+ */
+async function extractFromSnapshot(
+  candidates: FigureCandidate[],
+  provider: ReturnType<typeof resolveVisionProvider>,
+  baseOpts: SelectionOpts,
+): Promise<VlmFigureResult | null> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-snap-'));
+  try {
+    const fetched: Array<{ cand: FigureCandidate; sendPath: string }> = [];
+    for (let i = 0; i < candidates.length; i++) {
+      const cand = candidates[i];
+      try {
+        const res = await fetch(cand.imgSrc, { signal: AbortSignal.timeout(SNAPSHOT_FETCH_TIMEOUT_MS) });
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        const ext = path.extname(new URL(cand.imgSrc).pathname) || '.img';
+        const rawPath = path.join(tmpDir, `snap-${i}${ext}`);
+        fs.writeFileSync(rawPath, buf);
+        if (looksBlank(rawPath)) continue;
+        const sendPath = downscaleLongEdge(rawPath, CANDIDATE_SEND_PX, path.join(tmpDir, `snap-${i}-send.png`)) ?? rawPath;
+        fetched.push({ cand, sendPath });
+      } catch {
+        // 404s, timeouts, and non-image assets simply drop out of the candidate set.
+      }
+    }
+    if (fetched.length === 0) return null;
+
+    if (baseOpts.named) {
+      const pinned = fetched.find(f => matchesNamedFigure(baseOpts.named!, f.cand));
+      if (!pinned) return null;
+      const src = encodeJpegDataUrl(pinned.sendPath);
+      if (!src) return null;
+      const label = baseOpts.named;
+      return {
+        src,
+        source_figure: label,
+        caption: pinned.cand.figcaption ?? `${label} from the source.`,
+        alt_text: pinned.cand.alt ?? pinned.cand.figcaption ?? `${label} from the source.`,
+        route: 'dom',
+        provider: 'dom',
+      };
+    }
+
+    const chosen = await chooseCandidateOnce(provider, fetched.map(f => f.sendPath), baseOpts);
+    if (!chosen || !chosen.sel.found) return null;
+    const picked = fetched[chosen.sel.candidate - 1];
+    if (!picked) return null;
+    const src = encodeJpegDataUrl(picked.sendPath);
+    if (!src) return null;
+    const label = picked.cand.sourceFigure ?? chosen.sel.source_figure ?? 'Figure';
+    return {
+      src,
+      source_figure: label,
+      caption: picked.cand.figcaption ?? chosen.sel.caption ?? `${label} from the source.`,
+      alt_text: picked.cand.alt ?? chosen.sel.alt_text ?? chosen.sel.caption ?? `${label} from the source.`,
+      route: chosen.vision.route,
+      provider: chosen.vision.provider,
+    };
+  } finally {
+    cleanupTmp(tmpDir);
+  }
+}
+
 async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
   const pw = await loadPlaywright();
   if (!pw) return null;
@@ -1030,6 +1120,8 @@ export interface VlmFigureInput {
   url?: string | null;
   override?: ImageOverride;
   context?: FigureContext;
+  /** Persisted DOM figure candidates from preprocess, enabling the no-Playwright snapshot path. */
+  snapshotCandidates?: FigureCandidate[];
 }
 
 /**
@@ -1053,6 +1145,10 @@ export async function extractFigureViaVlm(input: VlmFigureInput): Promise<VlmFig
       return await extractFromPdf(input.pdfPath, provider, opts);
     }
     if (input.url) {
+      if (input.snapshotCandidates?.length) {
+        const snapshot = await extractFromSnapshot(input.snapshotCandidates, provider, opts);
+        if (snapshot) return snapshot;
+      }
       return await extractFromUrl(input.url, provider, opts);
     }
   } catch (err) {
