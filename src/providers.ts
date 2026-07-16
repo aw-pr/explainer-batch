@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { structuredOutputEnabled } from './schema/explainer-schema';
 
 export type ProviderName = 'claude' | 'openai';
 export type ClaudeAuthMode = 'api_key' | 'claude_cli';
@@ -443,7 +444,8 @@ export class OpenAIProvider {
     maxOutputTokens: number,
     instructions: string,
     input: Array<{ role: 'user'; content: Array<Record<string, unknown>> }>,
-    useSearch = false
+    useSearch = false,
+    jsonSchema?: Record<string, unknown>
   ): Promise<ProviderMessageResponse> {
     if (this.authMode() === 'api_key') {
       const body = await this.requestJson('POST', '/responses', {
@@ -451,6 +453,9 @@ export class OpenAIProvider {
         max_output_tokens: maxOutputTokens,
         instructions,
         input,
+        ...(jsonSchema && structuredOutputEnabled()
+          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: jsonSchema } } }
+          : {}),
       }) as ResponsesBody;
 
       return {

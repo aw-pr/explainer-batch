@@ -14,6 +14,7 @@ import { buildRepairInstruction, validateJsonOutput } from './quality';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
 import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
+import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
 
 // Optional shared batch-dashboard integration. Defaults to `<repo>/jobs`;
 // override with EXPLAINER_JOBS_DIR. Job-file writes are best-effort: if the
@@ -286,7 +287,9 @@ async function maybeRepairOpenAI(
       repairModel,
       repairMaxTokens,
       buildRepairInstruction(validation.issues, expectedDate),
-      [{ role: 'user', content: [{ type: 'input_text', text: currentText }] }]
+      [{ role: 'user', content: [{ type: 'input_text', text: currentText }] }],
+      false,
+      EXPLAINER_JSON_SCHEMA
     );
     currentText = usage.text;
   }
@@ -463,6 +466,9 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
             max_output_tokens: modelConfig.synthesisMaxTokens,
             instructions: buildSystemPrompt(),
             input: [{ role: 'user' as const, content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction) }],
+            ...(structuredOutputEnabled()
+              ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+              : {}),
           },
         }));
       }
@@ -719,6 +725,9 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           role: 'user' as const,
           content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
         }],
+        ...(structuredOutputEnabled()
+          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+          : {}),
       },
     }));
   }
@@ -866,7 +875,9 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
           [{
             role: 'user',
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
-          }]
+          }],
+          false,
+          EXPLAINER_JSON_SCHEMA
         );
       } else {
         synthesis = await client.createMessage(
@@ -877,7 +888,8 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
             role: 'user',
             content: buildOpenAIInput(item, null, userInstruction),
           }],
-          item.isUrl
+          item.isUrl,
+          EXPLAINER_JSON_SCHEMA
         );
       }
 
@@ -1106,7 +1118,9 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
           [{
             role: 'user',
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
-          }]
+          }],
+          false,
+          EXPLAINER_JSON_SCHEMA
         );
       } else {
         synthesis = await client.createMessage(
@@ -1117,7 +1131,8 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
             role: 'user',
             content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction),
           }],
-          mode === 'codex_cli' && item.isUrl
+          mode === 'codex_cli' && item.isUrl,
+          EXPLAINER_JSON_SCHEMA
         );
       }
 
