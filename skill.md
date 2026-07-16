@@ -63,6 +63,10 @@ The first character of your response must be `{` and the last must be `}`. No pr
 }
 ```
 
+### metadata
+
+Fill `title`, `eyebrow`, and `filename_slug` with the paper's real author byline. The author line sits directly beneath the paper title in the source, above the affiliation and abstract; when the fetched text opens with a `Detected paper author(s):` line, that is the byline, use it. Use the first author's surname for `filename_slug` and the `(Year)` in `title`. Never emit a placeholder byline such as "Unknown", "Anonymous", "Unattributed", or "Unspecified": if the author is genuinely absent after you have looked below the title, drop the author segment rather than inventing a placeholder.
+
 ### top_block
 
 Use `pills` when the paper has either:
@@ -245,6 +249,7 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 
 - [ ] Output is a single valid JSON object, starts with `{`, ends with `}`.
 - [ ] `metadata.filename_slug` follows `YYYY-MM-DD_authorsurname_short-title_explainer`.
+- [ ] The byline is the paper's real author (found beneath the title, or from a `Detected paper author(s):` line). No placeholder author ("Unknown", "Anonymous", "Unattributed", "Unspecified"); drop the author segment rather than invent one.
 - [ ] `hero.publication_date` uses `"Published Month Year"`.
 - [ ] `top_block` is `pills` when the paper has measured results or a central 2–6 item sequence; otherwise `takeaway`. `end_takeaway` is present iff `top_block.kind === "pills"`.
 - [ ] Every pill `description` is a lowercase continuation phrase completing its `number`, not a standalone capitalised sentence.
