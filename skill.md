@@ -55,7 +55,7 @@ The first character of your response must be `{` and the last must be `}`. No pr
 
   "charts":   [ <0–4 chart objects, omit if none> ],
 
-  "image":    <NEVER emit; supplied externally via directive sidecar>,
+  "image":    <NEVER emit; attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a sidecar)>,
 
   "sections":      [ <2–5 section objects> ],
   "end_takeaway":  <object or omit>,
@@ -180,7 +180,7 @@ the URL wrapped in an anchor:
 
 ## Working with figures in the paper
 
-When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field.
+When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field. A downstream figure pipeline attaches the image automatically: a vision model picks the paper's best figure, and a per-paper sidecar can optionally pin a specific figure instead. Neither path is something you author.
 
 **First decide: does this paper need any charts at all?**
 
@@ -208,7 +208,7 @@ Then, for what does qualify:
 - **Prefer a `table` over a grouped/stacked bar for a value grid.** A metric × system matrix (per-dataset, per-model, per-config breakdowns) reads more precisely as a `table` than as bars, and a reader rarely needs bar height to compare them. Default such data to a `table` block in a prose section. A bar chart earns its place only when the *shape* of the magnitudes across a handful of categories is itself the point and a table would bury it.
 - Put the most important chart first; it renders after the first prose section, below the opening text.
 
-**Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream from a per-paper directive sidecar (`<paper>.focus.md`). Your job is to author the prose, pills, charts, and structure; the image is supplied externally or omitted entirely.
+**Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream by the figure pipeline: a vision model auto-picks the paper's best figure, and a per-paper sidecar (`<paper>.focus.md`) can optionally override that pick to pin a specific figure. Your job is to author the prose, pills, charts, and structure; the image is supplied externally, by whichever of those paths applies, or omitted entirely.
 
 Prose sections may refer to figures by number so the reader can find them in the original paper. Do not invent figure content: if a figure's values or labels are unclear, say so or leave the detail out.
 
@@ -259,7 +259,7 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] No chart encodes an ordinal ranking as bar height (datasets like `[1, 2, 3, 4]` or `[0, 1, 2, 3]` where the numbers mean "order", not "amount"). Rank order goes in a numbered list or prose.
 - [ ] No grouped/stacked bar chart is doing a `table`'s job. A metric × system value grid is a `table` block, not bars. Architecture/systems/framework papers usually carry their numbers in `table` blocks and lean to zero or one chart, but a genuine data figure in such a paper is still reproduced, not dropped.
 - [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true`, never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
-- [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
+- [ ] No `image` field is emitted. The image block is attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a per-paper sidecar); the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
 - [ ] `references` is a single entry (the paper being explained) with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`). No cited-work bibliography.
 - [ ] No em dashes, corporate jargon, or AI tell-tales in prose (the banned lists include unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry).
