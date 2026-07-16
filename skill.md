@@ -133,7 +133,7 @@ Use `list` when the source material is genuinely a sequence, taxonomy, or named 
 
 Use `table` for a grid of values the reader *reads off and scans* rather than compares by magnitude: a metric × system matrix, a per-dataset breakdown, a feature comparison. `columns` are the headers (first column is usually the row label), `rows` are plain-text cells aligned to `columns` by index, and `align` (optional) sets per-column text alignment (default: first column left, the rest right). Cells are strings so units and ranges render verbatim (`"32.3"`, `"16-64%"`, `"OOM"`, `"O(N²)"`).
 
-**A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart.** A grouped bar chart of `metric × system` (e.g. an overhead percentage across six datasets and three models) is almost always a table wearing a costume: bar height encodes a number the reader could read more precisely from a cell, and the grouping adds clutter, not insight. Put that data in a `table`. Reserve charts for the cases in the chart-decision rules below: a genuine trend (line), a two-variable relationship (scatter), or a capability profile (radar). When in doubt between a bar chart and a table, choose the table.
+**A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart** (full rule in "When does a chart earn its place?" below). Reserve charts for a genuine trend (line), a two-variable relationship (scatter), or a capability profile (radar). When in doubt between a bar chart and a table, choose the table.
 
 Architecture, systems-design, framework, and position papers *tend* toward table-and-prose: their numbers usually sit better in `table` blocks and their argument in prose, so they often warrant **zero or one** chart. Treat that as a prior about what such papers usually hold, not a ceiling. If the paper does contain a genuine data figure (an evaluation plot, a measured trend, a benchmark comparison with real magnitudes), reproduce it as a chart whatever the paper's genre. The rule forbids *manufacturing* charts to fill space; it does not mean suppressing a real figure because you have filed the paper under "conceptual".
 
@@ -160,7 +160,7 @@ Pie and doughnut are off the menu. Share-of-whole splits belong in `top_block.pi
 
 If the paper's own central figure is a radar, spider, scatter, or line, reproduce that shape. Do not collapse it to a bar.
 
-**Every numeric axis must carry its unit.** Set `options.scales.<axis>.title.text` to the real quantity and unit from the paper, and set `options.scales.<axis>.title.display` to `true`. Examples: `"Tokens per second"`, `"Throughput (tok/s/GPU)"`, `"Latency (ms)"`, `"Cost per million tokens (USD)"`, `"Memory (GB)"`. Never use `"Value"`, `"Amount"`, `"Number"`, a blank string, or leave `display: false` on a numeric axis. Category axes (model names, layer types, stages) do not need a unit; a numeric axis always does.
+**Every numeric axis must carry its unit** (full rule in "When does a chart earn its place?" below).
 
 ### references
 
@@ -182,31 +182,27 @@ the URL wrapped in an anchor:
 
 When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field. A downstream figure pipeline attaches the image automatically: a vision model picks the paper's best figure, and a per-paper sidecar can optionally pin a specific figure instead. Neither path is something you author.
 
-**First decide: does this paper need any charts at all?**
+### When does a chart earn its place?
 
-Before authoring a single chart, ask: does the paper contain real measured magnitudes (benchmark scores, latencies, accuracies, token counts, dollar costs, parameter counts, training steps, percentages from a measurement) that a reader would actually compare against each other?
+**First decide: does this paper need any charts at all?** Before authoring a single chart, ask: does the paper contain real measured magnitudes (benchmark scores, latencies, accuracies, token counts, dollar costs, parameter counts, training steps, percentages from a measurement) that a reader would actually compare against each other?
 
 If no, the right answer is **zero charts**. System-architecture writeups, conceptual frameworks, design-space surveys, position papers, and qualitative analyses often have no chartable data at all. Forcing two or three charts out of an architecture paper produces ordinal-ranking-as-bars (`[1, 2, 3, 4]` encoding layer order) and proportions-as-bars (a 2-value split that should have been pills). Both are wrong, and they leak the model's discomfort with returning an empty list.
 
 Emit `charts: []` (or omit `charts` entirely) and let prose carry the explanation. Zero charts is the correct answer for many papers; do not pad. One chart is also fine. The schema allows 0-4, and the lower end of that range exists for a reason.
 
-If the paper *does* have measured magnitudes worth charting, continue to the data-shape checks below.
+If the paper *does* have measured magnitudes worth charting, run every one of the following checks against the data before putting it in a chart. This is the single authoritative list; every other section's chart-gating mention is a pointer back here.
 
-**Before emitting any chart, run two checks against the data you are about to put in it:**
+1. **Not a share-of-whole.** If the values sum to ~100% or ~1.0, or read as "X% does A, Y% does B", that is `top_block.pills` or prose, not a chart. A two-value split like `1.6 / 98.4` rendered as bars is the same proportion in disguise; bar-encoding it does not make it a chart.
+2. **Not an ordinal ranking.** If the dataset is `[1, 2, 3, 4]`, `[0, 1, 2, 3]`, or any sequence that just encodes "this comes before that" rather than measured magnitudes, that is prose, not a chart. Bar height must encode a real quantity (tokens per second, accuracy, latency, cost). Rank order belongs in a numbered list.
+3. **Not a single number or single proportion.** One headline figure, a share-of-whole split (whether pie, doughnut, or bar), or one metric with no second series is a *pill*, not a chart; emit it in `top_block.pills` and state it in prose. A chart must carry at least two genuinely different data points with real magnitudes that a reader compares against each other (a trend over time, categories at different measured magnitudes, multiple series).
+4. **At least 6 points in a series.** Every chart must have at least one data series with **6 or more** data points. A 2-point line (start vs end), a 3-or-4-bar comparison, or any series thinner than 6 points carries too little information to justify a chart; render it as `top_block.pills`, a `table`, or prose instead. Thin charts are dropped in post-processing, so emitting one just loses the data; put it where it will survive.
+5. **Not a uniform-value checklist, conformance table, or category list.** If every value would be the same number (all 100%, all `true`, all `2`, all "yes"), or the axis has no meaningful scale, it is not a chart; rewrite it as a `list` inside a prose section, or a `takeaway` / `pills` block. Charts exist to show *variation*; equal-height bars communicate nothing.
+6. **Prefer a `table` over a grouped/stacked bar for a value grid.** A metric × system matrix (per-dataset, per-model, per-config breakdowns) reads more precisely as a `table` than as bars, and a reader rarely needs bar height to compare them. Default such data to a `table` block in a prose section. A bar chart earns its place only when the *shape* of the magnitudes across a handful of categories is itself the point and a table would bury it.
+7. **Every numeric axis must carry its unit.** Set `options.scales.<axis>.title.text` to the real quantity and unit from the paper, and set `options.scales.<axis>.title.display` to `true`. Examples: `"Tokens per second"`, `"Throughput (tok/s/GPU)"`, `"Latency (ms)"`, `"Cost per million tokens (USD)"`, `"Memory (GB)"`. Never use `"Value"`, `"Amount"`, `"Number"`, a blank string, or leave `display: false` on a numeric axis. Category axes (model names, layer types, stages) do not need a unit; a numeric axis always does.
 
-1. **Is this a share-of-whole?** If the values sum to ~100% or ~1.0, or read as "X% does A, Y% does B", that is `top_block.pills` or prose, not a chart. A two-value split like `1.6 / 98.4` rendered as bars is the same proportion in disguise; bar-encoding it does not make it a chart.
-2. **Are the values an ordinal ranking?** If the dataset is `[1, 2, 3, 4]`, `[0, 1, 2, 3]`, or any sequence that just encodes "this comes before that" rather than measured magnitudes, that is prose, not a chart. Bar height must encode a real quantity (tokens per second, accuracy, latency, cost). Rank order belongs in a numbered list.
+If any check fails, do not emit that chart. Find a different cut of the paper that has genuine magnitudes to compare, or just write it in prose.
 
-If either answer is yes, do not emit the chart. Find a different cut of the paper that has genuine magnitudes to compare, or just write it in prose.
-
-Then, for what does qualify:
-
-- For a **data-bearing figure** (measured values, comparisons, trends): reproduce it as a Chart.js chart in `charts`. Match the axes, groupings, and data points. If multiple central results figures exist and each adds a distinct story, include multiple charts.
-- **Never chart a checklist, conformance table, or category list.** If every value would be the same number (all 100%, all `true`, all `2`, all "yes"), or the axis has no meaningful scale, it is not a chart; rewrite it as a `list` inside a prose section, or a `takeaway` / `pills` block. Charts exist to show *variation*; equal-height bars communicate nothing.
-- **Never chart a single number or a single proportion.** One headline figure, a share-of-whole split (whether pie, doughnut, or bar), or one metric with no second series is a *pill*, not a chart; emit it in `top_block.pills` and state it in prose. A chart must carry at least two genuinely different data points with real magnitudes that a reader compares against each other (a trend over time, categories at different measured magnitudes, multiple series). If the figure collapses to "the number is X" or "the split is X/Y", it belongs in pills.
-- **Minimum density: at least 6 points in a series.** Every chart must have at least one data series with **6 or more** data points. A 2-point line (start vs end), a 3-or-4-bar comparison, or any series thinner than 6 points carries too little information to justify a chart; render it as `top_block.pills`, a `table`, or prose instead. Thin charts are dropped in post-processing, so emitting one just loses the data; put it where it will survive. (Only reach for a chart when the source genuinely has 6+ comparable points; many papers, and most blog-style sources with only endpoint figures, do not.)
-- **Prefer a `table` over a grouped/stacked bar for a value grid.** A metric × system matrix (per-dataset, per-model, per-config breakdowns) reads more precisely as a `table` than as bars, and a reader rarely needs bar height to compare them. Default such data to a `table` block in a prose section. A bar chart earns its place only when the *shape* of the magnitudes across a handful of categories is itself the point and a table would bury it.
-- Put the most important chart first; it renders after the first prose section, below the opening text.
+For what does qualify: reproduce it as a Chart.js chart in `charts`. Match the axes, groupings, and data points. If multiple central results figures exist and each adds a distinct story, include multiple charts. Put the most important chart first; it renders after the first prose section, below the opening text.
 
 **Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream by the figure pipeline: a vision model auto-picks the paper's best figure, and a per-paper sidecar (`<paper>.focus.md`) can optionally override that pick to pin a specific figure. Your job is to author the prose, pills, charts, and structure; the image is supplied externally, by whichever of those paths applies, or omitted entirely.
 
@@ -253,15 +249,10 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] `top_block` is `pills` when the paper has measured results or a central 2–6 item sequence; otherwise `takeaway`. `end_takeaway` is present iff `top_block.kind === "pills"`.
 - [ ] Every pill `description` is a lowercase continuation phrase completing its `number`, not a standalone capitalised sentence.
 - [ ] Every chart comes from real data or a faithfully recreated figure from the paper. The most important chart is first.
-- [ ] No chart has uniform values (all bars equal, all rows `true`, all categories the same count). If a "chart" is really a checklist or membership table, it belongs in a `list` or `takeaway`, not `charts`.
-- [ ] No chart conveys just a single number or one share-of-whole split (whether pie, doughnut, or 2-bar). Single figures and proportions go in `top_block.pills`; a chart must compare at least two genuinely different data points with real magnitudes.
-- [ ] Every chart has at least one data series with 6 or more data points. Anything thinner (2-point lines, 3–4-bar comparisons) is pills/table/prose, not a chart; it will be dropped in post otherwise.
-- [ ] No chart encodes an ordinal ranking as bar height (datasets like `[1, 2, 3, 4]` or `[0, 1, 2, 3]` where the numbers mean "order", not "amount"). Rank order goes in a numbered list or prose.
-- [ ] No grouped/stacked bar chart is doing a `table`'s job. A metric × system value grid is a `table` block, not bars. Architecture/systems/framework papers usually carry their numbers in `table` blocks and lean to zero or one chart, but a genuine data figure in such a paper is still reproduced, not dropped.
-- [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true`, never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
+- [ ] Every chart passes all seven checks in "When does a chart earn its place?" above: not a share-of-whole, not an ordinal ranking, not a single number or proportion, at least 6 points in a series, not a uniform-value checklist, not a value grid a `table` would serve better, and every numeric axis carries a real unit with `title.display: true`.
 - [ ] No `image` field is emitted. The image block is attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a per-paper sidecar); the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
-- [ ] `references` is a single entry (the paper being explained) with a clickable anchor (`target="_blank"`, `rel="noopener noreferrer"`). No cited-work bibliography.
+- [ ] `references` follows the single-entry rule above: one entry, anchor with `target="_blank"` and `rel="noopener noreferrer"`, no cited-work bibliography.
 - [ ] No em dashes, corporate jargon, or AI tell-tales in prose (the banned lists include unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry).
 - [ ] British English spelling throughout (colour, behaviour, -ise verbs).
 - [ ] Every section and the `end_takeaway` closes on a reversal or a quiet punchline, not a recap sentence ("In summary" and restatement closers are out).
