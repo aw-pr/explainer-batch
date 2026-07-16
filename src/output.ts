@@ -99,12 +99,56 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * OpenAI's strict structured-output subset requires config_json to be a
+ * string (a stringified Chart.js config); parse it back to an object here so
+ * the saved artifact matches the website's `config_json: unknown | null`
+ * contract regardless of which route produced it. Parse failures are left
+ * as-is (still a string) so the validator/repair path can catch them.
+ */
+function parseStringifiedConfigJson(chart: Record<string, unknown>): void {
+  if (typeof chart.config_json === 'string') {
+    try {
+      chart.config_json = JSON.parse(chart.config_json);
+    } catch {
+      // leave as-is; malformed config_json falls through to validation/repair
+    }
+  }
+}
+
 function normalizeChartEntry(chart: ExplainerChart | Record<string, unknown>): ExplainerChart {
   const normalized = chart as ExplainerChart;
+  parseStringifiedConfigJson(normalized as unknown as Record<string, unknown>);
   if (normalized.config_json && !normalized.config_raw) {
     normalized.config_raw = JSON.stringify(normalized.config_json);
   }
   return normalized;
+}
+
+/**
+ * Deletes explicit `null` values recursively so a schema-enforced route's
+ * nullable-optional fields (e.g. `image: null`, `end_takeaway: null`,
+ * `paragraphs_html: null`) come out looking like an absent field, matching
+ * what non-enforced routes have always produced. `config_json` is left
+ * untouched — a Chart.js config may legitimately contain nulls (and the type
+ * itself allows `config_json: unknown | null` to signal "see config_raw
+ * instead"), so recursion does not descend into it.
+ */
+function stripSchemaNulls(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) stripSchemaNulls(entry);
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  for (const key of Object.keys(value)) {
+    if (key === 'config_json') continue;
+    if (value[key] === null) {
+      delete value[key];
+    } else {
+      stripSchemaNulls(value[key]);
+    }
+  }
 }
 
 /**
@@ -277,6 +321,7 @@ function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): nu
 }
 
 function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
+  stripSchemaNulls(json);
   normalizeSchemaDrift(json);
   const legacyChart = isRecord(json.chart) ? normalizeChartEntry(json.chart) : undefined;
   const charts = Array.isArray(json.charts)
