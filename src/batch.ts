@@ -190,6 +190,8 @@ function buildOpenAIInput(
   const content: Array<Record<string, unknown>> = [];
   if (uploadedFileId) {
     content.push({ type: 'input_file', file_id: uploadedFileId });
+  } else if (item.isUrl && item.htmlContent) {
+    content.push({ type: 'input_text', text: `Page content from ${item.input}:\n\n${item.htmlContent}` });
   } else {
     content.push({ type: 'input_text', text: sourceReferenceText(item) });
   }
