@@ -69,10 +69,10 @@ export function getModelConfig(provider: ProviderName): ModelConfig {
 
   return {
     provider,
-    batchModel: process.env.MODEL_BATCH ?? process.env.MODEL ?? file.batchModel ?? 'gpt-5.4',
-    laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'gpt-5.4-mini',
-    synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'gpt-5.4',
-    repairModel: process.env.MODEL_REPAIR ?? file.repairModel ?? 'gpt-5.4-mini',
+    batchModel: process.env.MODEL_BATCH ?? process.env.MODEL ?? file.batchModel ?? 'gpt-5.6-terra',
+    laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'gpt-5.6-luna',
+    synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'gpt-5.6-terra',
+    repairModel: process.env.MODEL_REPAIR ?? file.repairModel ?? 'gpt-5.6-luna',
     maxTokens: parsePositiveInt(process.env.MAX_TOKENS, file.maxTokens ?? 8192),
     laneMaxTokens: parsePositiveInt(process.env.LANE_MAX_TOKENS, file.laneMaxTokens ?? 4096),
     synthesisMaxTokens: parsePositiveInt(process.env.SYNTHESIS_MAX_TOKENS, file.synthesisMaxTokens ?? 8192),

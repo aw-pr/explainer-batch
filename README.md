@@ -201,8 +201,8 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
 Model defaults. Claude: batch/lane/synthesis `claude-opus-4-8`, repair
-`claude-sonnet-4-6`. OpenAI: batch/synthesis `gpt-5.4`, lane/repair
-`gpt-5.4-mini`. For a committed profile, copy `config/models.json.example` to
+`claude-sonnet-4-6`. OpenAI: batch/synthesis `gpt-5.6-terra`, lane/repair
+`gpt-5.6-luna`. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
 
 Fable 5 is opt-in, not a default. The Claude `synthesisModel` is only consulted

@@ -11,10 +11,10 @@
     "repairMaxTokens": 8192
   },
   "openai": {
-    "batchModel": "gpt-5.4",
-    "laneModel": "gpt-5.4-mini",
-    "synthesisModel": "gpt-5.4",
-    "repairModel": "gpt-5.4-mini",
+    "batchModel": "gpt-5.6-terra",
+    "laneModel": "gpt-5.6-luna",
+    "synthesisModel": "gpt-5.6-terra",
+    "repairModel": "gpt-5.6-luna",
     "maxTokens": 8192,
     "laneMaxTokens": 4096,
     "synthesisMaxTokens": 8192,

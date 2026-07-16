@@ -22,6 +22,9 @@ const STANDARD_PRICES: Record<ProviderName, Record<string, { input: number; outp
     'claude-opus-4-1': { input: 15.0, output: 75.0 },
   },
   openai: {
+    'gpt-5.6-sol': { input: 2.5, output: 15.0 },
+    'gpt-5.6-terra': { input: 1.25, output: 7.5 },
+    'gpt-5.6-luna': { input: 0.5, output: 3.0 },
     'gpt-5.5': { input: 5.0, output: 30.0 },
     'gpt-5.4': { input: 2.5, output: 15.0 },
     'gpt-5.4-mini': { input: 0.75, output: 4.5 },
