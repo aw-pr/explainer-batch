@@ -250,7 +250,7 @@ async function maybeRepairClaude(
     if (authMode === 'claude_cli') {
       usage = await client.createMessageViaCli(repairModel, repairSystem, currentText);
     } else {
-      usage = await client.createMessage(repairModel, repairMaxTokens, repairSystem, currentText);
+      usage = await client.createMessage(repairModel, repairMaxTokens, repairSystem, currentText, false, EXPLAINER_JSON_SCHEMA);
     }
     currentText = usage.text;
   }
@@ -334,6 +334,7 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
     maxTokens: modelConfig.maxTokens,
     system: systemPrompt,
     content: buildClaudeRequestContent(item, buildUserInstruction(expectedDate, item.focusHint)),
+    jsonSchema: EXPLAINER_JSON_SCHEMA,
   }));
 
   console.log(`  Submitting batch of ${items.length} request(s) using ${modelConfig.batchModel}…`);

@@ -100,6 +100,37 @@ type ClaudeSdkMessage =
   | { type: 'result'; subtype: string; usage?: { input_tokens?: number; output_tokens?: number }; is_error?: boolean; message?: string }
   | { type: string };
 
+const FORCED_TOOL_NAME = 'emit_explainer';
+
+/**
+ * Forces Claude to return the explainer as structured tool input rather than
+ * free-form text. Claude's `input_schema` is permissive (unlike OpenAI's
+ * strict subset), so the same EXPLAINER_JSON_SCHEMA object serves both
+ * providers unmodified.
+ */
+function forcedToolParams(jsonSchema: Record<string, unknown>): { tools: unknown[]; tool_choice: unknown } {
+  return {
+    tools: [{ name: FORCED_TOOL_NAME, description: 'Emit the explainer as JSON.', input_schema: jsonSchema }],
+    tool_choice: { type: 'tool', name: FORCED_TOOL_NAME },
+  };
+}
+
+/**
+ * Reads a Claude response's content blocks into a single JSON-parseable
+ * string. When a forced tool call was used (structured output), the
+ * `tool_use` block's `input` is stringified so downstream `extractJson`
+ * keeps working unchanged; otherwise plain `text` blocks are joined.
+ */
+function extractClaudeText(content: Array<{ type: string; text?: string; input?: unknown }>): string {
+  const toolUseBlock = content.find(block => block.type === 'tool_use');
+  if (toolUseBlock) return JSON.stringify(toolUseBlock.input);
+
+  return content
+    .filter(block => block.type === 'text')
+    .map(block => block.text ?? '')
+    .join('\n');
+}
+
 export class ClaudeProvider {
   readonly name: ProviderName = 'claude';
   private readonly client: Anthropic | null;
@@ -118,7 +149,7 @@ export class ClaudeProvider {
     return this.client;
   }
 
-  async createBatch(requests: Array<{ customId: string; model: string; maxTokens: number; system: string; content: Anthropic.MessageParam['content'] }>): Promise<{ id: string; status: string }> {
+  async createBatch(requests: Array<{ customId: string; model: string; maxTokens: number; system: string; content: Anthropic.MessageParam['content']; jsonSchema?: Record<string, unknown> }>): Promise<{ id: string; status: string }> {
     const payload = requests.map(req => ({
       custom_id: req.customId,
       params: {
@@ -126,6 +157,7 @@ export class ClaudeProvider {
         max_tokens: req.maxTokens,
         system: [{ type: 'text' as const, text: req.system, cache_control: { type: 'ephemeral' } }] as never,
         messages: [{ role: 'user' as const, content: req.content }],
+        ...(req.jsonSchema && structuredOutputEnabled() ? forcedToolParams(req.jsonSchema) : {}),
       },
     }));
 
@@ -154,8 +186,7 @@ export class ClaudeProvider {
       }
 
       const message = item.result.message;
-      const textBlock = message.content.find(c => c.type === 'text');
-      const text = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+      const text = extractClaudeText(message.content);
       yield {
         customId: item.custom_id,
         type: 'succeeded',
@@ -171,16 +202,18 @@ export class ClaudeProvider {
     maxTokens: number,
     system: string,
     content: string,
-    _useSearch = false
+    _useSearch = false,
+    jsonSchema?: Record<string, unknown>
   ): Promise<ProviderMessageResponse> {
-    return this.createMessageWithContent(model, maxTokens, system, content);
+    return this.createMessageWithContent(model, maxTokens, system, content, jsonSchema);
   }
 
   async createMessageWithContent(
     model: string,
     maxTokens: number,
     system: string,
-    content: Anthropic.MessageParam['content']
+    content: Anthropic.MessageParam['content'],
+    jsonSchema?: Record<string, unknown>
   ): Promise<ProviderMessageResponse> {
     // Use streaming to avoid the SDK's 10-minute timeout cap on long generations.
     const stream = this.getClient().messages.stream({
@@ -188,13 +221,11 @@ export class ClaudeProvider {
       max_tokens: maxTokens,
       system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' } }] as never,
       messages: [{ role: 'user', content }],
-    });
+      ...(jsonSchema && structuredOutputEnabled() ? forcedToolParams(jsonSchema) : {}),
+    } as never);
     const resp = await stream.finalMessage();
 
-    const text = resp.content
-      .filter(block => block.type === 'text')
-      .map(block => (block.type === 'text' ? block.text : ''))
-      .join('\n');
+    const text = extractClaudeText(resp.content);
 
     return {
       text,
