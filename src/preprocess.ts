@@ -36,6 +36,8 @@ export interface InputItem {
   detectedSurname?: string;
   /** Publication date ("Published Month Year"), detected from arXiv `/abs/` metadata. Authoritative over the model's guess. */
   detectedPublished?: string;
+  /** Canonical single-entry reference (HTML) built deterministically from arXiv `/abs/` metadata. Replaces the model's reference when present. */
+  detectedReference?: string;
 }
 
 export interface ImageOverride {
@@ -290,6 +292,45 @@ function formatCitationDate(raw?: string): string | undefined {
   return month ? `Published ${month} ${m[1]}` : undefined;
 }
 
+function escRefText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** "Acharya, Vivek" -> "Acharya, V."; leaves a bare surname untouched. */
+function formatAuthorApa(citation: string): string {
+  const parts = citation.split(',').map(s => s.trim());
+  const surname = parts[0] ?? citation.trim();
+  const given = parts.slice(1).join(' ').trim();
+  if (!given) return surname;
+  const initials = given.split(/\s+/).filter(Boolean).map(g => `${g[0].toUpperCase()}.`).join(' ');
+  return `${surname}, ${initials}`;
+}
+
+function formatAuthorsForRef(list: string[]): string {
+  const apa = list.map(formatAuthorApa).filter(Boolean);
+  if (apa.length === 0) return '';
+  if (apa.length > 6) return `${apa[0]}, et al.`;
+  if (apa.length === 1) return apa[0];
+  return `${apa.slice(0, -1).join(', ')}, & ${apa[apa.length - 1]}`;
+}
+
+/**
+ * Canonical single-entry reference for an arXiv paper, built from the `/abs/`
+ * citation metadata. Deterministic so the attribution is always present,
+ * correctly anchored, and consistent, instead of whatever the model invents
+ * (fabricated URLs, missing anchors, "Unattributed").
+ */
+function buildArxivReference(absUrl: string, list: string[], title?: string, year?: string): string | undefined {
+  if (!title || list.length === 0) return undefined;
+  const idFull = absUrl.split('/abs/')[1] ?? '';
+  const idBase = idFull.replace(/v\d+$/i, '');
+  const authors = escRefText(formatAuthorsForRef(list));
+  const yearPart = year ? ` (${year})` : '';
+  const idPart = idBase ? ` arXiv:${escRefText(idBase)}` : '';
+  return `${authors}${yearPart}. ${escRefText(title)}. <em>arXiv preprint</em>${idPart}. ` +
+    `<a href="${escRefText(absUrl)}" target="_blank" rel="noopener noreferrer">${escRefText(absUrl)}</a>`;
+}
+
 /**
  * For an arXiv HTML fulltext URL, read the byline and publication date from the
  * paper's `/abs/` page, which carries clean `citation_author`/`citation_date`
@@ -298,7 +339,7 @@ function formatCitationDate(raw?: string): string | undefined {
  * templates omit any author marker entirely), but the abstract-page metadata
  * does not. Best-effort: returns {} on any non-arXiv URL or fetch failure.
  */
-async function fetchArxivAbsMeta(url: string): Promise<{ authors?: string; published?: string; firstName?: string }> {
+async function fetchArxivAbsMeta(url: string): Promise<{ authors?: string; published?: string; firstName?: string; reference?: string }> {
   const absUrl = arxivAbsUrl(url);
   if (!absUrl) return {};
   try {
@@ -310,7 +351,14 @@ async function fetchArxivAbsMeta(url: string): Promise<{ authors?: string; publi
     const raw = await res.text();
     const list = collectMetaAuthors(raw);
     const dateMeta = extractTagAttr(raw.match(/<meta\b[^>]*citation_date[^>]*>/i)?.[0] ?? '', 'content');
-    return { authors: joinAuthorNames(list), published: formatCitationDate(dateMeta), firstName: list[0] };
+    const titleMeta = extractTagAttr(raw.match(/<meta\b[^>]*citation_title[^>]*>/i)?.[0] ?? '', 'content');
+    const year = dateMeta?.match(/\d{4}/)?.[0];
+    return {
+      authors: joinAuthorNames(list),
+      published: formatCitationDate(dateMeta),
+      firstName: list[0],
+      reference: buildArxivReference(absUrl, list, titleMeta, year),
+    };
   } catch {
     return {};
   }
@@ -323,6 +371,8 @@ interface FetchedHtml {
   detectedSurname?: string;
   /** Publication date as "Published Month Year", from arXiv `/abs/` metadata. */
   detectedPublished?: string;
+  /** Canonical single-entry reference (HTML) built from arXiv `/abs/` metadata. */
+  detectedReference?: string;
 }
 
 async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
@@ -353,7 +403,7 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
       lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
       text = `${lines.join('\n')}\n\n${text}`;
     }
-    return { text, candidates, detectedSurname, detectedPublished };
+    return { text, candidates, detectedSurname, detectedPublished, detectedReference: absMeta.reference };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
@@ -419,6 +469,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       let figureCandidates: FigureCandidate[] | undefined;
       let detectedSurname: string | undefined;
       let detectedPublished: string | undefined;
+      let detectedReference: string | undefined;
       if (!isPdfUrl(url)) {
         process.stdout.write(`  Fetching ${url} …`);
         const fetched = await fetchHtmlContent(url);
@@ -426,6 +477,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         figureCandidates = fetched.candidates.length > 0 ? fetched.candidates : undefined;
         detectedSurname = fetched.detectedSurname;
         detectedPublished = fetched.detectedPublished;
+        detectedReference = fetched.detectedReference;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
       }
 
@@ -440,6 +492,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         figureCandidates,
         detectedSurname,
         detectedPublished,
+        detectedReference,
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,

@@ -902,7 +902,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
         expectedDate
       );
 
-      const saved = await saveResult(customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished });
+      const saved = await saveResult(customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -972,7 +972,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
         response.text,
         expectedDate
       );
-      const saved = await saveResult(item.customId, repaired.html, { model: modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished });
+      const saved = await saveResult(item.customId, repaired.html, { model: modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -1145,7 +1145,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
         expectedDate
       );
 
-      const saved = await saveResult(item.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished });
+      const saved = await saveResult(item.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;

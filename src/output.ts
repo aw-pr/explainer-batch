@@ -381,6 +381,8 @@ export interface RunProvenance {
   detectedSurname?: string;
   /** Publication date ("Published Month Year") detected from source metadata. Authoritative over the model's guess. */
   detectedPublished?: string;
+  /** Canonical single-entry reference (HTML) detected upstream. Replaces the model's reference when present, guaranteeing consistent attribution. */
+  detectedReference?: string;
 }
 
 const PLACEHOLDER_AUTHOR_RE = /\b(?:unknown|unattributed|anonymous|unspecified|n\/a)\b/gi;
@@ -447,6 +449,9 @@ function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): 
   }
   if (provenance.detectedPublished && json.hero) {
     json.hero.publication_date = provenance.detectedPublished;
+  }
+  if (provenance.detectedReference) {
+    json.references = [provenance.detectedReference];
   }
 }
 
