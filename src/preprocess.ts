@@ -314,53 +314,97 @@ function formatAuthorsForRef(list: string[]): string {
   return `${apa.slice(0, -1).join(', ')}, & ${apa[apa.length - 1]}`;
 }
 
-/**
- * Canonical single-entry reference for an arXiv paper, built from the `/abs/`
- * citation metadata. Deterministic so the attribution is always present,
- * correctly anchored, and consistent, instead of whatever the model invents
- * (fabricated URLs, missing anchors, "Unattributed").
- */
-function buildArxivReference(absUrl: string, list: string[], title?: string, year?: string): string | undefined {
-  if (!title || list.length === 0) return undefined;
-  const idFull = absUrl.split('/abs/')[1] ?? '';
-  const idBase = idFull.replace(/v\d+$/i, '');
-  const authors = escRefText(formatAuthorsForRef(list));
-  const yearPart = year ? ` (${year})` : '';
-  const idPart = idBase ? ` arXiv:${escRefText(idBase)}` : '';
-  return `${authors}${yearPart}. ${escRefText(title)}. <em>arXiv preprint</em>${idPart}. ` +
-    `<a href="${escRefText(absUrl)}" target="_blank" rel="noopener noreferrer">${escRefText(absUrl)}</a>`;
+/** Reads a `<meta name|property="…" content="…">` value by name, order-agnostic. */
+function metaByName(raw: string, name: string): string | undefined {
+  const re = /<meta\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  const target = name.toLowerCase();
+  while ((m = re.exec(raw))) {
+    const key = (extractTagAttr(m[0], 'name') ?? extractTagAttr(m[0], 'property') ?? '').toLowerCase();
+    if (key === target) {
+      const content = extractTagAttr(m[0], 'content');
+      if (content) return content;
+    }
+  }
+  return undefined;
+}
+
+interface CitationMeta {
+  authors: string[];
+  title?: string;
+  date?: string;
+  doi?: string;
+  journal?: string;
 }
 
 /**
- * For an arXiv HTML fulltext URL, read the byline and publication date from the
- * paper's `/abs/` page, which carries clean `citation_author`/`citation_date`
- * meta tags for every arXiv paper regardless of which converter produced the
- * HTML. This is the reliable source: the HTML fulltext markup varies (some
- * templates omit any author marker entirely), but the abstract-page metadata
- * does not. Best-effort: returns {} on any non-arXiv URL or fetch failure.
+ * Highwire/Google-Scholar `citation_*` meta tags, emitted by arXiv `/abs/`, Nature,
+ * and virtually every academic publisher. This is the reliable, deterministic
+ * source for the byline, date, and reference — independent of the page's body
+ * markup (which varies) and the model (which fabricates).
  */
-async function fetchArxivAbsMeta(url: string): Promise<{ authors?: string; published?: string; firstName?: string; reference?: string }> {
+function extractCitationMeta(raw: string): CitationMeta {
+  return {
+    authors: collectMetaAuthors(raw),
+    title: metaByName(raw, 'citation_title'),
+    date: metaByName(raw, 'citation_date')
+      ?? metaByName(raw, 'citation_publication_date')
+      ?? metaByName(raw, 'citation_online_date'),
+    doi: metaByName(raw, 'citation_doi'),
+    journal: metaByName(raw, 'citation_journal_title'),
+  };
+}
+
+/**
+ * Canonical single-entry reference from citation metadata. Prefers a DOI link
+ * (Nature and most journals), falls back to the arXiv abstract, then the source
+ * URL. Deterministic so attribution is always present, correctly anchored, and
+ * consistent, instead of whatever the model invents (fabricated URLs, missing
+ * anchors, "Unattributed").
+ */
+function buildReference(meta: CitationMeta, sourceUrl: string): string | undefined {
+  if (!meta.title || meta.authors.length === 0) return undefined;
+  const authors = escRefText(formatAuthorsForRef(meta.authors));
+  const year = meta.date?.match(/\d{4}/)?.[0];
+  const yearPart = year ? ` (${year})` : '';
+
+  let venue = '';
+  let link = sourceUrl;
+  if (meta.doi) {
+    if (meta.journal) venue = ` <em>${escRefText(meta.journal)}</em>.`;
+    link = `https://doi.org/${meta.doi.replace(/^doi:/i, '')}`;
+  } else {
+    const absUrl = arxivAbsUrl(sourceUrl);
+    if (absUrl) {
+      const idBase = (absUrl.split('/abs/')[1] ?? '').replace(/v\d+$/i, '');
+      venue = ` <em>arXiv preprint</em>${idBase ? ` arXiv:${escRefText(idBase)}` : ''}.`;
+      link = absUrl;
+    } else if (meta.journal) {
+      venue = ` <em>${escRefText(meta.journal)}</em>.`;
+    }
+  }
+  return `${authors}${yearPart}. ${escRefText(meta.title)}.${venue} ` +
+    `<a href="${escRefText(link)}" target="_blank" rel="noopener noreferrer">${escRefText(link)}</a>`;
+}
+
+/**
+ * Fetch citation metadata from an arXiv paper's `/abs/` page. arXiv HTML fulltext
+ * omits the `citation_*` meta (and some converters emit no author marker at all),
+ * but the abstract page always carries it. Best-effort: null on non-arXiv or fetch
+ * failure. Non-arXiv pages carry their own inline `citation_*` meta, read directly.
+ */
+async function fetchArxivAbsCitation(url: string): Promise<CitationMeta | null> {
   const absUrl = arxivAbsUrl(url);
-  if (!absUrl) return {};
+  if (!absUrl) return null;
   try {
     const res = await fetch(absUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; explainer-batch/1.0)' },
       signal: AbortSignal.timeout(20_000),
     });
-    if (!res.ok) return {};
-    const raw = await res.text();
-    const list = collectMetaAuthors(raw);
-    const dateMeta = extractTagAttr(raw.match(/<meta\b[^>]*citation_date[^>]*>/i)?.[0] ?? '', 'content');
-    const titleMeta = extractTagAttr(raw.match(/<meta\b[^>]*citation_title[^>]*>/i)?.[0] ?? '', 'content');
-    const year = dateMeta?.match(/\d{4}/)?.[0];
-    return {
-      authors: joinAuthorNames(list),
-      published: formatCitationDate(dateMeta),
-      firstName: list[0],
-      reference: buildArxivReference(absUrl, list, titleMeta, year),
-    };
+    if (!res.ok) return null;
+    return extractCitationMeta(await res.text());
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -390,12 +434,21 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
     const raw = await res.text();
     const candidates = parseFigureCandidates(raw, url);
     let text = stripHtml(raw.slice(0, HTML_FETCH_MAX_BYTES * 3)).slice(0, HTML_FETCH_MAX_BYTES); // strip first, then truncate
-    const absMeta = await fetchArxivAbsMeta(url);
-    const htmlList = extractAuthorList(raw);
-    const authors = absMeta.authors ?? joinAuthorNames(htmlList);
-    const firstName = absMeta.firstName ?? htmlList[0];
+
+    // Prefer the page's own citation_* meta (Nature and most journals emit it
+    // inline). arXiv HTML fulltext omits it, so fall back to the /abs/ page.
+    let meta = extractCitationMeta(raw);
+    if (meta.authors.length === 0) {
+      const abs = await fetchArxivAbsCitation(url);
+      if (abs && abs.authors.length > 0) meta = abs;
+    }
+    // Last resort for pages with no citation meta at all: body author markup.
+    const authorList = meta.authors.length > 0 ? meta.authors : extractAuthorList(raw);
+    const authors = joinAuthorNames(authorList);
+    const firstName = authorList[0];
     const detectedSurname = firstName ? surnameOf(firstName) : undefined;
-    const detectedPublished = absMeta.published;
+    const detectedPublished = formatCitationDate(meta.date);
+    const detectedReference = buildReference({ ...meta, authors: authorList }, url);
     if (text && (authors || detectedPublished)) {
       const lines: string[] = [];
       if (authors) lines.push(`Detected paper author(s): ${authors}`);
@@ -403,7 +456,7 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
       lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
       text = `${lines.join('\n')}\n\n${text}`;
     }
-    return { text, candidates, detectedSurname, detectedPublished, detectedReference: absMeta.reference };
+    return { text, candidates, detectedSurname, detectedPublished, detectedReference };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
