@@ -372,7 +372,85 @@ function deriveFilename(customId: string, json: ExplainerJson | null): string {
   return `${today}_${slug}_explainer.json`;
 }
 
-export async function saveResult(customId: string, rawText: string): Promise<SaveResult> {
+export interface RunProvenance {
+  /** Model ID that generated the result, e.g. "claude-fable-5". */
+  model?: string;
+  /** Dispatch route: batch API vs synchronous single request. */
+  runMode?: 'sync' | 'batch';
+  /** First author's surname, detected deterministically upstream. Stamps the byline when the model drops or placeholders it. */
+  detectedSurname?: string;
+  /** Publication date ("Published Month Year") detected from source metadata. Authoritative over the model's guess. */
+  detectedPublished?: string;
+}
+
+const PLACEHOLDER_AUTHOR_RE = /\b(?:unknown|unattributed|anonymous|unspecified|n\/a)\b/gi;
+
+function slugifySurname(surname: string): string {
+  return surname
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 40);
+}
+
+/**
+ * Overwrite the author segment of a canonical filename slug
+ * (`YYYY-MM-DD_authorsurname_short-title_explainer`) with the deterministically
+ * detected surname. Only touches a slug that already matches the shape; a
+ * malformed slug is left for deriveFilename to sanitise.
+ */
+function stampSlugAuthor(slug: string, surnameSlug: string): string {
+  const m = slug.match(/^(\d{4}-\d{2}-\d{2})_([^_]+)_(.+)$/);
+  return m ? `${m[1]}_${surnameSlug}_${m[3]}` : slug;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function firstYear(...candidates: Array<string | undefined>): string | undefined {
+  for (const c of candidates) {
+    const m = c?.match(/\b(?:19|20|21)\d{2}\b/);
+    if (m) return m[0];
+  }
+  return undefined;
+}
+
+/**
+ * Apply deterministically-detected byline/date over the model's output. The
+ * detected values come from source metadata (arXiv `/abs/` citation tags), so
+ * they beat a model that dropped the author or guessed the date. The title is
+ * only touched to swap a placeholder token ("Unknown" etc.); the eyebrow has a
+ * fixed format, so it is rebuilt whenever it does not already name the author (a
+ * real model-written eyebrow that already includes the surname is left alone,
+ * preserving nuances like "et al.").
+ */
+function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): void {
+  if (provenance.detectedSurname) {
+    const surname = provenance.detectedSurname;
+    const surnameSlug = slugifySurname(surname);
+    if (surnameSlug && json.metadata?.filename_slug) {
+      json.metadata.filename_slug = stampSlugAuthor(json.metadata.filename_slug, surnameSlug);
+    }
+    if (json.metadata?.title) json.metadata.title = json.metadata.title.replace(PLACEHOLDER_AUTHOR_RE, surname);
+    if (json.metadata) {
+      const eyebrow = (json.metadata.eyebrow ?? '').replace(PLACEHOLDER_AUTHOR_RE, surname);
+      const hasSurname = new RegExp(`\\b${escapeRegExp(surname)}\\b`, 'i').test(eyebrow);
+      if (hasSurname) {
+        json.metadata.eyebrow = eyebrow;
+      } else {
+        const year = firstYear(provenance.detectedPublished, json.metadata.title, json.hero?.publication_date);
+        json.metadata.eyebrow = `Research Explainer · ${surname}${year ? ` (${year})` : ''}`;
+      }
+    }
+  }
+  if (provenance.detectedPublished && json.hero) {
+    json.hero.publication_date = provenance.detectedPublished;
+  }
+}
+
+export async function saveResult(customId: string, rawText: string, provenance?: RunProvenance): Promise<SaveResult> {
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   let json: ExplainerJson;
@@ -386,6 +464,10 @@ export async function saveResult(customId: string, rawText: string): Promise<Sav
     fs.writeFileSync(errFile, rawText, 'utf8');
     throw new Error(`JSON parse failed; raw output saved to ${path.basename(errFile)}`);
   }
+
+  if (provenance) stampProvenanceByline(json, provenance);
+  if (provenance?.model) json.metadata.model = provenance.model;
+  if (provenance?.runMode) json.metadata.run_mode = provenance.runMode;
 
   // A figure failure must not discard a valid explainer: warn and save it
   // without an image instead of routing to the parse-error path.

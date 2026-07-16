@@ -27,6 +27,19 @@ export interface ExplainerJson {
     date_created: string;
     /** Filename stem without extension, e.g. "chi_causal-reasoning-in-llms_explainer" */
     filename_slug: string;
+    /**
+     * Model ID that generated this explainer, e.g. "claude-fable-5" or
+     * "gpt-5.6-terra". The version is part of the ID. Absent on artifacts
+     * written before this field existed; the renderer maps it to a display name.
+     */
+    model?: string;
+    /**
+     * How the generating request was dispatched: "batch" (provider batch API,
+     * eligible for the batch discount) or "sync" (synchronous single request,
+     * including the codex/OAuth subscription routes). Rendered alongside the
+     * model name in the hero tag. Absent on older artifacts.
+     */
+    run_mode?: 'sync' | 'batch';
   };
 
   hero: {

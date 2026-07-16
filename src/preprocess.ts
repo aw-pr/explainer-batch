@@ -32,6 +32,10 @@ export interface InputItem {
   imageOverride?: ImageOverride;
   /** DOM figure candidates parsed from the raw HTML (URL sources only), persisted so collect-time figure extraction can fetch the asset directly instead of re-rendering the live page. */
   figureCandidates?: FigureCandidate[];
+  /** First author's surname, detected deterministically (arXiv `/abs/` metadata). Used to stamp the byline when the model drops or placeholders it. */
+  detectedSurname?: string;
+  /** Publication date ("Published Month Year"), detected from arXiv `/abs/` metadata. Authoritative over the model's guess. */
+  detectedPublished?: string;
 }
 
 export interface ImageOverride {
@@ -204,7 +208,124 @@ export function parseFigureCandidates(raw: string, pageUrl: string): FigureCandi
   return candidates;
 }
 
-async function fetchHtmlContent(url: string): Promise<{ text?: string; candidates: FigureCandidate[] }> {
+function collectMetaAuthors(raw: string): string[] {
+  const out: string[] = [];
+  const metaRe = /<meta\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = metaRe.exec(raw))) {
+    const key = (extractTagAttr(m[0], 'name') ?? extractTagAttr(m[0], 'property') ?? '').toLowerCase();
+    if (key === 'citation_author' || key === 'author' || key === 'dc.creator') {
+      const content = extractTagAttr(m[0], 'content');
+      if (content) out.push(content);
+    }
+  }
+  return out;
+}
+
+// arXiv/LaTeXML fulltext marks each author with a `ltx_personname` span; the
+// name is the text node immediately inside it, before the affiliation spans.
+function collectLtxAuthors(raw: string): string[] {
+  const out: string[] = [];
+  const re = /class\s*=\s*["'][^"']*ltx_personname[^"']*["'][^>]*>([^<]*)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw))) {
+    const name = stripHtml(m[1]).trim();
+    if (name) out.push(name);
+  }
+  return out;
+}
+
+function joinAuthorNames(names: string[]): string | undefined {
+  const cleaned = names.map(n => n.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const uniq = cleaned.filter(n => {
+    const k = n.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return uniq.length ? uniq.slice(0, 8).join(', ') : undefined;
+}
+
+/**
+ * Ordered author list from a fetched HTML document. Prefers citation/meta author
+ * tags, falls back to arXiv `ltx_personname` spans. Deterministic so the model
+ * is handed the byline rather than fishing it out of page chrome (the arXiv HTML
+ * nav bar sits above the author line in the stripped text). Used as the fallback
+ * when the arXiv `/abs/` lookup is unavailable (non-arXiv pages, or an
+ * abstract-page fetch failure).
+ */
+export function extractAuthorList(raw: string): string[] {
+  const head = raw.slice(0, 400_000); // authors sit near the top; bound the scan
+  const found = collectMetaAuthors(head);
+  return found.length ? found : collectLtxAuthors(head);
+}
+
+export function extractAuthors(raw: string): string | undefined {
+  return joinAuthorNames(extractAuthorList(raw));
+}
+
+/** First author's surname from either "Surname, First" or "First Last" form. */
+export function surnameOf(name: string): string {
+  const n = name.trim();
+  if (n.includes(',')) return n.split(',')[0].trim();
+  const parts = n.split(/\s+/);
+  return parts[parts.length - 1] || n;
+}
+
+function arxivAbsUrl(htmlUrl: string): string | null {
+  const m = htmlUrl.match(/^(https?:\/\/arxiv\.org)\/html\/([^\s#?]+)/i);
+  return m ? `${m[1]}/abs/${m[2]}` : null;
+}
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function formatCitationDate(raw?: string): string | undefined {
+  const m = raw?.match(/(\d{4})[/-](\d{1,2})/);
+  if (!m) return undefined;
+  const month = MONTHS[Number.parseInt(m[2], 10) - 1];
+  return month ? `Published ${month} ${m[1]}` : undefined;
+}
+
+/**
+ * For an arXiv HTML fulltext URL, read the byline and publication date from the
+ * paper's `/abs/` page, which carries clean `citation_author`/`citation_date`
+ * meta tags for every arXiv paper regardless of which converter produced the
+ * HTML. This is the reliable source: the HTML fulltext markup varies (some
+ * templates omit any author marker entirely), but the abstract-page metadata
+ * does not. Best-effort: returns {} on any non-arXiv URL or fetch failure.
+ */
+async function fetchArxivAbsMeta(url: string): Promise<{ authors?: string; published?: string; firstName?: string }> {
+  const absUrl = arxivAbsUrl(url);
+  if (!absUrl) return {};
+  try {
+    const res = await fetch(absUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; explainer-batch/1.0)' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return {};
+    const raw = await res.text();
+    const list = collectMetaAuthors(raw);
+    const dateMeta = extractTagAttr(raw.match(/<meta\b[^>]*citation_date[^>]*>/i)?.[0] ?? '', 'content');
+    return { authors: joinAuthorNames(list), published: formatCitationDate(dateMeta), firstName: list[0] };
+  } catch {
+    return {};
+  }
+}
+
+interface FetchedHtml {
+  text?: string;
+  candidates: FigureCandidate[];
+  /** First author's surname, from arXiv `/abs/` metadata or the page markup. */
+  detectedSurname?: string;
+  /** Publication date as "Published Month Year", from arXiv `/abs/` metadata. */
+  detectedPublished?: string;
+}
+
+async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; explainer-batch/1.0)' },
@@ -218,8 +339,21 @@ async function fetchHtmlContent(url: string): Promise<{ text?: string; candidate
     if (contentType.includes('application/pdf')) return { candidates: [] }; // let document block handle it
     const raw = await res.text();
     const candidates = parseFigureCandidates(raw, url);
-    const text = stripHtml(raw.slice(0, HTML_FETCH_MAX_BYTES * 3)).slice(0, HTML_FETCH_MAX_BYTES); // strip first, then truncate
-    return { text, candidates };
+    let text = stripHtml(raw.slice(0, HTML_FETCH_MAX_BYTES * 3)).slice(0, HTML_FETCH_MAX_BYTES); // strip first, then truncate
+    const absMeta = await fetchArxivAbsMeta(url);
+    const htmlList = extractAuthorList(raw);
+    const authors = absMeta.authors ?? joinAuthorNames(htmlList);
+    const firstName = absMeta.firstName ?? htmlList[0];
+    const detectedSurname = firstName ? surnameOf(firstName) : undefined;
+    const detectedPublished = absMeta.published;
+    if (text && (authors || detectedPublished)) {
+      const lines: string[] = [];
+      if (authors) lines.push(`Detected paper author(s): ${authors}`);
+      if (detectedPublished) lines.push(`Detected publication date: ${detectedPublished}`);
+      lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
+      text = `${lines.join('\n')}\n\n${text}`;
+    }
+    return { text, candidates, detectedSurname, detectedPublished };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
@@ -283,11 +417,15 @@ export async function preprocessInputs(): Promise<InputItem[]> {
 
       let htmlContent: string | undefined;
       let figureCandidates: FigureCandidate[] | undefined;
+      let detectedSurname: string | undefined;
+      let detectedPublished: string | undefined;
       if (!isPdfUrl(url)) {
         process.stdout.write(`  Fetching ${url} …`);
         const fetched = await fetchHtmlContent(url);
         htmlContent = fetched.text;
         figureCandidates = fetched.candidates.length > 0 ? fetched.candidates : undefined;
+        detectedSurname = fetched.detectedSurname;
+        detectedPublished = fetched.detectedPublished;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
       }
 
@@ -300,6 +438,8 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         focusHint,
         imageOverride,
         figureCandidates,
+        detectedSurname,
+        detectedPublished,
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,
