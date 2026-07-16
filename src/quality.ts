@@ -241,7 +241,7 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
     issues.push('end_takeaway must be present when top_block.kind is "pills".');
   }
 
-  if (j['charts'] !== undefined && !Array.isArray(j['charts'])) {
+  if (j['charts'] != null && !Array.isArray(j['charts'])) {
     issues.push('charts must be an array when present.');
   }
   const charts = chartEntries(j);
@@ -256,11 +256,11 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
     }
     for (const issue of chartDataIssues(chart, i)) issues.push(issue);
   });
-  if (j['chart'] !== undefined && !isRecord(j['chart'])) {
+  if (j['chart'] != null && !isRecord(j['chart'])) {
     issues.push('chart must be an object when present.');
   }
 
-  if (j['image'] !== undefined) {
+  if (j['image'] != null) {
     if (!isRecord(j['image'])) {
       issues.push('image must be an object when present.');
     } else {
