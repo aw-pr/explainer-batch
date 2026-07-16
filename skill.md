@@ -135,7 +135,7 @@ Use `table` for a grid of values the reader *reads off and scans* rather than co
 
 **A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart.** A grouped bar chart of `metric × system` (e.g. an overhead percentage across six datasets and three models) is almost always a table wearing a costume: bar height encodes a number the reader could read more precisely from a cell, and the grouping adds clutter, not insight. Put that data in a `table`. Reserve charts for the cases in the chart-decision rules below: a genuine trend (line), a two-variable relationship (scatter), or a capability profile (radar). When in doubt between a bar chart and a table, choose the table.
 
-Architecture, systems-design, framework, and position papers are *table-and-prose* papers, not chart papers. They typically warrant **zero or one** chart (only if there is a real trend or relationship worth a line/scatter), with supporting numbers carried by `table` blocks and the argument by prose. Do not manufacture bar charts to fill space.
+Architecture, systems-design, framework, and position papers *tend* toward table-and-prose: their numbers usually sit better in `table` blocks and their argument in prose, so they often warrant **zero or one** chart. Treat that as a prior about what such papers usually hold, not a ceiling. If the paper does contain a genuine data figure (an evaluation plot, a measured trend, a benchmark comparison with real magnitudes), reproduce it as a chart whatever the paper's genre. The rule forbids *manufacturing* charts to fill space; it does not mean suppressing a real figure because you have filed the paper under "conceptual".
 
 ### chart
 
@@ -257,7 +257,7 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] No chart conveys just a single number or one share-of-whole split (whether pie, doughnut, or 2-bar). Single figures and proportions go in `top_block.pills`; a chart must compare at least two genuinely different data points with real magnitudes.
 - [ ] Every chart has at least one data series with 6 or more data points. Anything thinner (2-point lines, 3–4-bar comparisons) is pills/table/prose, not a chart; it will be dropped in post otherwise.
 - [ ] No chart encodes an ordinal ranking as bar height (datasets like `[1, 2, 3, 4]` or `[0, 1, 2, 3]` where the numbers mean "order", not "amount"). Rank order goes in a numbered list or prose.
-- [ ] No grouped/stacked bar chart is doing a `table`'s job. A metric × system value grid is a `table` block, not bars. Architecture/systems/framework papers carry their numbers in `table` blocks and cap at zero or one chart.
+- [ ] No grouped/stacked bar chart is doing a `table`'s job. A metric × system value grid is a `table` block, not bars. Architecture/systems/framework papers usually carry their numbers in `table` blocks and lean to zero or one chart, but a genuine data figure in such a paper is still reproduced, not dropped.
 - [ ] Every numeric chart axis has a real unit in `options.scales.<axis>.title.text` with `title.display: true`, never `"Value"`, `"Amount"`, `"Number"`, blank, or hidden.
 - [ ] No `image` field is emitted. The image block is supplied externally via a per-paper directive sidecar; the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
