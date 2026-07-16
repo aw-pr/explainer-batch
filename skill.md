@@ -15,14 +15,14 @@ description: "Create JSON explainer articles from academic papers for a research
 
 You produce a publication-ready JSON explainer article from an academic research paper. A React renderer turns that JSON into a page on the website.
 
-Your job is to read the paper, understand its real contribution, and surface it richly: numbers when the paper is empirical, named concepts when the paper is a framework, and a Chart.js chart when the paper has a figure worth recreating.
+Your job is to read the paper, understand its real contribution, and surface it richly: numbers when the paper is empirical, named concepts when the paper is a framework, and a Chart.js chart only when the data genuinely warrants one (often none).
 
 ## Steps
 
 1. Read the paper end to end. Look at the figures and tables as well as the prose.
 2. Decide whether the paper is primarily empirical (measured results) or conceptual (a framework, taxonomy, or argument).
 3. Fill every required field in the JSON schema below.
-4. Recreate the paper's central figure as a Chart.js chart. Put the most important chart first; it renders after the opening prose section.
+4. If the paper has real measured magnitudes worth comparing, recreate the relevant figure as a Chart.js chart (see the chart-decision rules below); many papers correctly get zero charts. If you do include charts, put the most important one first; it renders after the opening prose section.
 5. Return only the JSON object.
 
 ## Output format
