@@ -30,9 +30,15 @@ results plot the charts duplicate.
    figure body, excluding caption and body text. Thumbnails are too
    coarse for trustworthy coordinates; the refined box is what gets
    cropped.
-3. **Crop.** The page is rendered at `FIGURE_VLM_DPI` (300), cropped to
-   the refined bbox plus a small pad (`FIGURE_VLM_PAD`, default 0.005),
-   then JPEG-encoded via `sips`.
+3. **Crop, with pad escalation.** The page is rendered at
+   `FIGURE_VLM_DPI` (300) and cropped to the refined bbox plus a pad.
+   Verification failures escalate the pad through
+   0.5% → 2% → 4.5% (`CROP_PAD_STEPS`; the first step is
+   `FIGURE_VLM_PAD`), and as a last resort the crop widens to the full
+   page width over the bbox's vertical span — that step exists because a
+   rotated y-axis label sits far left of where the model draws the box.
+   Only when every step fails does the whole selection retry. The result
+   is JPEG-encoded via `sips`.
 
 ### URL path: DOM-candidate choose
 
@@ -72,10 +78,13 @@ as-is with a warning).
 
 Every produced crop gets one cheap vision check: does this image show a
 single complete figure with no surrounding body text, sharp enough that
-axis labels and legend text are legible? A rejection feeds
-its reason into a retry of the selection, and the retry prompt also names
-the failed pick (page, figure, bbox or candidate number), so "choose a
-different figure" is actionable. The check fails open: a transport or
+axis labels and legend text are legible? On the PDF path a rejection
+first escalates the crop pad (see pad escalation above); only when every
+crop of the same bbox fails does the rejection feed its reason into a
+retry of the *selection*, and the retry prompt names the failed pick
+(page, figure, bbox or candidate number), so "choose a different figure"
+is actionable — unless the figure is pinned, in which case a different
+figure is not an acceptable answer. The check fails open: a transport or
 parse error never discards a crop. A crude blank-crop guard
 (bytes-per-pixel below 0.006, or either side under 48px) rejects
 unpainted-chart screenshots before a verification call is spent.
@@ -89,6 +98,26 @@ specific figure, `image_caption:` / `image_alt:` override the
 model-supplied text, and `image_page_hint:` biases the selection prompt
 towards a page without constraining it.
 
+**Pinning means "this figure or nothing."** A retry after a failed crop
+may re-crop the pinned figure, but a selection that names a *different*
+figure is rejected outright (drift guard) and the retry prompt tells the
+model only the pinned label is acceptable. If the pin cannot be
+satisfied the image block is dropped rather than silently substituted —
+a wrong figure under the right label is worse than no figure. Two
+practical consequences:
+
+- A pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24) fails with
+  "no suitable figure" because the model never sees its page. Raise the
+  env var (page-hint directives do not extend the render range).
+- The page hint and pin work best together: the pin constrains *what*,
+  the hint speeds up *where*.
+
+**Captions are written for a glancing reader.** The selection prompt
+requires the caption to translate any statistical construct (CCDF /
+1 − F(x), tail parameters, log axes, error bands) into plain words —
+first what a point on the figure means, then the takeaway. The same rule
+lives in the synthesis skill for the explainer's own charts.
+
 ## Routing & cost
 
 The vision call is independent of the synthesis provider and is
@@ -100,13 +129,13 @@ is cheaper than metered API spend.
 | `FIGURE_VLM_PROVIDER` | `claude` \| `openai`. Default: whichever subscription session is present (Claude OAuth first), else any API key. |
 | `FIGURE_VLM_ROUTE` | `auto` (default) \| `subscription` \| `api`. `auto` prefers the subscription route and falls back to the API. |
 | `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `batchModel`). |
-| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). |
+| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF — the model cannot pick a page it never saw. |
 | `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, a blank/uncroppable crop, or a verification rejection (default 2). |
 | `FIGURE_VLM_DPI` | PDF crop render DPI, i.e. sharpness (default 300). |
 | `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the inlined base64 size (default 2200). |
 | `FIGURE_VLM_JPEG_QUALITY` | JPEG quality 1-100; size vs fidelity (default 90). |
 | `FIGURE_VLM_REFINE_PX` | Width of the pass-2 single-page render (default 2200). |
-| `FIGURE_VLM_PAD` | Fractional padding around the refined bbox (default 0.005; the two-pass box is tight and trustworthy, so generous padding only drags in body text). |
+| `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight — verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
 | `FIGURE_VLM_VERIFY` | Set `0` to disable the crop verification pass (default on). |
 | `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). |
 
@@ -114,11 +143,10 @@ is cheaper than metered API spend.
 to `FIGURE_VLM_MAX_PX` on its longest side, then JPEG-encoded at
 `FIGURE_VLM_JPEG_QUALITY`. Because the result is inlined as a base64
 `data:` URL inside the explainer JSON, a larger or sharper image inflates
-the JSON to roughly 4/3 of its byte size. Defaults (1600px, q85) land
-most figures at roughly 300-600 KB with the 2200px/q90 defaults (about
-triple the old 1600px/q85 weight, in exchange for axis labels that stay
-legible). Lower `MAX_PX` / `DPI` if JSON weight matters more than
-sharpness.
+the JSON to roughly 4/3 of its byte size. The 2200px/q90 defaults land
+most figures at roughly 300-600 KB (about triple the old 1600px/q85
+weight, in exchange for axis labels that stay legible). Lower `MAX_PX` /
+`DPI` if JSON weight matters more than sharpness.
 
 Routes by provider/auth (`src/vision.ts`):
 
@@ -167,7 +195,7 @@ Sidecar directives (same `.focus.md` / `urls.txt` mechanism as `image:`):
 | `recreate: Figure 3` | Enable recreation and pin both the figure pick and the recreation target. |
 | `recreate: yes` / `recreate: no` | Enable for this paper, or opt out of a global `FIGURE_RECREATE=1`. |
 | `recreate_x:` / `recreate_y:` | Free-text axis guidance passed to the extraction prompt. |
-| `data: <file>.csv\|.json` | Supply the values yourself (tier `supplied`); CSV header row is `x-label,series…`, JSON matches the neutral shape. |
+| `data: <file>.csv\|.json` | Supply the values yourself (tier `supplied`); CSV header row is `x-label,series…` and blank cells become gaps (`null`), JSON matches the neutral shape in `src/types/explainer-json.ts`. |
 
 Env knobs: `FIGURE_RECREATE` (global switch), `FIGURE_DATA_MODEL`
 (default: the vision model), `FIGURE_DATA_MAX_TOKENS` (2500),
@@ -205,6 +233,19 @@ is a soft page hint; the figure label pins a specific figure.
 
 ## Deferred work
 
+- **Text-layer page targeting for pins.** A pinned figure past
+  `FIGURE_VLM_MAX_PAGES` currently needs the env var raised by hand; the
+  PDF text layer could locate "Figure N" and extend the render range to
+  its page automatically.
+- **Fail-open on verification transport errors.** When the verification
+  *call* itself errors (e.g. codex quota exhaustion) the unverified crop
+  is kept. Deliberate for transient blips, but a long outage ships
+  unchecked crops; consider distinguishing "model said no" from "no
+  answer" with a retry.
+- **`reextract` keeps the stale caption.** Patching a new image onto an
+  existing JSON leaves the previous caption/alt unless `--caption` /
+  `--alt` are passed; it should refresh them from the new selection by
+  default.
 - **Per-page point sizes.** `pageSizePts` reads the first page's size and
   assumes uniform geometry; mixed-size PDFs could crop slightly off.
 - **Candidate shortlist for PDFs.** A cheap first pass could narrow large

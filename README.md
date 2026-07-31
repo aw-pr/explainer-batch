@@ -139,6 +139,8 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run status` | Show all batches, per-request results, token counts |
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
+| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file |
+| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run figure extraction and patch an existing JSON in place |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
 | `npm run guards:install` | Arm the local publish git hooks (contributors) |
@@ -172,7 +174,7 @@ ignored silently.
 | `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). Omit to let the vision model choose. |
 | `image_caption: …` | Override the caption attached to the lead image |
 | `image_alt: …` | Override the alt text for the lead image |
-| `image_page_hint: N` | Parsed for backward compatibility; no longer used. The vision model locates the page itself. |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
 | `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
 | `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
 | `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |
