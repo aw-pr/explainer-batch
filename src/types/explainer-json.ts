@@ -73,6 +73,16 @@ export interface ExplainerJson {
   chart?: ExplainerChart;
 
   /**
+   * Optional data-native recreation of a results figure from the paper,
+   * produced by the post-batch figure-data pass (never by the batch model).
+   * Present only when the underlying data was recoverable at acceptable
+   * provenance; otherwise the pipeline falls back to the cropped `image`.
+   * Consumers that cannot render ECharts yet should ignore this field and
+   * keep rendering `image` / `charts`.
+   */
+  recreated_figure?: ExplainerRecreatedFigure;
+
+  /**
    * Optional conceptual figure lifted from the paper — visual abstract,
    * architecture overview, or taxonomy graphic that cannot be faithfully
    * recreated in Chart.js. The model picks at most one and names it
@@ -128,6 +138,59 @@ export interface ExplainerChart {
    * Safe because this content comes from the controlled explainer-batch generator.
    */
   config_raw: string;
+}
+
+/** How the recreated figure's numbers were obtained, most to least trusted. */
+export type RecreatedDataProvenance = 'supplied' | 'paper_exact' | 'figure_estimated';
+
+export interface RecreatedSeries {
+  /** Legend name, e.g. a system or condition. */
+  name: string;
+  /**
+   * Y values aligned to `x.values` by index (null for a gap). Ignored for
+   * scatter series, which carry explicit `points` instead.
+   */
+  values?: Array<number | null>;
+  /** [x, y] pairs for scatter-type figures. */
+  points?: Array<[number, number]>;
+  /** Per-series trust: exact numbers vs values read off the figure. */
+  provenance: 'exact' | 'estimated';
+  /** Where the numbers came from, e.g. "Table 2, row 3" or "value labels printed on bars". */
+  source?: string;
+}
+
+/**
+ * Data-native recreation of a source figure. The neutral fields (chart_type,
+ * x, y, series) are the canonical data; `echarts_option` is derived from them
+ * deterministically by the generator and can be re-derived at any time. The
+ * model never authors the ECharts option directly.
+ */
+export interface ExplainerRecreatedFigure {
+  /** Label of the recreated source figure, e.g. "Figure 3". */
+  source_figure: string;
+  /** Chart card title. */
+  title: string;
+  /**
+   * Caption below the chart. When data_provenance is "figure_estimated" the
+   * generator appends an approximation notice; keep it when re-rendering.
+   */
+  caption: string;
+  chart_type: 'bar' | 'grouped_bar' | 'stacked_bar' | 'line' | 'scatter';
+  /** X axis: category labels or numeric positions shared by non-scatter series. */
+  x: { label: string; unit?: string; values: Array<string | number> };
+  /** Y axis metadata; values live in each series. */
+  y: { label: string; unit?: string };
+  series: RecreatedSeries[];
+  data_provenance: RecreatedDataProvenance;
+  /** Apache ECharts option object generated from the neutral fields above. */
+  echarts_option: unknown;
+  /** Diagnostics from the extraction pass. */
+  extraction?: {
+    provider?: string;
+    route?: string;
+    /** True when the render-and-compare verification pass confirmed the data. */
+    verified?: boolean;
+  };
 }
 
 export interface ExplainerImage {
