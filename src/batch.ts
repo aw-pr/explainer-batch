@@ -217,6 +217,7 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     focusHint: req.focusHint,
     imageOverride: req.imageOverride,
     figureCandidates: req.figureCandidates,
+    recreate: req.recreate,
   };
 }
 
@@ -360,6 +361,7 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
         focusHint: item.focusHint,
         imageOverride: item.imageOverride,
         figureCandidates: item.figureCandidates,
+        recreate: item.recreate,
       } satisfies RequestState])
     ),
   };
@@ -383,6 +385,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
       focusHint: item.focusHint,
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
+      recreate: item.recreate,
     };
     if (lanesEnabled) {
       for (const lane of OPENAI_LANES) {
@@ -1210,6 +1213,7 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
       focusHint: item.focusHint,
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
+      recreate: item.recreate,
     };
     if (provider === 'openai' && lanesEnabled) {
       for (const lane of OPENAI_LANES) {

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
-import type { FigureCandidate } from './state';
+import type { FigureCandidate, RecreateDirective } from './state';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
@@ -32,6 +32,8 @@ export interface InputItem {
   imageOverride?: ImageOverride;
   /** DOM figure candidates parsed from the raw HTML (URL sources only), persisted so collect-time figure extraction can fetch the asset directly instead of re-rendering the live page. */
   figureCandidates?: FigureCandidate[];
+  /** Figure-recreation directive from focus directives (recreate:/recreate_x:/recreate_y:/data:) */
+  recreate?: RecreateDirective;
   /** First author's surname, detected deterministically (arXiv `/abs/` metadata). Used to stamp the byline when the model drops or placeholders it. */
   detectedSurname?: string;
   /** Publication date ("Published Month Year"), detected from arXiv `/abs/` metadata. Authoritative over the model's guess. */
@@ -48,26 +50,45 @@ export interface ImageOverride {
   pageHint?: number;
 }
 
-function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?: ImageOverride } {
+interface FocusDirectives {
+  focusHint?: string;
+  imageOverride?: ImageOverride;
+  recreate?: RecreateDirective;
+}
+
+/** Normalise "fig 3" / "Fig. 3a" / "figure 3" to "Figure 3" / "Figure 3a". */
+function normalizeFigureLabel(raw: string): string {
+  const trimmed = raw.trim();
+  return /^fig\b\.?$/i.test(trimmed.split(/\s+/)[0])
+    ? trimmed.replace(/^fig\.?/i, 'Figure').replace(/\s+/g, ' ').trim()
+    : trimmed.replace(/^figure/i, 'Figure');
+}
+
+function parseFocusDirectives(raw: string): FocusDirectives {
   const lines = raw.split('\n');
   const remaining: string[] = [];
   let sourceFigure: string | undefined;
   let caption: string | undefined;
   let altText: string | undefined;
   let pageHint: number | undefined;
+  let recreateRaw: string | undefined;
+  let recreateX: string | undefined;
+  let recreateY: string | undefined;
+  let dataFile: string | undefined;
 
   const figDirective = /^\s*image\s*:\s*((?:figure|fig\.?)\s*\d+(?:\.\d+)?[a-z]?)\s*$/i;
   const captionDirective = /^\s*image[_-]caption\s*:\s*(.+?)\s*$/i;
   const altDirective = /^\s*image[_-]alt\s*:\s*(.+?)\s*$/i;
   const pageHintDirective = /^\s*image[_-]page[_-]hint\s*:\s*(.+?)\s*$/i;
+  const recreateDirective = /^\s*recreate\s*:\s*(.+?)\s*$/i;
+  const recreateXDirective = /^\s*recreate[_-]x\s*:\s*(.+?)\s*$/i;
+  const recreateYDirective = /^\s*recreate[_-]y\s*:\s*(.+?)\s*$/i;
+  const dataDirective = /^\s*data\s*:\s*(\S+\.(?:csv|json))\s*$/i;
 
   for (const line of lines) {
     let m = line.match(figDirective);
     if (m) {
-      const raw = m[1].trim();
-      sourceFigure = /^fig\b\.?$/i.test(raw.split(/\s+/)[0])
-        ? raw.replace(/^fig\.?/i, 'Figure').replace(/\s+/g, ' ').trim()
-        : raw.replace(/^figure/i, 'Figure');
+      sourceFigure = normalizeFigureLabel(m[1]);
       continue;
     }
     m = line.match(captionDirective);
@@ -80,6 +101,14 @@ function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?
       if (Number.isFinite(n) && n > 0) pageHint = n;
       continue;
     }
+    m = line.match(recreateDirective);
+    if (m) { recreateRaw = m[1]; continue; }
+    m = line.match(recreateXDirective);
+    if (m) { recreateX = m[1]; continue; }
+    m = line.match(recreateYDirective);
+    if (m) { recreateY = m[1]; continue; }
+    m = line.match(dataDirective);
+    if (m) { dataFile = m[1]; continue; }
     remaining.push(line);
   }
 
@@ -87,7 +116,18 @@ function parseFocusDirectives(raw: string): { focusHint?: string; imageOverride?
   const imageOverride = sourceFigure
     ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint }
     : undefined;
-  return { focusHint, imageOverride };
+
+  // recreate: yes|no|Figure N. Any recreate_x/recreate_y/data directive
+  // implies enabled, so a sidecar can carry just axis hints or a data file.
+  let recreate: RecreateDirective | undefined;
+  if (recreateRaw !== undefined || recreateX || recreateY || dataFile) {
+    const rawVal = (recreateRaw ?? '').trim();
+    const enabled = !/^(no|off|false|0)$/i.test(rawVal);
+    const target = /^(?:figure|fig\.?)\s*\d/i.test(rawVal) ? normalizeFigureLabel(rawVal) : undefined;
+    recreate = { enabled, target, xHint: recreateX, yHint: recreateY, dataFile };
+  }
+
+  return { focusHint, imageOverride, recreate };
 }
 
 export interface InputSource {
@@ -97,7 +137,7 @@ export interface InputSource {
   filePath?: string;
 }
 
-function readPdfFocus(filename: string): { focusHint?: string; imageOverride?: ImageOverride } {
+function readPdfFocus(filename: string): FocusDirectives {
   const base = filename.replace(/\.pdf$/i, '');
   const sidecar = path.join(INPUT_DIR, base + '.focus.md');
   if (!fs.existsSync(sidecar)) return {};
@@ -106,7 +146,7 @@ function readPdfFocus(filename: string): { focusHint?: string; imageOverride?: I
   return parseFocusDirectives(text);
 }
 
-function splitUrlAndFocus(line: string): { url: string; focusHint?: string; imageOverride?: ImageOverride } {
+function splitUrlAndFocus(line: string): FocusDirectives & { url: string } {
   const m = line.match(/^(\S+)\s+#\s*focus\s*:\s*(.+)$/i);
   if (!m) return { url: line };
   const parsed = parseFocusDirectives(m[2].trim());
@@ -485,7 +525,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
     const filePath = path.join(INPUT_DIR, filename);
     const sizeKb   = Math.round(fs.statSync(filePath).size / 1024);
     const base64Data = fs.readFileSync(filePath).toString('base64');
-    const { focusHint, imageOverride } = readPdfFocus(filename);
+    const { focusHint, imageOverride, recreate } = readPdfFocus(filename);
     items.push({
       customId,
       input: filename,
@@ -495,10 +535,12 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       base64Data,
       focusHint,
       imageOverride,
+      recreate,
     });
     const flags = [
       focusHint ? 'focus hint loaded' : null,
       imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+      recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
     ].filter(Boolean).join('; ');
     console.log(`  ✓ ${filename} (${sizeKb} KB)${flags ? `  [${flags}]` : ''}`);
   }
@@ -511,7 +553,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       .filter(l => l && !l.startsWith('#'));
 
     for (const line of lines) {
-      const { url, focusHint, imageOverride } = splitUrlAndFocus(line);
+      const { url, focusHint, imageOverride, recreate } = splitUrlAndFocus(line);
       const slug = url
         .replace(/^https?:\/\//, '')
         .replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -542,6 +584,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         htmlContent,
         focusHint,
         imageOverride,
+        recreate,
         figureCandidates,
         detectedSurname,
         detectedPublished,
@@ -550,6 +593,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       const flags = [
         focusHint ? 'focus hint loaded' : null,
         imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+        recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
       ].filter(Boolean).join('; ');
       console.log(`  ✓ URL queued → ${url}${flags ? `  [${flags}]` : ''}`);
     }

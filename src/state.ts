@@ -22,6 +22,23 @@ export interface FigureCandidate {
   sourceFigure?: string;
 }
 
+/**
+ * Per-paper figure-recreation directive from the focus sidecar. Defined here
+ * (its persistence home) for the same cycle-avoidance reason as
+ * FigureCandidate: preprocess.ts writes it, output.ts reads it at collect time.
+ */
+export interface RecreateDirective {
+  /** False only when the sidecar explicitly says `recreate: no` (overrides FIGURE_RECREATE=1). */
+  enabled: boolean;
+  /** Pinned figure to recreate, normalised like image:, e.g. "Figure 3". */
+  target?: string;
+  /** Free-text axis guidance passed verbatim to the extraction prompt. */
+  xHint?: string;
+  yHint?: string;
+  /** User-supplied data sidecar (CSV or JSON filename relative to the input dir). */
+  dataFile?: string;
+}
+
 export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
@@ -52,6 +69,7 @@ export interface RequestState {
     pageHint?: number;
   };
   figureCandidates?: FigureCandidate[];
+  recreate?: RecreateDirective;
 }
 
 export interface BatchState {
