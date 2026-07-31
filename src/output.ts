@@ -3,7 +3,8 @@ import os from 'os';
 import path from 'path';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
-import { readState, type FigureCandidate } from './state';
+import { recreateFigureData } from './figure-data';
+import { readState, type FigureCandidate, type RecreateDirective } from './state';
 import { htmlToPlain } from './text';
 import { loadDotEnv } from './env';
 
@@ -183,6 +184,27 @@ function lookupImageOverride(customId: string): { source_figure: string; caption
   return undefined;
 }
 
+function lookupRecreate(customId: string): RecreateDirective | undefined {
+  try {
+    const state = readState();
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const req = state.batches[i].requests[customId];
+      if (req?.recreate) return req.recreate;
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+/**
+ * Whether the figure-recreation pass should run for this paper. A sidecar
+ * directive always wins (including an explicit `recreate: no`); otherwise the
+ * FIGURE_RECREATE=1 env switch enables it globally.
+ */
+function recreationRequested(directive?: RecreateDirective): boolean {
+  if (directive) return directive.enabled;
+  return process.env.FIGURE_RECREATE === '1';
+}
+
 /**
  * Recovers the original source URL for a URL-sourced explainer from state, so
  * the vision figure extractor can re-render the live page. Returns null for
@@ -230,10 +252,24 @@ function resolveFigureCandidates(customId: string): FigureCandidate[] | undefine
  */
 async function attachFigureImage(json: ExplainerJson, customId: string): Promise<void> {
   const override = lookupImageOverride(customId);
-  if (json.image?.src) return; // already populated
-
+  const directive = lookupRecreate(customId);
+  const recreate = recreationRequested(directive);
   const pdfPath = resolveSourcePdf(customId);
   const url = pdfPath ? null : resolveSourceUrl(customId);
+
+  // Tier-0 recreation (user-supplied data sidecar) needs no crop or source
+  // document, so it runs even when figure extraction is impossible.
+  if (recreate && directive?.dataFile) {
+    const fig = await recreateFigureData({
+      directive,
+      inputDir: INPUT_DIR,
+      sourceFigure: directive.target ?? override?.source_figure,
+    });
+    if (fig) json.recreated_figure = fig;
+  }
+
+  if (json.image?.src) return; // already populated
+
   if (!pdfPath && !url) {
     if (json.image) delete json.image;
     return;
@@ -241,9 +277,17 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
 
   const snapshotCandidates = url ? resolveFigureCandidates(customId) : undefined;
 
+  // A recreation target pins the figure pick too (recreate and clip must be
+  // the same figure so the clip is the honest fallback), unless an explicit
+  // image: override already pins one.
+  const effOverride = recreate && directive?.target && !override?.source_figure
+    ? { ...(override ?? {}), source_figure: directive.target }
+    : override;
+  const wantCrop = recreate && !json.recreated_figure;
+
   // Explainer context steers selection towards a figure that complements the
   // article (the charts already recreate the headline results).
-  const result = await extractFigureViaVlm({ pdfPath, url, override, context: contextFromExplainer(json), snapshotCandidates });
+  const result = await extractFigureViaVlm({ pdfPath, url, override: effOverride, context: contextFromExplainer(json), snapshotCandidates, keepCropPng: wantCrop });
   if (!result) {
     if (json.image) delete json.image;
     return;
@@ -253,16 +297,30 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
   // caption/alt only survives when the model re-picked the SAME figure;
   // carrying it onto a different figure would mislabel the image.
   const existing = json.image;
-  const pickedFigure = override?.source_figure ?? result.source_figure;
+  const pickedFigure = effOverride?.source_figure ?? result.source_figure;
   const samePick = Boolean(existing?.source_figure && pickedFigure && existing.source_figure === pickedFigure);
   json.image = {
     ...(existing ?? {}),
     source_figure: pickedFigure,
-    caption: override?.caption ?? (samePick ? existing?.caption : undefined) ?? result.caption ?? existing?.caption,
-    alt_text: override?.alt_text ?? (samePick ? existing?.alt_text : undefined) ?? result.alt_text ?? existing?.alt_text,
+    caption: effOverride?.caption ?? (samePick ? existing?.caption : undefined) ?? result.caption ?? existing?.caption,
+    alt_text: effOverride?.alt_text ?? (samePick ? existing?.alt_text : undefined) ?? result.alt_text ?? existing?.alt_text,
     src: result.src,
   };
   console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);
+
+  // Tiers 1-2: extract the data behind the crop; on any honest failure the
+  // clip above simply stands.
+  if (wantCrop && result.cropPngBase64) {
+    const fig = await recreateFigureData({
+      cropPngBase64: result.cropPngBase64,
+      pdfPath,
+      page: result.page,
+      sourceFigure: pickedFigure,
+      directive,
+      inputDir: INPUT_DIR,
+    });
+    if (fig) json.recreated_figure = fig;
+  }
 }
 
 /**
