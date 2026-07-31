@@ -102,17 +102,20 @@ function envNum(name: string, fallback: number): number {
 
 // Output resolution / size knobs. CROP_DPI drives PDF crop sharpness; MAX_IMAGE_PX
 // caps the longest side (sips -Z) so inlined base64 stays bounded; JPEG_QUALITY
-// trades size for fidelity. Larger = sharper but heavier in the JSON.
-const CROP_DPI = envNum('FIGURE_VLM_DPI', 150);
-const MAX_IMAGE_PX = envNum('FIGURE_VLM_MAX_PX', 1600);
-const JPEG_QUALITY = envNum('FIGURE_VLM_JPEG_QUALITY', 85);
+// trades size for fidelity. Larger = sharper but heavier in the JSON: the
+// 300dpi/2200px/q90 defaults roughly triple the inlined base64 weight versus
+// the old 150/1600/85, in exchange for axis labels that survive the crop.
+const CROP_DPI = envNum('FIGURE_VLM_DPI', 300);
+const MAX_IMAGE_PX = envNum('FIGURE_VLM_MAX_PX', 2200);
+const JPEG_QUALITY = envNum('FIGURE_VLM_JPEG_QUALITY', 90);
 // Fractional padding added around the model bbox so a slightly-tight box doesn't
 // clip the figure's outer labels. Small by default: the PDF path refines the
 // box on a high-resolution render of the chosen page, so it is trustworthy and
 // generous padding only drags in neighbouring body text.
 const CROP_PAD = envNum('FIGURE_VLM_PAD', 0.005);
-// Width of the single-page render used by the PDF refine pass.
-const REFINE_WIDTH_PX = 1500;
+// Width of the single-page render used by the PDF refine pass. Close to the
+// final crop resolution so the refined bbox lands where the crop will be cut.
+const REFINE_WIDTH_PX = envNum('FIGURE_VLM_REFINE_PX', 2200);
 
 const SELECTION_SYSTEM =
   'You are a figure-selection assistant for a research-explainer pipeline. You ' +
@@ -304,6 +307,7 @@ async function verifyCrop(
   const prompt = [
     'Does this image show a single complete figure (diagram, chart, schematic, or visual abstract) with no surrounding body text?',
     'A visible axis label, legend, or in-figure annotation is fine; paragraphs of article text, or a figure cut off at an edge, are not.',
+    'Also fail the check if the figure is too blurry or low-resolution to read: axis labels, tick values, and legend text must be legible.',
     'Reply with ONLY strict JSON: {"ok": <true|false>, "reason": "<short reason>"}',
   ].join('\n');
   try {
