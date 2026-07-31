@@ -476,8 +476,8 @@ function pageCount(pdfPath: string): number | null {
   return m ? Number.parseInt(m[1], 10) : null;
 }
 
-/** Render a single page at the given width. Returns the PNG path or null. */
-function renderPdfPage(pdfPath: string, page: number, widthPx: number, outDir: string): string | null {
+/** Render a single page at the given width. Returns the PNG path or null. Shared with figure-data.ts. */
+export function renderPdfPage(pdfPath: string, page: number, widthPx: number, outDir: string): string | null {
   const prefix = path.join(outDir, `refine-${page}`);
   const result = spawnSync(
     'pdftoppm',
