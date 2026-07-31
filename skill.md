@@ -153,6 +153,8 @@ Architecture, systems-design, framework, and position papers *tend* toward table
 
 Use any Chart.js type the data calls for: grouped bar, stacked bar, line, radar, scatter. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
 
+**Captions are for the glancing reader — translate, don't cite.** When a chart (or the pill set) leans on a statistical construct — a CCDF/`1 − F(x)`, a shape or tail parameter, a hazard rate, an elasticity, a log axis, confidence bands — the caption must do two things in plain words: (a) open with a one-sentence *how to read it* stating what a single point on the chart literally means, and (b) end with the takeaway a busy reader should leave with. Never use a symbol or technical term in a caption, axis label, or pill description that the same text does not translate ("α = 0.92" needs "the only project type where huge overruns are so common the average stops working", not just "median Pareto tail parameter"). The audience includes readers who could follow the full paper but came here for the glanceable version — serve them first.
+
 **Choose the chart type by trigger, not default.** Bar is not the safe pick; match the shape of the data:
 
 - **radar**: 3-6 systems compared on the same set of 3+ comparable metrics; capability or profile shapes. If the paper itself uses a radar/spider chart, reproduce that shape.
