@@ -173,6 +173,9 @@ ignored silently.
 | `image_caption: …` | Override the caption attached to the lead image |
 | `image_alt: …` | Override the alt text for the lead image |
 | `image_page_hint: N` | Parsed for backward compatibility; no longer used. The vision model locates the page itself. |
+| `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
+| `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
+| `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
@@ -245,7 +248,11 @@ above and `docs/SECURITY.md`.
      or the live URL via Playwright), asks a vision model to pick the best figure
      and return its bounding box, crops it from the source render, and inlines it
      as a base64 data URL. A `.focus.md` override pins a specific figure/caption.
-     Routing is subscription-first (`FIGURE_VLM_*`). Failures drop the image
+     Routing is subscription-first (`FIGURE_VLM_*`). With `FIGURE_RECREATE=1`
+     (or a `recreate:` directive) a further pass tries to recover the data
+     behind the figure into `recreated_figure` for native ECharts rendering,
+     falling back to the clip whenever provenance is not good enough
+     (`docs/FIGURE-EXTRACTION.md`). Failures drop the image
      block silently; the explainer still renders.
    - JSON is written to the output dir, mirrored to `EXPLAINER_OBSIDIAN_DIR`
      (`~/obsidian/explainers` by default), and, if `WEBSITE_REPO` is set, also

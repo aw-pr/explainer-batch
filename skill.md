@@ -184,7 +184,7 @@ the URL wrapped in an anchor:
 
 ## Working with figures in the paper
 
-When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field. A downstream figure pipeline attaches the image automatically: a vision model picks the paper's best figure, and a per-paper sidecar can optionally pin a specific figure instead. Neither path is something you author.
+When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field. A downstream figure pipeline attaches the image automatically: a vision model picks the paper's best figure, and a per-paper sidecar can optionally pin a specific figure instead. The same pipeline may additionally recreate that figure as native chart data (a `recreated_figure` block) when the underlying numbers are recoverable; that block is also not something you author, and it does not change the `charts` rules below.
 
 ### When does a chart earn its place?
 

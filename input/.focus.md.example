@@ -25,6 +25,18 @@ image_alt: Bar chart comparing spend brackets across four firm sizes.
 # match is ambiguous or the figure appears across page boundaries.
 image_page_hint: 5
 
+# Experimental figure recreation (docs/FIGURE-EXTRACTION.md). "recreate:"
+# accepts yes / no / a figure label; a label pins both the clip and the
+# recreation target. "recreate: no" opts this paper out of a global
+# FIGURE_RECREATE=1.
+# recreate: Figure 3
+# recreate_x: training steps, log scale in the paper but plot linear
+# recreate_y: accuracy in percent
+# Supply the values yourself (highest-trust tier): a CSV in the input dir
+# whose header row is "x-label,series-1,series-2,…", or a JSON file matching
+# the neutral shape in src/types/explainer-json.ts.
+# data: my-paper.data.csv
+
 # Everything below the last structured directive becomes the free-text focus
 # block. It is appended verbatim to the user message under the heading
 # "READER EMPHASIS FOR THIS PAPER" — write it as you would tell a colleague
