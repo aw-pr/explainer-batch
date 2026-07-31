@@ -78,6 +78,13 @@ export interface VlmFigureResult {
   route: VisionResult['route'] | 'dom';
   provider: VisionResult['provider'] | 'dom';
   page?: number;
+  /**
+   * Full-resolution PNG of the crop (base64, before the sips downscale that
+   * produces `src`). Present only when the caller asked for it via
+   * `keepCropPng` — the figure-data recreation pass reads numbers off this,
+   * and the downscaled JPEG in `src` is too soft for that.
+   */
+  cropPngBase64?: string;
 }
 
 interface FigureSelection {
@@ -298,6 +305,16 @@ function looksBlank(pngPath: string): boolean {
  * crop; a strict `ok: false` feeds its reason into the retry prompt.
  * FIGURE_VLM_VERIFY=0 disables; FIGURE_VLM_VERIFY_MODEL overrides the model.
  */
+/** Reads a crop PNG as base64 when the caller asked to keep it; never throws. */
+function cropBase64(pngPath: string, keep: boolean): string | undefined {
+  if (!keep) return undefined;
+  try {
+    return fs.readFileSync(pngPath).toString('base64');
+  } catch {
+    return undefined;
+  }
+}
+
 async function verifyCrop(
   provider: ReturnType<typeof resolveVisionProvider>,
   cropPath: string,
@@ -581,7 +598,7 @@ function cropPdfBboxPng(pdfPath: string, page: number, bbox: [number, number, nu
   return png;
 }
 
-async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
+async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts, keepCrop: boolean): Promise<VlmFigureResult | null> {
   const total = pageCount(pdfPath);
   const lastPage = Math.min(total ?? MAX_PAGES, MAX_PAGES);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-pages-'));
@@ -640,6 +657,7 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         route: vision.route,
         provider: vision.provider,
         page,
+        cropPngBase64: cropBase64(cropPng, keepCrop),
       };
     }
     console.warn('  ⚠ figure-vlm: no usable figure after retries.');
@@ -857,10 +875,11 @@ async function extractFromSnapshot(
   candidates: FigureCandidate[],
   provider: ReturnType<typeof resolveVisionProvider>,
   baseOpts: SelectionOpts,
+  keepCrop: boolean,
 ): Promise<VlmFigureResult | null> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-snap-'));
   try {
-    const fetched: Array<{ cand: FigureCandidate; sendPath: string }> = [];
+    const fetched: Array<{ cand: FigureCandidate; sendPath: string; rawPath: string }> = [];
     for (let i = 0; i < candidates.length; i++) {
       const cand = candidates[i];
       try {
@@ -872,7 +891,7 @@ async function extractFromSnapshot(
         fs.writeFileSync(rawPath, buf);
         if (looksBlank(rawPath)) continue;
         const sendPath = downscaleLongEdge(rawPath, CANDIDATE_SEND_PX, path.join(tmpDir, `snap-${i}-send.png`)) ?? rawPath;
-        fetched.push({ cand, sendPath });
+        fetched.push({ cand, sendPath, rawPath });
       } catch {
         // 404s, timeouts, and non-image assets simply drop out of the candidate set.
       }
@@ -892,6 +911,7 @@ async function extractFromSnapshot(
         alt_text: pinned.cand.alt ?? pinned.cand.figcaption ?? `${label} from the source.`,
         route: 'dom',
         provider: 'dom',
+        cropPngBase64: cropBase64(pinned.rawPath, keepCrop),
       };
     }
 
@@ -909,13 +929,14 @@ async function extractFromSnapshot(
       alt_text: picked.cand.alt ?? chosen.sel.alt_text ?? chosen.sel.caption ?? `${label} from the source.`,
       route: chosen.vision.route,
       provider: chosen.vision.provider,
+      cropPngBase64: cropBase64(picked.rawPath, keepCrop),
     };
   } finally {
     cleanupTmp(tmpDir);
   }
 }
 
-async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts): Promise<VlmFigureResult | null> {
+async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVisionProvider>, baseOpts: SelectionOpts, keepCrop: boolean): Promise<VlmFigureResult | null> {
   const pw = await loadPlaywright();
   if (!pw) return null;
 
@@ -958,7 +979,7 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
 
     if (shots.length === 0) {
       console.warn('  ⚠ figure-vlm: no DOM figure candidates found; falling back to full-page selection.');
-      return await extractFromFullPage(page, tmpDir, provider, baseOpts);
+      return await extractFromFullPage(page, tmpDir, provider, baseOpts, keepCrop);
     }
     console.log(`  · figure-vlm: ${shots.length} figure candidate(s) on page.`);
 
@@ -1007,6 +1028,7 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
         alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source.`,
         route: vision.route,
         provider: vision.provider,
+        cropPngBase64: cropBase64(cropPath, keepCrop),
       };
     }
     console.warn('  ⚠ figure-vlm: no usable figure after retries.');
@@ -1036,6 +1058,7 @@ async function extractFromFullPage(
   tmpDir: string,
   provider: ReturnType<typeof resolveVisionProvider>,
   baseOpts: SelectionOpts,
+  keepCrop: boolean,
 ): Promise<VlmFigureResult | null> {
   const fullPath = path.join(tmpDir, 'full.png');
   await page.screenshot({ path: fullPath, fullPage: true });
@@ -1115,6 +1138,7 @@ async function extractFromFullPage(
       alt_text: sel.alt_text ?? sel.caption ?? `${label} from the source.`,
       route: vision.route,
       provider: vision.provider,
+      cropPngBase64: cropBase64(cropPath, keepCrop),
     };
   }
   console.warn('  ⚠ figure-vlm: no usable figure after retries.');
@@ -1128,6 +1152,8 @@ export interface VlmFigureInput {
   context?: FigureContext;
   /** Persisted DOM figure candidates from preprocess, enabling the no-Playwright snapshot path. */
   snapshotCandidates?: FigureCandidate[];
+  /** Include the full-resolution crop PNG in the result (for the figure-data recreation pass). */
+  keepCropPng?: boolean;
 }
 
 /**
@@ -1146,16 +1172,17 @@ export async function extractFigureViaVlm(input: VlmFigureInput): Promise<VlmFig
     context: input.context,
     pageHint: input.override?.pageHint,
   };
+  const keepCrop = Boolean(input.keepCropPng);
   try {
     if (input.pdfPath && fs.existsSync(input.pdfPath)) {
-      return await extractFromPdf(input.pdfPath, provider, opts);
+      return await extractFromPdf(input.pdfPath, provider, opts, keepCrop);
     }
     if (input.url) {
       if (input.snapshotCandidates?.length) {
-        const snapshot = await extractFromSnapshot(input.snapshotCandidates, provider, opts);
+        const snapshot = await extractFromSnapshot(input.snapshotCandidates, provider, opts, keepCrop);
         if (snapshot) return snapshot;
       }
-      return await extractFromUrl(input.url, provider, opts);
+      return await extractFromUrl(input.url, provider, opts, keepCrop);
     }
   } catch (err) {
     console.warn(`  ⚠ figure-vlm: extraction failed — ${err instanceof Error ? err.message : String(err)}`);
