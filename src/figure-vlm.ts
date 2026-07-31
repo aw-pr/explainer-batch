@@ -120,6 +120,9 @@ const JPEG_QUALITY = envNum('FIGURE_VLM_JPEG_QUALITY', 90);
 // box on a high-resolution render of the chosen page, so it is trustworthy and
 // generous padding only drags in neighbouring body text.
 const CROP_PAD = envNum('FIGURE_VLM_PAD', 0.005);
+// Escalating margins for the re-crop-before-reselect loop: a verification
+// failure is far more often a shaved axis label than a wrong figure.
+const CROP_PAD_STEPS = [CROP_PAD, 0.02, 0.045];
 // Width of the single-page render used by the PDF refine pass. Close to the
 // final crop resolution so the refined bbox lands where the crop will be cut.
 const REFINE_WIDTH_PX = envNum('FIGURE_VLM_REFINE_PX', 2200);
@@ -573,10 +576,10 @@ function encodeJpegDataUrl(pngPath: string): string | null {
  * crop's PNG path inside `outDir` (so the caller can verify it before
  * encoding), or null when the crop fails or looks blank.
  */
-function cropPdfBboxPng(pdfPath: string, page: number, bbox: [number, number, number, number], outDir: string): string | null {
+function cropPdfBboxPng(pdfPath: string, page: number, bbox: [number, number, number, number], outDir: string, pad = CROP_PAD): string | null {
   const size = pageSizePts(pdfPath);
   if (!size) return null;
-  const [x0, y0, x1, y1] = padBbox(bbox);
+  const [x0, y0, x1, y1] = padBbox(bbox, pad);
   const ptsToPx = CROP_DPI / 72;
   const xPx = Math.max(0, Math.floor(x0 * size.w * ptsToPx));
   const yPx = Math.max(0, Math.floor(y0 * size.h * ptsToPx));
@@ -623,6 +626,15 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)}; dropping figure.`);
         return null;
       }
+      // A pinned figure means "this figure or nothing": a retry is allowed to
+      // re-crop it, but not to swap in a different figure under the pin's
+      // label (the clip must stay the honest fallback for the recreation).
+      const pinnedKey = baseOpts.named ? figureLabelKey(baseOpts.named) : null;
+      if (pinnedKey && sel.source_figure && figureLabelKey(sel.source_figure) !== pinnedKey) {
+        console.warn(`  ⚠ figure-vlm: selection drifted to ${sel.source_figure} but ${baseOpts.named} is pinned; retrying.`);
+        prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: `you selected ${sel.source_figure}, but only ${baseOpts.named} is acceptable` };
+        continue;
+      }
       const page = Math.min(Math.max(sel.page, 1), thumbs.length);
 
       // Two-pass zoom-refine: pass 1 picked the page from small thumbnails;
@@ -634,16 +646,35 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         if (refined) bbox = refined;
       }
 
-      const cropPng = cropPdfBboxPng(pdfPath, page, bbox, tmpDir);
+      // A verification failure usually means the bbox shaved an axis or
+      // legend, not that the wrong figure was picked — so before burning a
+      // whole reselection attempt, re-crop the same bbox with widening
+      // margins and let the verifier judge each.
+      let cropPng: string | null = null;
+      let verdict: { ok: boolean; reason: string } | null = null;
+      // Last step: full page width over the bbox's vertical span — rotated
+      // axis labels sit far outside the plot area the refine pass returns,
+      // and no symmetric pad reliably reaches them.
+      const cropBoxes: Array<{ box: [number, number, number, number]; pad: number; note: string }> = [
+        ...CROP_PAD_STEPS.map(pad => ({ box: bbox, pad, note: `pad ${pad}` })),
+        { box: [0, bbox[1], 1, bbox[3]] as [number, number, number, number], pad: 0.02, note: 'full page width' },
+      ];
+      for (const { box, pad, note } of cropBoxes) {
+        const attemptPng = cropPdfBboxPng(pdfPath, page, box, tmpDir, pad);
+        if (!attemptPng) continue;
+        cropPng = attemptPng;
+        verdict = await verifyCrop(provider, attemptPng);
+        if (verdict.ok) break;
+        console.warn(`  ⚠ figure-vlm: crop failed verification at ${note} (${verdict.reason}).`);
+      }
       if (!cropPng) {
         console.warn(`  ⚠ figure-vlm: crop failed/blank (attempt ${attempt}/${FIGURE_ATTEMPTS}).`);
         prev = { page, source_figure: sel.source_figure, bbox, reason: 'the crop rendered blank or could not be produced' };
         continue;
       }
-      const verdict = await verifyCrop(provider, cropPng);
-      if (!verdict.ok) {
-        console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
-        prev = { page, source_figure: sel.source_figure, bbox, reason: `the crop failed verification: ${verdict.reason}` };
+      if (!verdict?.ok) {
+        console.warn('  ⚠ figure-vlm: crop failed verification at every pad; retrying selection.');
+        prev = { page, source_figure: sel.source_figure, bbox, reason: `the crop failed verification: ${verdict?.reason ?? 'unknown'}` };
         continue;
       }
       const src = encodeJpegDataUrl(cropPng);
