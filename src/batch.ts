@@ -96,9 +96,18 @@ async function exportSavedHtml(savedResults: SaveResult[]): Promise<void> {
   if (summary.ok > 0) {
     console.log(`\nHTML export: ${summary.ok} file(s) written to ${path.basename(OUTPUT_DIR)}/`);
   }
+  if (summary.failed === 0) return;
+
+  const slugs = summary.failures.map((failure) => path.basename(failure.jsonPath));
   for (const failure of summary.failures) {
     console.error(`  ! HTML export failed for ${path.basename(failure.jsonPath)} — ${failure.error}`);
   }
+  // JSON is already saved at this point — the failure must not disappear into
+  // the run's console output. Throwing surfaces it as the run's final,
+  // non-zero-exit error instead of a silent skip.
+  throw new Error(
+    `HTML export failed for ${summary.failed} file(s): ${slugs.join(', ')} — see errors above.`,
+  );
 }
 
 function buildClaudeRequestContent(item: InputItem, userInstruction: string): Anthropic.MessageParam['content'] {
