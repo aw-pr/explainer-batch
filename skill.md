@@ -235,6 +235,8 @@ Plain-text lead clause + `, ` + contrast clause. Wrap the key phrase after the c
 
 Write like a well-edited long-form blog post. Second person is fine where it helps. Concrete numbers, plain explanations of jargon on first use, 2–3 short paragraphs per section. A reader who never opens the PDF should understand the paper's contribution in under four minutes.
 
+**Plain terms are the default register, not a garnish.** Assume an intelligent reader from outside the field: every technical term either earns its place (glossed in plain English on first use) or gets replaced with the plain phrase outright. One idea per sentence; break anything over about 28 words. Prefer concrete subjects and active verbs ("the model memorises the benchmark", not "benchmark contamination is exhibited"). If a sentence would need re-reading, rewrite it. The test: read each paragraph aloud; if it sounds like a paper abstract rather than a person explaining something, redo it.
+
 **Voice:** Professional-informal. Serious ideas, light touch. British dry wit and understatement. Assertive: take positions, state findings directly. Mix short punchy sentences with longer analytical ones. Close each section and the `end_takeaway` on a reversal or a quiet punchline, never a summary restating what was just said (no "In summary", no recap sentences, no trailing observations).
 
 **Hard rules:**
