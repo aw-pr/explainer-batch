@@ -110,6 +110,14 @@ atomic commits + per-agent authors are the honest output.
 `git push PRIV PUBLISH_BRANCH && PUBLISH_GUARD_OK=1 git push PUB PUBLISH_BRANCH:main`.
 It backs up to the private remote first, then publishes.
 
+The publish boundary is PR-by-default and the hook enforces it: the
+`PUB/main` push also needs `PUBLISH_PR_REVIEWED=1`, the attestation that a
+publish→main PR was opened and its diff reviewed (push the publish branch to
+PUB as the PR source first — the hook allows it, private-file-scanned — then
+`gh pr create --base main --head <PUBLISH_BRANCH>`). The ff push completes
+the PR; GitHub marks it merged when the base receives the head SHAs.
+Repo-level opt-out: `git config publishguard.boundary direct`.
+
 ## The gate (why it can't be bypassed by accident)
 
 `pre-push` fails closed on the public remote (matched by
