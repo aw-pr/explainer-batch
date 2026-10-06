@@ -102,17 +102,47 @@ type ClaudeSdkMessage =
 
 const FORCED_TOOL_NAME = 'emit_explainer';
 
+// An allowlist, not a denylist: Claude Opus 5.5, Sonnet 5.5 and Fable 5.1
+// reject forced tool_choice (`any` / `tool`) with a 400, and newer models are
+// expected to follow, so an unlisted id gets `auto` plus an instruction.
+const FORCED_TOOL_CHOICE_MODELS = new Set([
+  'claude-haiku-4-5',
+  'claude-sonnet-4-5',
+  'claude-sonnet-4-6',
+  'claude-sonnet-5',
+  'claude-opus-4-1',
+  'claude-opus-4-5',
+  'claude-opus-4-6',
+  'claude-opus-4-7',
+  'claude-opus-4-8',
+  'claude-opus-5',
+  'claude-fable-5',
+]);
+
+export function acceptsForcedToolChoice(model: string): boolean {
+  return FORCED_TOOL_CHOICE_MODELS.has(model.trim().replace(/-\d{8}$/, ''));
+}
+
+const EMIT_INSTRUCTION = `\n\nReturn the explainer by calling the ${FORCED_TOOL_NAME} tool exactly once, with the full explainer as its input. Do not reply in plain text.`;
+
 /**
- * Forces Claude to return the explainer as structured tool input rather than
+ * Asks Claude to return the explainer as structured tool input rather than
  * free-form text. Claude's `input_schema` is permissive (unlike OpenAI's
  * strict subset), so the same EXPLAINER_JSON_SCHEMA object serves both
- * providers unmodified.
+ * providers unmodified. Where the model cannot be forced, the system prompt
+ * names the tool instead; a plain-text reply still parses via extractJson.
  */
-function forcedToolParams(jsonSchema: Record<string, unknown>): { tools: unknown[]; tool_choice: unknown } {
-  return {
-    tools: [{ name: FORCED_TOOL_NAME, description: 'Emit the explainer as JSON.', input_schema: jsonSchema }],
-    tool_choice: { type: 'tool', name: FORCED_TOOL_NAME },
-  };
+function toolOutputParams(
+  model: string,
+  system: string,
+  jsonSchema: Record<string, unknown> | undefined
+): { system: string; tools?: unknown[]; tool_choice?: unknown } {
+  if (!jsonSchema || !structuredOutputEnabled()) return { system };
+  const tools = [{ name: FORCED_TOOL_NAME, description: 'Emit the explainer as JSON.', input_schema: jsonSchema }];
+  if (acceptsForcedToolChoice(model)) {
+    return { system, tools, tool_choice: { type: 'tool', name: FORCED_TOOL_NAME } };
+  }
+  return { system: system + EMIT_INSTRUCTION, tools, tool_choice: { type: 'auto' } };
 }
 
 /**
@@ -150,16 +180,19 @@ export class ClaudeProvider {
   }
 
   async createBatch(requests: Array<{ customId: string; model: string; maxTokens: number; system: string; content: Anthropic.MessageParam['content']; jsonSchema?: Record<string, unknown> }>): Promise<{ id: string; status: string }> {
-    const payload = requests.map(req => ({
-      custom_id: req.customId,
-      params: {
-        model: req.model,
-        max_tokens: req.maxTokens,
-        system: [{ type: 'text' as const, text: req.system, cache_control: { type: 'ephemeral' } }] as never,
-        messages: [{ role: 'user' as const, content: req.content }],
-        ...(req.jsonSchema && structuredOutputEnabled() ? forcedToolParams(req.jsonSchema) : {}),
-      },
-    }));
+    const payload = requests.map(req => {
+      const { system, ...toolParams } = toolOutputParams(req.model, req.system, req.jsonSchema);
+      return {
+        custom_id: req.customId,
+        params: {
+          model: req.model,
+          max_tokens: req.maxTokens,
+          system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' } }] as never,
+          messages: [{ role: 'user' as const, content: req.content }],
+          ...toolParams,
+        },
+      };
+    });
 
     const batch = await this.getClient().messages.batches.create({ requests: payload } as never);
     return { id: batch.id, status: batch.processing_status };
@@ -215,13 +248,14 @@ export class ClaudeProvider {
     content: Anthropic.MessageParam['content'],
     jsonSchema?: Record<string, unknown>
   ): Promise<ProviderMessageResponse> {
+    const { system: systemText, ...toolParams } = toolOutputParams(model, system, jsonSchema);
     // Use streaming to avoid the SDK's 10-minute timeout cap on long generations.
     const stream = this.getClient().messages.stream({
       model,
       max_tokens: maxTokens,
-      system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' } }] as never,
+      system: [{ type: 'text' as const, text: systemText, cache_control: { type: 'ephemeral' } }] as never,
       messages: [{ role: 'user', content }],
-      ...(jsonSchema && structuredOutputEnabled() ? forcedToolParams(jsonSchema) : {}),
+      ...toolParams,
     } as never);
     const resp = await stream.finalMessage();
 
