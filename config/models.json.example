@@ -4,7 +4,7 @@
     "batchModel": "claude-opus-4-8",
     "laneModel": "claude-opus-4-8",
     "synthesisModel": "claude-opus-4-8",
-    "repairModel": "claude-sonnet-4-6",
+    "repairModel": "claude-sonnet-5-5",
     "maxTokens": 16384,
     "laneMaxTokens": 16384,
     "synthesisMaxTokens": 16384,
