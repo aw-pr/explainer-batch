@@ -2,19 +2,23 @@ import type { ProviderName } from './providers';
 
 /**
  * Standard (non-batch) prices in USD per million tokens.
- * Verified July 2026 against platform.claude.com/docs/en/about-claude/pricing
- * and openai.com/api/pricing. Batch is 50% off (see BATCH_DISCOUNT).
+ * Mirrors the pricing block of mcp-hub's config/models.json (verified there
+ * 2026-09-27; Sonnet 5.5 2026-10-06). Promotional rates are not applied: the
+ * list price is used. Batch is 50% off (see BATCH_DISCOUNT).
  */
 const STANDARD_PRICES: Record<ProviderName, Record<string, { input: number; output: number }>> = {
   claude: {
+    'claude-fable-5-1': { input: 10.0, output: 50.0 },
     'claude-fable-5': { input: 10.0, output: 50.0 },
+    'claude-opus-5-5': { input: 4.0, output: 20.0 },
+    'claude-opus-5': { input: 5.0, output: 25.0 },
     'claude-opus-4-8': { input: 5.0, output: 25.0 },
     'claude-opus-4-7': { input: 5.0, output: 25.0 },
     'claude-opus-4-6': { input: 5.0, output: 25.0 },
     'claude-sonnet-4-6': { input: 3.0, output: 15.0 },
-    // Sonnet 5 standard rate matches 4-6; intro $2/$10 runs through 2026-08-31,
-    // and its newer tokenizer emits ~30% more tokens per unit text.
-    'claude-sonnet-5': { input: 3.0, output: 15.0 },
+    'claude-sonnet-5-5': { input: 2.0, output: 10.0 },
+    // The launch $2/$10 became the standard rate; the 2026-09-01 rise was cancelled.
+    'claude-sonnet-5': { input: 2.0, output: 10.0 },
     'claude-haiku-4-5': { input: 1.0, output: 5.0 },
     'claude-haiku-4-5-20251001': { input: 1.0, output: 5.0 },
     'claude-sonnet-4-5': { input: 3.0, output: 15.0 },
@@ -22,9 +26,10 @@ const STANDARD_PRICES: Record<ProviderName, Record<string, { input: number; outp
     'claude-opus-4-1': { input: 15.0, output: 75.0 },
   },
   openai: {
-    'gpt-5.6-sol': { input: 2.5, output: 15.0 },
-    'gpt-5.6-terra': { input: 1.25, output: 7.5 },
-    'gpt-5.6-luna': { input: 0.5, output: 3.0 },
+    'gpt-6-astra': { input: 10.0, output: 50.0 },
+    'gpt-5.6-sol': { input: 5.0, output: 30.0 },
+    'gpt-5.6-terra': { input: 2.0, output: 12.0 },
+    'gpt-5.6-luna': { input: 0.2, output: 1.2 },
     'gpt-5.5': { input: 5.0, output: 30.0 },
     'gpt-5.4': { input: 2.5, output: 15.0 },
     'gpt-5.4-mini': { input: 0.75, output: 4.5 },
