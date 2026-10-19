@@ -12,7 +12,7 @@ import { exportHtmlForJsonFiles } from './html-export';
 import { calcCost, formatUsd, BATCH_DISCOUNT } from './pricing';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
-import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, openAIJsonSchemaFormat, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
+import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, isFatalHttpError, openAIJsonSchemaFormat, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
 import { repairUntilValid, type RepairResult } from './repair';
 import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
 
@@ -39,7 +39,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
 
-async function pollUntilEnded(
+export async function pollUntilEnded(
   label: string,
   initialWaitMs: number,
   fetchStatus: () => Promise<ProviderBatchStatus>,
@@ -65,6 +65,9 @@ async function pollUntilEnded(
     } catch (error) {
       consecutiveErrors += 1;
       const message = error instanceof Error ? error.message : String(error);
+      if (isFatalHttpError(error)) {
+        throw new Error(`${label} status polling failed and cannot succeed on retry: ${message}`);
+      }
       if (consecutiveErrors > POLL_MAX_CONSECUTIVE_ERRORS) {
         throw new Error(`${label} status polling failed ${consecutiveErrors} times in a row: ${message}`);
       }

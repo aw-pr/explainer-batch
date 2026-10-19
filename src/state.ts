@@ -157,7 +157,7 @@ export function mergeOpenAIFileCache(cache: NonNullable<State['openai_file_cache
 export function getLatestPendingBatchByProvider(state: State, provider: ProviderName): BatchState | undefined {
   return [...state.batches]
     .reverse()
-    .find(b => b.status === 'processing' && (b.provider ?? 'claude') === provider);
+    .find(b => b.status === 'processing' && !b.id.startsWith('sync_') && (b.provider ?? 'claude') === provider);
 }
 
 export function getBatchById(state: State, id: string): BatchState | undefined {

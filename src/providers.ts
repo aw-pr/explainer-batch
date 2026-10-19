@@ -5,7 +5,17 @@ import os from 'os';
 import path from 'path';
 import { structuredOutputEnabled } from './schema/explainer-schema';
 
-export type ProviderName = 'claude' | 'openai';
+export const PROVIDER_NAMES = ['claude', 'openai'] as const;
+export type ProviderName = (typeof PROVIDER_NAMES)[number];
+
+export function isProviderName(value: string): value is ProviderName {
+  return (PROVIDER_NAMES as readonly string[]).includes(value);
+}
+
+export function isFatalHttpError(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null | undefined)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
 export type ClaudeAuthMode = 'api_key' | 'claude_cli';
 
 function hasClaudeCliSession(): boolean {
@@ -418,7 +428,10 @@ export class OpenAIProvider {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`);
+      throw Object.assign(
+        new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`),
+        { status: response.status },
+      );
     }
 
     return response.json();
@@ -432,7 +445,10 @@ export class OpenAIProvider {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`);
+      throw Object.assign(
+        new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`),
+        { status: response.status },
+      );
     }
 
     return response.text();
@@ -716,7 +732,10 @@ export function getProviderFromArgs(args: string[]): ProviderName {
   const fromArg = idx >= 0 ? args[idx + 1] : undefined;
   const fromEnv = process.env.PROVIDER;
   const raw = (fromArg ?? fromEnv ?? 'claude').toLowerCase();
-  return raw === 'openai' ? 'openai' : 'claude';
+  if (!isProviderName(raw)) {
+    throw new Error(`Unknown provider "${raw}". Known providers: ${PROVIDER_NAMES.join(', ')}.`);
+  }
+  return raw;
 }
 
 export function parseOpenAIAuthMode(): OpenAIAuthMode {
