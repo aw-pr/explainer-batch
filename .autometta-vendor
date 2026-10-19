@@ -1,0 +1,10 @@
+# Autometta vendor stamp. Refresh with: autometta refresh-repo .
+source_repo: autometta
+vendored_from: af8c3cd
+vendored_at: 2026-10-19
+file: templates/worker-prompt.md
+file: templates/verifier-prompt.md
+file: templates/orchestrator-checklist.md
+file: templates/stage-card.md
+file: scripts/check-contract-test-gate.sh
+file: scripts/autometta-vendor-check.sh

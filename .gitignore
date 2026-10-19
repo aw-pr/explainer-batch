@@ -62,3 +62,12 @@ yarn-error.log*
 .claude/
 **/.claude/
 .codegraph/
+
+state/logs/
+.autometta.local.yaml
+# Per-machine Autometta launchagent template copy
+.autometta/
+# Runtime state written by the Autometta loop; only the queue and budget are tracked
+state/**
+!state/state.yaml
+!state/budget.json
