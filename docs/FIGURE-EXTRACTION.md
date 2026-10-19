@@ -84,8 +84,15 @@ crop of the same bbox fails does the rejection feed its reason into a
 retry of the *selection*, and the retry prompt names the failed pick
 (page, figure, bbox or candidate number), so "choose a different figure"
 is actionable — unless the figure is pinned, in which case a different
-figure is not an acceptable answer. The check fails open: a transport or
-parse error never discards a crop. A crude blank-crop guard
+figure is not an acceptable answer. For an unpinned pick the check fails
+open: a transport or parse error never discards a crop. For a pinned
+figure the check is told the expected label ("the crop must be Figure 3
+of the source document") and fails closed: a transport error, an
+unparseable reply or a rejection all count as a failed check, and only an
+explicit pass keeps the crop. The snapshot path verifies a pinned caption
+match the same way before using it; an unpinned snapshot asset is still
+used without verification. `FIGURE_VLM_VERIFY=0` turns verification off
+for every pick, pins included. A crude blank-crop guard
 (bytes-per-pixel below 0.006, or either side under 48px) rejects
 unpainted-chart screenshots before a verification call is spent.
 
@@ -100,8 +107,11 @@ towards a page without constraining it.
 
 **Pinning means "this figure or nothing."** A retry after a failed crop
 may re-crop the pinned figure, but a selection that names a *different*
-figure is rejected outright (drift guard) and the retry prompt tells the
-model only the pinned label is acceptable. If the pin cannot be
+figure, or names no figure at all, is rejected outright (drift guard, on
+the PDF, URL-candidate and full-page paths) and the retry prompt tells
+the model only the pinned label is acceptable. The pin's label is only
+ever stamped on a pick the selection named as the pin and verification
+confirmed. If the pin cannot be
 satisfied the image block is dropped rather than silently substituted —
 a wrong figure under the right label is worse than no figure. Two
 practical consequences:
@@ -237,9 +247,10 @@ is a soft page hint; the figure label pins a specific figure.
   `FIGURE_VLM_MAX_PAGES` currently needs the env var raised by hand; the
   PDF text layer could locate "Figure N" and extend the render range to
   its page automatically.
-- **Fail-open on verification transport errors.** When the verification
-  *call* itself errors (e.g. codex quota exhaustion) the unverified crop
-  is kept. Deliberate for transient blips, but a long outage ships
+- **Fail-open on verification transport errors (unpinned picks).** When
+  the verification *call* itself errors (e.g. codex quota exhaustion) on
+  an unpinned pick, the unverified crop is kept; a pinned figure is
+  dropped instead. Deliberate for transient blips, but a long outage ships
   unchecked crops; consider distinguishing "model said no" from "no
   answer" with a retry.
 - **`reextract` keeps the stale caption.** Patching a new image onto an

@@ -301,13 +301,6 @@ function looksBlank(pngPath: string): boolean {
   }
 }
 
-/**
- * Semantic crop verification: one cheap vision call confirming the crop is a
- * single complete figure without surrounding body text. Fails open (returns
- * ok) on transport or parse errors so a flaky check can never discard a good
- * crop; a strict `ok: false` feeds its reason into the retry prompt.
- * FIGURE_VLM_VERIFY=0 disables; FIGURE_VLM_VERIFY_MODEL overrides the model.
- */
 /** Reads a crop PNG as base64 when the caller asked to keep it; never throws. */
 function cropBase64(pngPath: string, keep: boolean): string | undefined {
   if (!keep) return undefined;
@@ -318,14 +311,29 @@ function cropBase64(pngPath: string, keep: boolean): string | undefined {
   }
 }
 
+/**
+ * Semantic crop verification: one cheap vision call confirming the crop is a
+ * single complete figure without surrounding body text. Unpinned, it fails
+ * open (returns ok) on transport or parse errors so a flaky check can never
+ * discard a good crop. Given the pinned label it also checks the crop is that
+ * figure, and fails closed: only an explicit `ok: true` keeps a pinned crop,
+ * because a wrong figure under the pin is worse than none. A strict
+ * `ok: false` feeds its reason into the retry prompt.
+ * FIGURE_VLM_VERIFY=0 disables; FIGURE_VLM_VERIFY_MODEL overrides the model.
+ */
 async function verifyCrop(
   provider: ReturnType<typeof resolveVisionProvider>,
   cropPath: string,
+  expectedLabel?: string,
 ): Promise<{ ok: boolean; reason: string }> {
   if (process.env.FIGURE_VLM_VERIFY === '0') return { ok: true, reason: 'verification disabled' };
   const model = process.env.FIGURE_VLM_VERIFY_MODEL ?? visionModel(provider);
+  const failClosed = Boolean(expectedLabel);
   const prompt = [
     'Does this image show a single complete figure (diagram, chart, schematic, or visual abstract) with no surrounding body text?',
+    ...(expectedLabel
+      ? [`The crop must be ${expectedLabel} of the source document; fail the check if it shows a different figure.`]
+      : []),
     'A visible axis label, legend, or in-figure annotation is fine; paragraphs of article text, or a figure cut off at an edge, are not.',
     'Also fail the check if the figure is too blurry or low-resolution to read: axis labels, tick values, and legend text must be legible.',
     'Reply with ONLY strict JSON: {"ok": <true|false>, "reason": "<short reason>"}',
@@ -342,15 +350,16 @@ async function verifyCrop(
     const raw = vision.text;
     const start = raw.indexOf('{');
     const end = raw.lastIndexOf('}');
-    if (start === -1 || end <= start) return { ok: true, reason: 'unparseable verification reply' };
+    if (start === -1 || end <= start) return { ok: !failClosed, reason: 'unparseable verification reply' };
     const obj = JSON.parse(raw.slice(start, end + 1)) as { ok?: unknown; reason?: unknown };
-    if (obj.ok === false) {
+    if (obj.ok === false || (failClosed && obj.ok !== true)) {
       return { ok: false, reason: typeof obj.reason === 'string' ? obj.reason : 'verifier rejected the crop' };
     }
     return { ok: true, reason: typeof obj.reason === 'string' ? obj.reason : 'ok' };
   } catch (err) {
-    console.warn(`  ⚠ figure-vlm: verification call failed (${err instanceof Error ? err.message : String(err)}); accepting crop.`);
-    return { ok: true, reason: 'verification unavailable' };
+    const detail = err instanceof Error ? err.message : String(err);
+    console.warn(`  ⚠ figure-vlm: verification call failed (${detail}); ${failClosed ? `rejecting pinned ${expectedLabel}` : 'accepting crop'}.`);
+    return { ok: !failClosed, reason: 'verification unavailable' };
   }
 }
 
@@ -627,12 +636,13 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         return null;
       }
       // A pinned figure means "this figure or nothing": a retry is allowed to
-      // re-crop it, but not to swap in a different figure under the pin's
-      // label (the clip must stay the honest fallback for the recreation).
-      const pinnedKey = baseOpts.named ? figureLabelKey(baseOpts.named) : null;
-      if (pinnedKey && sel.source_figure && figureLabelKey(sel.source_figure) !== pinnedKey) {
-        console.warn(`  ⚠ figure-vlm: selection drifted to ${sel.source_figure} but ${baseOpts.named} is pinned; retrying.`);
-        prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: `you selected ${sel.source_figure}, but only ${baseOpts.named} is acceptable` };
+      // re-crop it, but not to swap in a different (or unnamed) figure under
+      // the pin's label (the clip must stay the honest fallback for the
+      // recreation).
+      const drift = pinDriftReason(baseOpts.named, sel.source_figure);
+      if (drift) {
+        console.warn(`  ⚠ figure-vlm: selection drifted to ${sel.source_figure ?? 'an unnamed figure'} but ${baseOpts.named} is pinned; retrying.`);
+        prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: drift };
         continue;
       }
       const page = Math.min(Math.max(sel.page, 1), thumbs.length);
@@ -642,7 +652,7 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
       let bbox = sel.bbox;
       const refinePng = renderPdfPage(pdfPath, page, REFINE_WIDTH_PX, tmpDir);
       if (refinePng) {
-        const refined = await refineBboxOnPage(provider, refinePng, page, sel.source_figure ?? baseOpts.named);
+        const refined = await refineBboxOnPage(provider, refinePng, page, baseOpts.named || sel.source_figure);
         if (refined) bbox = refined;
       }
 
@@ -663,7 +673,7 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
         const attemptPng = cropPdfBboxPng(pdfPath, page, box, tmpDir, pad);
         if (!attemptPng) continue;
         cropPng = attemptPng;
-        verdict = await verifyCrop(provider, attemptPng);
+        verdict = await verifyCrop(provider, attemptPng, baseOpts.named);
         if (verdict.ok) break;
         console.warn(`  ⚠ figure-vlm: crop failed verification at ${note} (${verdict.reason}).`);
       }
@@ -679,7 +689,7 @@ async function extractFromPdf(pdfPath: string, provider: ReturnType<typeof resol
       }
       const src = encodeJpegDataUrl(cropPng);
       if (!src) continue;
-      const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
+      const label = baseOpts.named ? baseOpts.named : (sel.source_figure ?? 'Figure');
       return {
         src,
         source_figure: label,
@@ -894,15 +904,29 @@ function matchesNamedFigure(named: string, cand: FigureCandidate): boolean {
 }
 
 /**
+ * Why a selection is not the pinned figure, or null when it is (or nothing is
+ * pinned). A selection that names no figure counts as drift: stamping the pin
+ * on an unlabelled pick is how a wrong figure ships under the right label.
+ */
+function pinDriftReason(named: string | undefined, selected: string | undefined): string | null {
+  if (!named) return null;
+  if (!selected) return `you did not name the figure you selected, but only ${named} is acceptable`;
+  if (figureLabelKey(selected) !== figureLabelKey(named)) return `you selected ${selected}, but only ${named} is acceptable`;
+  return null;
+}
+
+/**
  * DOM-native snapshot path: fetches each candidate's real `<img>` asset (no
  * Playwright, no rendered page) and either matches a pinned figure directly or
  * lets the vision model choose among the fetched assets. The asset is the
- * genuine caption-free image the page ships, so unlike the live paths this
- * skips `verifyCrop` and the confidence gate entirely — there is no crop to
- * verify. Returns null on any miss (fetch failure, no match, blank asset) so
- * the caller falls through to the live Playwright path.
+ * genuine caption-free image the page ships, so an unpinned pick skips
+ * `verifyCrop` and the confidence gate entirely; there is no crop to verify.
+ * A pinned caption match is still verified against the pin, since a caption
+ * label alone does not prove the asset beside it is that figure. Returns null
+ * on any miss (fetch failure, no match, blank asset, failed pin verification)
+ * so the caller falls through to the live Playwright path.
  */
-async function extractFromSnapshot(
+export async function extractFromSnapshot(
   candidates: FigureCandidate[],
   provider: ReturnType<typeof resolveVisionProvider>,
   baseOpts: SelectionOpts,
@@ -932,6 +956,11 @@ async function extractFromSnapshot(
     if (baseOpts.named) {
       const pinned = fetched.find(f => matchesNamedFigure(baseOpts.named!, f.cand));
       if (!pinned) return null;
+      const verdict = await verifyCrop(provider, pinned.sendPath, baseOpts.named);
+      if (!verdict.ok) {
+        console.warn(`  ⚠ figure-vlm: snapshot asset for ${baseOpts.named} failed verification (${verdict.reason}).`);
+        return null;
+      }
       const src = encodeJpegDataUrl(pinned.sendPath);
       if (!src) return null;
       const label = baseOpts.named;
@@ -1034,6 +1063,12 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
         prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: 'that candidate number does not exist' };
         continue;
       }
+      const drift = pinDriftReason(baseOpts.named, sel.source_figure);
+      if (drift) {
+        console.warn(`  ⚠ figure-vlm: selection drifted to ${sel.source_figure ?? 'an unnamed figure'} but ${baseOpts.named} is pinned; retrying.`);
+        prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: drift };
+        continue;
+      }
 
       const cropPath = path.join(tmpDir, `crop-${attempt}.png`);
       await page.locator(`[data-vlm-cand="${chosen.id}"]`).first().screenshot({ path: cropPath, timeout: 15_000 });
@@ -1042,7 +1077,7 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
         prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: 'the crop rendered blank' };
         continue;
       }
-      const verdict = await verifyCrop(provider, cropPath);
+      const verdict = await verifyCrop(provider, cropPath, baseOpts.named);
       if (!verdict.ok) {
         console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
         prev = { candidate: sel.candidate, source_figure: sel.source_figure, reason: `the crop failed verification: ${verdict.reason}` };
@@ -1051,7 +1086,7 @@ async function extractFromUrl(url: string, provider: ReturnType<typeof resolveVi
       const src = encodeJpegDataUrl(cropPath);
       if (!src) continue;
       console.log(`  · figure-vlm: candidate ${sel.candidate} chosen, cropped to element bounds.`);
-      const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
+      const label = baseOpts.named ? baseOpts.named : (sel.source_figure ?? 'Figure');
       return {
         src,
         source_figure: label,
@@ -1135,6 +1170,12 @@ async function extractFromFullPage(
       console.warn(`  ⚠ figure-vlm: low confidence ${sel.confidence.toFixed(2)}; dropping figure.`);
       return null;
     }
+    const drift = pinDriftReason(baseOpts.named, sel.source_figure);
+    if (drift) {
+      console.warn(`  ⚠ figure-vlm: selection drifted to ${sel.source_figure ?? 'an unnamed figure'} but ${baseOpts.named} is pinned; retrying.`);
+      prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: drift };
+      continue;
+    }
 
     const tile = tiles[Math.min(Math.max(sel.page, 1), tiles.length) - 1];
     const tileRect = bboxToRect(sel.bbox, { w: dims.w, h: tile.h });
@@ -1152,7 +1193,7 @@ async function extractFromFullPage(
       prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: 'the crop rendered blank' };
       continue;
     }
-    const verdict = await verifyCrop(provider, cropPath);
+    const verdict = await verifyCrop(provider, cropPath, baseOpts.named);
     if (!verdict.ok) {
       console.warn(`  ⚠ figure-vlm: crop failed verification (${verdict.reason}); retrying selection.`);
       prev = { page: sel.page, source_figure: sel.source_figure, bbox: sel.bbox, reason: `the crop failed verification: ${verdict.reason}` };
@@ -1161,7 +1202,7 @@ async function extractFromFullPage(
     const src = encodeJpegDataUrl(cropPath);
     if (!src) continue;
     console.log(`  · figure-vlm: crop ${snapped ? 'snapped to DOM element' : 'used model bbox (no element match)'}`);
-    const label = baseOpts.named ?? sel.source_figure ?? 'Figure';
+    const label = baseOpts.named ? baseOpts.named : (sel.source_figure ?? 'Figure');
     return {
       src,
       source_figure: label,
