@@ -2,6 +2,8 @@ import { loadDotEnv } from './env';
 import { preprocessInputs } from './preprocess';
 import { submitBatch, pollAndRetrieve, printStatus, runSync } from './batch';
 import { getProviderFromArgs, isProviderName, parseOpenAIAuthMode, type ProviderName } from './providers';
+import { resolveFigureDataModel, resolveVisionModel, resolveVisionVerifyModel } from './model-config';
+import { resolveVisionProvider, visionAuthAvailable } from './vision';
 
 // Fill-only: never overrides a real shell export or an op-fetch injection.
 loadDotEnv();
@@ -90,6 +92,13 @@ async function main(): Promise<void> {
   }
 
   assertProviderAuth(parsed.provider, command, parsed.syncMode);
+
+  if (visionAuthAvailable()) {
+    const visionProvider = resolveVisionProvider();
+    resolveVisionModel(visionProvider);
+    resolveVisionVerifyModel(visionProvider);
+    resolveFigureDataModel(visionProvider);
+  }
 
   if (command === 'poll') {
     console.log('\n── Poll ─────────────────────────────────────────');

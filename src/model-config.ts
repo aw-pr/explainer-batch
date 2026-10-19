@@ -11,6 +11,7 @@ export interface ModelConfig {
   laneModel: string;
   synthesisModel: string;
   repairModel: string;
+  visionModel: string;
   maxTokens: number;
   laneMaxTokens: number;
   synthesisMaxTokens: number;
@@ -22,6 +23,7 @@ interface PartialModelConfig {
   laneModel?: string;
   synthesisModel?: string;
   repairModel?: string;
+  visionModel?: string;
   maxTokens?: number;
   laneMaxTokens?: number;
   synthesisMaxTokens?: number;
@@ -60,6 +62,7 @@ export function getModelConfig(provider: ProviderName): ModelConfig {
       laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'claude-opus-4-8',
       synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'claude-opus-4-8',
       repairModel: process.env.MODEL_REPAIR ?? file.repairModel ?? 'claude-sonnet-5-5',
+      visionModel: process.env.FIGURE_VLM_MODEL ?? file.visionModel ?? 'claude-opus-4-8',
       maxTokens: parsePositiveInt(process.env.MAX_TOKENS, file.maxTokens ?? 16384),
       laneMaxTokens: parsePositiveInt(process.env.LANE_MAX_TOKENS, file.laneMaxTokens ?? 16384),
       synthesisMaxTokens: parsePositiveInt(process.env.SYNTHESIS_MAX_TOKENS, file.synthesisMaxTokens ?? 16384),
@@ -73,11 +76,44 @@ export function getModelConfig(provider: ProviderName): ModelConfig {
     laneModel: process.env.MODEL_LANE ?? file.laneModel ?? 'gpt-5.6-luna',
     synthesisModel: process.env.MODEL_SYNTHESIS ?? file.synthesisModel ?? 'gpt-5.6-terra',
     repairModel: process.env.MODEL_REPAIR ?? file.repairModel ?? 'gpt-5.6-luna',
+    visionModel: process.env.FIGURE_VLM_MODEL ?? file.visionModel ?? 'gpt-5.6-terra',
     maxTokens: parsePositiveInt(process.env.MAX_TOKENS, file.maxTokens ?? 8192),
     laneMaxTokens: parsePositiveInt(process.env.LANE_MAX_TOKENS, file.laneMaxTokens ?? 4096),
     synthesisMaxTokens: parsePositiveInt(process.env.SYNTHESIS_MAX_TOKENS, file.synthesisMaxTokens ?? 8192),
     repairMaxTokens: parsePositiveInt(process.env.REPAIR_MAX_TOKENS, file.repairMaxTokens ?? 8192),
   };
+}
+
+/** Claude model ids are prefixed `claude-`; all other ids belong to OpenAI. */
+export function modelBelongsToProvider(model: string, provider: ProviderName): boolean {
+  return (model.startsWith('claude-') ? 'claude' : 'openai') === provider;
+}
+
+function assertVisionModel(provider: ProviderName, model: string, envKnob: string): string {
+  if (!modelBelongsToProvider(model, provider)) {
+    throw new Error(`${envKnob} model "${model}" does not belong to vision provider "${provider}".`);
+  }
+  return model;
+}
+
+export function resolveVisionModel(provider: ProviderName): string {
+  return assertVisionModel(provider, getModelConfig(provider).visionModel, 'FIGURE_VLM_MODEL');
+}
+
+export function resolveVisionVerifyModel(provider: ProviderName): string {
+  return assertVisionModel(
+    provider,
+    process.env.FIGURE_VLM_VERIFY_MODEL ?? resolveVisionModel(provider),
+    'FIGURE_VLM_VERIFY_MODEL',
+  );
+}
+
+export function resolveFigureDataModel(provider: ProviderName): string {
+  return assertVisionModel(
+    provider,
+    process.env.FIGURE_DATA_MODEL ?? resolveVisionModel(provider),
+    'FIGURE_DATA_MODEL',
+  );
 }
 
 export function laneCustomId(baseCustomId: string, lane: OpenAILane): string {

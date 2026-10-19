@@ -141,7 +141,7 @@ is cheaper than metered API spend.
 |---|---|
 | `FIGURE_VLM_PROVIDER` | `claude` \| `openai`. Default: whichever subscription session is present (Claude OAuth first), else any API key. |
 | `FIGURE_VLM_ROUTE` | `auto` (default) \| `subscription` \| `api`. `auto` prefers the subscription route and falls back to the API. |
-| `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `batchModel`). |
+| `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `visionModel`). A model from the other provider is refused at start-up. |
 | `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF — the model cannot pick a page it never saw. |
 | `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, a blank/uncroppable crop, or a verification rejection (default 2). |
 | `FIGURE_VLM_DPI` | PDF crop render DPI, i.e. sharpness (default 300). |
@@ -150,7 +150,7 @@ is cheaper than metered API spend.
 | `FIGURE_VLM_REFINE_PX` | Width of the pass-2 single-page render (default 2200). |
 | `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight — verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
 | `FIGURE_VLM_VERIFY` | Set `0` to disable the crop verification pass (default on). |
-| `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). |
+| `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). A model from the other provider is refused at start-up. |
 
 **Resolution vs size.** The crop is rendered at `FIGURE_VLM_DPI`, capped
 to `FIGURE_VLM_MAX_PX` on its longest side, then JPEG-encoded at
@@ -211,7 +211,7 @@ Sidecar directives (same `.focus.md` / `urls.txt` mechanism as `image:`):
 | `data: <file>.csv\|.json` | Supply the values yourself (tier `supplied`); CSV header row is `x-label,series…` and blank cells become gaps (`null`), JSON matches the neutral shape in `src/types/explainer-json.ts`. |
 
 Env knobs: `FIGURE_RECREATE` (global switch), `FIGURE_DATA_MODEL`
-(default: the vision model), `FIGURE_DATA_MAX_TOKENS` (2500),
+(default: the vision model; a model from the other provider is refused at start-up), `FIGURE_DATA_MAX_TOKENS` (2500),
 `FIGURE_DATA_MAX_ESTIMATED_POINTS` (12), `FIGURE_RECREATE_VERIFY=0` to
 skip the render-and-compare pass.
 

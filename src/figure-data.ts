@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import * as echarts from 'echarts';
 import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp } from './vision';
-import { getModelConfig } from './model-config';
+import { resolveFigureDataModel } from './model-config';
 import { renderPdfPage } from './figure-vlm';
 import type { ExplainerRecreatedFigure, RecreatedSeries } from './types/explainer-json';
 import type { RecreateDirective } from './state';
@@ -40,7 +40,7 @@ function envNum(name: string, fallback: number): number {
 }
 
 function dataModel(provider: ReturnType<typeof resolveVisionProvider>): string {
-  return process.env.FIGURE_DATA_MODEL ?? process.env.FIGURE_VLM_MODEL ?? getModelConfig(provider).batchModel;
+  return resolveFigureDataModel(provider);
 }
 
 export interface RecreateInput {
@@ -446,6 +446,7 @@ export async function recreateFigureData(input: RecreateInput): Promise<Explaine
   }
 
   const provider = resolveVisionProvider();
+  resolveFigureDataModel(provider);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-figdata-'));
   try {
     const cropPath = path.join(tmpDir, 'crop.png');

@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { runVision, resolveVisionProvider, visionAuthAvailable, cleanupTmp, downscaleLongEdge, type VisionResult } from './vision';
-import { getModelConfig } from './model-config';
+import { resolveVisionModel, resolveVisionVerifyModel } from './model-config';
 import type { ExplainerJson } from './types/explainer-json';
 import type { FigureCandidate } from './state';
 
@@ -237,7 +237,7 @@ function parseSelection(raw: string): FigureSelection | null {
 const FIGURE_ATTEMPTS = Math.max(1, Number.parseInt(process.env.FIGURE_VLM_ATTEMPTS ?? '2', 10));
 
 function visionModel(provider: ReturnType<typeof resolveVisionProvider>): string {
-  return process.env.FIGURE_VLM_MODEL ?? getModelConfig(provider).batchModel;
+  return resolveVisionModel(provider);
 }
 
 /**
@@ -330,7 +330,7 @@ async function verifyCrop(
   expectedLabel?: string,
 ): Promise<{ ok: boolean; reason: string }> {
   if (process.env.FIGURE_VLM_VERIFY === '0') return { ok: true, reason: 'verification disabled' };
-  const model = process.env.FIGURE_VLM_VERIFY_MODEL ?? visionModel(provider);
+  const model = resolveVisionVerifyModel(provider);
   const failClosed = Boolean(expectedLabel);
   const prompt = [
     'Does this image show a single complete figure (diagram, chart, schematic, or visual abstract) with no surrounding body text?',
@@ -1244,6 +1244,8 @@ export async function extractFigureViaVlm(input: VlmFigureInput): Promise<VlmFig
     return null;
   }
   const provider = resolveVisionProvider();
+  resolveVisionModel(provider);
+  resolveVisionVerifyModel(provider);
   const opts: SelectionOpts = {
     named: input.override?.source_figure,
     context: input.context,
