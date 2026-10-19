@@ -25,9 +25,9 @@ export function isPdfUrl(url: string): boolean {
 }
 
 /**
- * What the explainer already says, threaded into the selection prompt so the
- * model picks a figure that complements the article instead of duplicating
- * the charts it already contains.
+ * What the explainer already says, threaded into the selection prompt as
+ * context. Selection asks for the paper's key results figure whatever charts
+ * the explainer contains.
  */
 export interface FigureContext {
   headline?: string;
@@ -154,10 +154,8 @@ function contextBlock(context?: FigureContext): string[] {
   if (context.headline) lines.push(`- Headline: ${context.headline}`);
   if (context.subtitle) lines.push(`- Subtitle: ${context.subtitle}`);
   if (context.sectionLabels.length > 0) lines.push(`- Sections: ${context.sectionLabels.join('; ')}`);
-  if (context.chartTitles.length > 0) {
-    lines.push(`- The explainer ALREADY recreates these results as its own charts: ${context.chartTitles.join('; ')}.`);
-    lines.push('  Prefer a complementary CONCEPTUAL figure (architecture, pipeline, schematic, visual abstract) over a results plot those charts duplicate.');
-  }
+  if (context.chartTitles.length > 0) lines.push(`- Chart titles: ${context.chartTitles.join('; ')}`);
+  lines.push("Pick the paper's key results figure, the one carrying its headline finding. Only when the paper has no results figure, pick its architecture, pipeline, schematic or visual abstract instead.");
   lines.push('');
   return lines;
 }

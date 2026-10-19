@@ -286,8 +286,8 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
     : override;
   const wantCrop = recreate && !json.recreated_figure;
 
-  // Explainer context steers selection towards a figure that complements the
-  // article (the charts already recreate the headline results).
+  // Explainer context orients selection; the picker still asks for the
+  // paper's key results figure.
   const result = await extractFigureViaVlm({ pdfPath, url, override: effOverride, context: contextFromExplainer(json), snapshotCandidates, keepCropPng: wantCrop });
   if (!result) {
     if (json.image) delete json.image;

@@ -11,10 +11,10 @@ that looks at the rendered document the way a reader does.
 from `output.ts:attachFigureImage` after the JSON is parsed (and from the
 `reextract` script). Callers pass the explainer's own context (hero
 headline, subtitle, section labels, chart titles) into the selection
-prompt. Because the explainer already recreates headline results as its
-own charts, the prompt steers towards a complementary conceptual figure
-(architecture, pipeline, schematic, visual abstract) rather than a
-results plot the charts duplicate.
+prompt as context. The prompt asks for the paper's key results figure, the
+one carrying its headline finding, and falls back to a conceptual figure
+(architecture, pipeline, schematic, visual abstract) only when the paper
+has no results figure.
 
 ### PDF path: two-pass zoom-refine
 
@@ -219,12 +219,11 @@ Offline check with no vision call or batch:
 `npx ts-node scripts/smoke-figure-data.ts` exercises the supplied-data
 path, the ECharts mapper, and the SSR render.
 
-One interaction to know about: figure selection normally steers towards
-a *conceptual* figure when the explainer already has charts. With
-recreation enabled and no pinned target, the picked figure may therefore
+One interaction to know about: figure selection prefers the key results
+figure, but if the paper has none it falls back to a conceptual figure.
+With recreation enabled and no pinned target, the picked figure may then
 be a diagram with no data to recover, which correctly falls back to the
-clip. Pin the results figure with `recreate: Figure N` when you want the
-data.
+clip. Pin the figure with `recreate: Figure N` when you want specific data.
 
 ## Dependencies
 
