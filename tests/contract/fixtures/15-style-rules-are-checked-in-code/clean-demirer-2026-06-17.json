@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "AI Coding Productivity: Demirer et al. (2026)",
+    "eyebrow": "Research Explainer · Demirer et al. (2026)",
+    "date_created": "2026-06-17",
+    "filename_slug": "2026-06-17_demirer_writing-vs-shipping-code_explainer"
+  },
+  "hero": {
+    "headline": "AI writes far more code, but much less of it ever ships",
+    "headline_html": "AI writes far more code, but <span>much less of it ever ships</span>",
+    "subtitle": "Across 100,000+ GitHub developers, successive AI coding tools deliver huge task-level gains that shrink sharply as work moves toward shipped, used software.",
+    "publication_date": "Published May 2026"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "180%",
+        "description": "cumulative rise in commits once developers add autonomous async agents on top of earlier tools",
+        "accent_color": "#51cf66"
+      },
+      {
+        "number": "30%",
+        "description": "what that same gain shrinks to for actual releases, the shipped end of the production chain",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "0.25",
+        "description": "estimated elasticity of substitution between AI output and human effort, a sign of strong complementarity",
+        "accent_color": "#4dabf7"
+      }
+    ]
+  },
+  "charts": [
+    {
+      "title": "Productivity gains attenuate up the production hierarchy",
+      "caption": "Demirer, Musolff & Yang (2026), Figure 1 / Table 5. Matched event-study estimates, weeks 21-30, by tool generation. Async agents have no release estimate because they cannot ship a repository directly. Effects are cumulative across generations.",
+      "config_json": {
+        "type": "line",
+        "data": {
+          "labels": [
+            "Lines of code",
+            "Files",
+            "Commits",
+            "Pull requests",
+            "Repos",
+            "Releases"
+          ],
+          "datasets": [
+            {
+              "label": "Autocomplete",
+              "data": [
+                228.2,
+                50.8,
+                35.9,
+                11,
+                13.6,
+                10.2
+              ],
+              "borderColor": "#4dabf7",
+              "backgroundColor": "#4dabf7",
+              "tension": 0.2
+            },
+            {
+              "label": "+ Sync agent",
+              "data": [
+                741.3,
+                187,
+                109.1,
+                65.5,
+                25.5,
+                20.3
+              ],
+              "borderColor": "#ff6b6b",
+              "backgroundColor": "#ff6b6b",
+              "tension": 0.2
+            },
+            {
+              "label": "+ Async agent",
+              "data": [
+                658.3,
+                52.4,
+                33.6,
+                71.8,
+                13.8,
+                null
+              ],
+              "borderColor": "#51cf66",
+              "backgroundColor": "#51cf66",
+              "tension": 0.2
+            }
+          ]
+        },
+        "options": {
+          "scales": {
+            "y": {
+              "type": "logarithmic",
+              "title": {
+                "display": true,
+                "text": "Avg. % change after adoption"
+              }
+            },
+            "x": {
+              "title": {
+                "display": true,
+                "text": "Production layer (writing code → shipping code)"
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"line\",\"data\":{\"labels\":[\"Lines of code\",\"Files\",\"Commits\",\"Pull requests\",\"Repos\",\"Releases\"],\"datasets\":[{\"label\":\"Autocomplete\",\"data\":[228.2,50.8,35.9,11,13.6,10.2],\"borderColor\":\"#4dabf7\",\"backgroundColor\":\"#4dabf7\",\"tension\":0.2},{\"label\":\"+ Sync agent\",\"data\":[741.3,187,109.1,65.5,25.5,20.3],\"borderColor\":\"#ff6b6b\",\"backgroundColor\":\"#ff6b6b\",\"tension\":0.2},{\"label\":\"+ Async agent\",\"data\":[658.3,52.4,33.6,71.8,13.8,null],\"borderColor\":\"#51cf66\",\"backgroundColor\":\"#51cf66\",\"tension\":0.2}]},\"options\":{\"scales\":{\"y\":{\"type\":\"logarithmic\",\"title\":{\"display\":true,\"text\":\"Avg. % change after adoption\"}},\"x\":{\"title\":{\"display\":true,\"text\":\"Production layer (writing code → shipping code)\"}}}}}"
+    }
+  ],
+  "sections": [
+    {
+      "label": "The question",
+      "paragraphs_html": [
+        "Plenty of studies show that an individual AI coding tool makes a specific task faster. Far fewer ask the two questions that actually matter for the economy: do the gains keep growing as the tools get better, and does faster typing translate into more <em>finished, shipped</em> software?",
+        "Demirer, Musolff and Yang answer both using telemetry from more than 100,000 GitHub developers, combined with internal Microsoft data on Copilot usage. Their trick is a matched event study: each developer who adopts a tool is paired with a similar developer from exactly one year earlier, sidestepping the contamination from rivals who quietly adopted AI without leaving a public trace.",
+        "Software is a clean test bed because production runs through a well-defined ladder: lines of code become files, files become commits, commits become pull requests, pull requests become projects, and projects become releases. You can measure productivity at every rung."
+      ],
+      "paragraphs": [
+        "Plenty of studies show that an individual AI coding tool makes a specific task faster. Far fewer ask the two questions that actually matter for the economy: do the gains keep growing as the tools get better, and does faster typing translate into more finished, shipped software?",
+        "Demirer, Musolff and Yang answer both using telemetry from more than 100,000 GitHub developers, combined with internal Microsoft data on Copilot usage. Their trick is a matched event study: each developer who adopts a tool is paired with a similar developer from exactly one year earlier, sidestepping the contamination from rivals who quietly adopted AI without leaving a public trace.",
+        "Software is a clean test bed because production runs through a well-defined ladder: lines of code become files, files become commits, commits become pull requests, pull requests become projects, and projects become releases. You can measure productivity at every rung."
+      ]
+    },
+    {
+      "label": "Three generations of tools",
+      "paragraphs": [
+        "The paper tracks AI coding assistants across three waves, each more autonomous than the last. Crucially, later tools are adopted on top of earlier ones, so the effects below are cumulative."
+      ],
+      "list": {
+        "ordered": true,
+        "style": "steps",
+        "items": [
+          {
+            "label": "Autocomplete",
+            "body": "Suggests code as you type, launched with GitHub Copilot in 2022. It only augments the developer at the code-writing layer. Effect on commits: about 40%."
+          },
+          {
+            "label": "Sync agents",
+            "body": "Write and edit code across files in real time while you watch and approve, such as Claude Code or Cursor. Cumulative effect on commits rises to roughly 140%."
+          },
+          {
+            "label": "Async agents",
+            "body": "Take a high-level task and work autonomously, returning a pull request for review, such as the GitHub coding agent or OpenAI Codex. Cumulative effect reaches about 180% through agent-authored commits."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Big at the keyboard, small at the shipping dock",
+      "paragraphs_html": [
+        "Here is the headline finding. Whatever the tool, the effect is enormous where code is written and tiny where it ships. Sync agents lift lines of code by 741% but releases by only 20%. Autocomplete shows the same shape: 228% on lines of code, 36% on commits, just 10% on releases.",
+        "The chart above plots this decay across all six layers. The lines drop steeply and most of the loss happens at the very first rung above where the tool operates. The pattern is not an artifact of verbose AI code either: higher-level units like commits and pull requests are not inflated by verbosity, and average lines-per-commit does not fall after adoption.",
+        "Async agents break monotonicity in one telling way. Their effect on pull requests (72%) is larger than on commits (34%), because they create pull requests autonomously rather than merely passing an upstream gain through. The bottleneck, in other words, is creeping up the chain as the tools get more capable."
+      ],
+      "paragraphs": [
+        "Here is the headline finding. Whatever the tool, the effect is enormous where code is written and tiny where it ships. Sync agents lift lines of code by 741% but releases by only 20%. Autocomplete shows the same shape: 228% on lines of code, 36% on commits, just 10% on releases.",
+        "The chart above plots this decay across all six layers. The lines drop steeply and most of the loss happens at the very first rung above where the tool operates. The pattern is not an artifact of verbose AI code either: higher-level units like commits and pull requests are not inflated by verbosity, and average lines-per-commit does not fall after adoption.",
+        "Async agents break monotonicity in one telling way. Their effect on pull requests (72%) is larger than on commits (34%), because they create pull requests autonomously rather than merely passing an upstream gain through. The bottleneck, in other words, is creeping up the chain as the tools get more capable."
+      ]
+    },
+    {
+      "label": "A weak link in the production chain",
+      "paragraphs_html": [
+        "To explain the decay, the authors build a layered production model where each rung combines the output below it with fresh human effort through a CES function. The key parameter is the elasticity of substitution between AI-generated output and human review effort. When the two are complements, even infinite upstream automation yields only finite final output, the vertical version of the classic <em>weak-link</em> or O-ring logic from growth theory.",
+        "Calibrating the model to the autocomplete data gives an elasticity of about 0.25 and an upstream weight of about 0.75. That is firmly in complements territory: a flood of code is worth little without commensurate review, integration and release effort, which humans still supply at unchanged speed. The per-tool numbers below show the same steep gradient holds whichever tool you pick."
+      ],
+      "table": {
+        "caption": "Demirer, Musolff & Yang (2026), Table 5. Sync-effect estimates by tool across the production hierarchy (weeks 21-30, % change).",
+        "columns": [
+          "Layer",
+          "Claude Code",
+          "GitHub Sync",
+          "OpenAI Codex"
+        ],
+        "rows": [
+          [
+            "Lines changed",
+            "981.2",
+            "470.9",
+            "792.6"
+          ],
+          [
+            "Distinct files",
+            "288.4",
+            "106.2",
+            "186.4"
+          ],
+          [
+            "Commits",
+            "199.2",
+            "42.7",
+            "94.3"
+          ],
+          [
+            "Pull requests",
+            "145.5",
+            "21.4",
+            "61.8"
+          ],
+          [
+            "Distinct repos",
+            "49.2",
+            "11.3",
+            "14.6"
+          ],
+          [
+            "Releases",
+            "29.2",
+            "1.3",
+            "0.2"
+          ]
+        ],
+        "align": [
+          "left",
+          "right",
+          "right",
+          "right"
+        ]
+      },
+      "paragraphs": [
+        "To explain the decay, the authors build a layered production model where each rung combines the output below it with fresh human effort through a CES function. The key parameter is the elasticity of substitution between AI-generated output and human review effort. When the two are complements, even infinite upstream automation yields only finite final output, the vertical version of the classic weak-link or O-ring logic from growth theory.",
+        "Calibrating the model to the autocomplete data gives an elasticity of about 0.25 and an upstream weight of about 0.75. That is firmly in complements territory: a flood of code is worth little without commensurate review, integration and release effort, which humans still supply at unchanged speed. The per-tool numbers below show the same steep gradient holds whichever tool you pick."
+      ]
+    },
+    {
+      "label": "More apps, same number of users",
+      "paragraphs_html": [
+        "Does any of this reach consumers? The authors assemble panels for four marketplaces: the Apple App Store, Google Play, the Chrome Web Store and SourceForge. New app creation has clearly accelerated since mid-2025, sharply on iOS (roughly 30,000-50,000 to about 100,000 new apps a month) and Chrome, mildly on Google Play, and not at all on SourceForge.",
+        "But total usage in an app's first three months has not risen in any marketplace. The share of new apps that fail to reach even a modest audience climbed instead, from about 79% to 86% on iOS and from 18% to 31% on Chrome. That rules out both blockbuster gains and a long-tail surplus story, and rules out a better-matching story too. The supply-side flood is concentrated in software almost nobody uses.",
+        "The authors are careful: barely a year of post-launch data exists, and they cannot fully separate a quality drop from a demand-side discovery bottleneck. Either way, the marketplace result is the aggregate echo of the developer-level one. Writing code got cheap. Shipping code that people actually use did not."
+      ],
+      "paragraphs": [
+        "Does any of this reach consumers? The authors assemble panels for four marketplaces: the Apple App Store, Google Play, the Chrome Web Store and SourceForge. New app creation has clearly accelerated since mid-2025, sharply on iOS (roughly 30,000-50,000 to about 100,000 new apps a month) and Chrome, mildly on Google Play, and not at all on SourceForge.",
+        "But total usage in an app's first three months has not risen in any marketplace. The share of new apps that fail to reach even a modest audience climbed instead, from about 79% to 86% on iOS and from 18% to 31% on Chrome. That rules out both blockbuster gains and a long-tail surplus story, and rules out a better-matching story too. The supply-side flood is concentrated in software almost nobody uses.",
+        "The authors are careful: barely a year of post-launch data exists, and they cannot fully separate a quality drop from a demand-side discovery bottleneck. Either way, the marketplace result is the aggregate echo of the developer-level one. Writing code got cheap. Shipping code that people actually use did not."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "KEY CONTRIBUTION",
+    "body": "Successive AI coding tools deliver large and growing task-level productivity gains, but those gains attenuate sharply as work moves up the production hierarchy toward shipped software. The pattern is consistent with a weak-link production function (estimated elasticity of substitution of 0.25), implying that the binding constraint is shifting from writing code to reviewing, integrating and distributing it."
+  },
+  "references": [
+    "Demirer, M., Musolff, L., & Yang, L. (2026). Writing Code vs. Shipping Code: Productivity Effects Across Generations of AI Coding Tools. <em>NBER Working Paper</em>, No. 35275. <a href=\"http://www.nber.org/papers/w35275\" target=\"_blank\" rel=\"noopener noreferrer\">http://www.nber.org/papers/w35275</a>"
+  ],
+  "chart": {
+    "title": "Productivity gains attenuate up the production hierarchy",
+    "caption": "Demirer, Musolff & Yang (2026), Figure 1 / Table 5. Matched event-study estimates, weeks 21-30, by tool generation. Async agents have no release estimate because they cannot ship a repository directly. Effects are cumulative across generations.",
+    "config_json": {
+      "type": "line",
+      "data": {
+        "labels": [
+          "Lines of code",
+          "Files",
+          "Commits",
+          "Pull requests",
+          "Repos",
+          "Releases"
+        ],
+        "datasets": [
+          {
+            "label": "Autocomplete",
+            "data": [
+              228.2,
+              50.8,
+              35.9,
+              11,
+              13.6,
+              10.2
+            ],
+            "borderColor": "#4dabf7",
+            "backgroundColor": "#4dabf7",
+            "tension": 0.2
+          },
+          {
+            "label": "+ Sync agent",
+            "data": [
+              741.3,
+              187,
+              109.1,
+              65.5,
+              25.5,
+              20.3
+            ],
+            "borderColor": "#ff6b6b",
+            "backgroundColor": "#ff6b6b",
+            "tension": 0.2
+          },
+          {
+            "label": "+ Async agent",
+            "data": [
+              658.3,
+              52.4,
+              33.6,
+              71.8,
+              13.8,
+              null
+            ],
+            "borderColor": "#51cf66",
+            "backgroundColor": "#51cf66",
+            "tension": 0.2
+          }
+        ]
+      },
+      "options": {
+        "scales": {
+          "y": {
+            "type": "logarithmic",
+            "title": {
+              "display": true,
+              "text": "Avg. % change after adoption"
+            }
+          },
+          "x": {
+            "title": {
+              "display": true,
+              "text": "Production layer (writing code → shipping code)"
+            }
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"line\",\"data\":{\"labels\":[\"Lines of code\",\"Files\",\"Commits\",\"Pull requests\",\"Repos\",\"Releases\"],\"datasets\":[{\"label\":\"Autocomplete\",\"data\":[228.2,50.8,35.9,11,13.6,10.2],\"borderColor\":\"#4dabf7\",\"backgroundColor\":\"#4dabf7\",\"tension\":0.2},{\"label\":\"+ Sync agent\",\"data\":[741.3,187,109.1,65.5,25.5,20.3],\"borderColor\":\"#ff6b6b\",\"backgroundColor\":\"#ff6b6b\",\"tension\":0.2},{\"label\":\"+ Async agent\",\"data\":[658.3,52.4,33.6,71.8,13.8,null],\"borderColor\":\"#51cf66\",\"backgroundColor\":\"#51cf66\",\"tension\":0.2}]},\"options\":{\"scales\":{\"y\":{\"type\":\"logarithmic\",\"title\":{\"display\":true,\"text\":\"Avg. % change after adoption\"}},\"x\":{\"title\":{\"display\":true,\"text\":\"Production layer (writing code → shipping code)\"}}}}}"
+  }
+}
