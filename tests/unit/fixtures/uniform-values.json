@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "metadata": { "title": "Uniform fixture", "eyebrow": "Test Research Explainer", "date_created": "2026-10-19", "filename_slug": "uniform-values" },
+  "hero": { "headline": "Uniform values", "headline_html": "Uniform values", "subtitle": "Invented values for unit tests." },
+  "top_block": { "kind": "pills", "pills": [{ "number": "4", "description": "equal values", "accent_color": "#336699" }, { "number": "1", "description": "dataset", "accent_color": "#993366" }] },
+  "charts": [{ "title": "Uniform values", "caption": "An invented uniform series.", "config_json": { "type": "bar", "data": { "labels": ["A", "B", "C", "D"], "datasets": [{ "label": "Synthetic", "data": [2, 2, 2, 2] }] }, "options": {} }, "config_raw": "" }],
+  "sections": [{ "label": "Method", "paragraphs": ["All values are invented."] }],
+  "end_takeaway": { "label": "Takeaway", "body": "This fixture is for tests." },
+  "references": ["<a href=\"https://example.test/reference\">Synthetic reference</a>"]
+}

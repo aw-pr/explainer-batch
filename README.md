@@ -67,7 +67,7 @@ entirely optional.
 
 ## Prerequisites
 
-- **Node 20+** (`.nvmrc` pins 20; `package.json` enforces `engines`).
+- **Node 22+** (`.nvmrc` pins 22; `package.json` enforces `engines`).
 - **One provider credential**: an Anthropic or OpenAI API key, a Claude
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
 - **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
@@ -142,6 +142,7 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file |
 | `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run figure extraction and patch an existing JSON in place |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
+| `npm test` | Run the offline unit-test suite under `tests/unit/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
 | `npm run guards:install` | Arm the local publish git hooks (contributors) |
 
@@ -295,8 +296,11 @@ land in both repos.
 ```bash
 npm run typecheck      # tsc --noEmit
 npm run build          # compile to dist/
+npm test               # run unit tests
 npm run guards:install # arm local publish hooks (one-time, per clone)
 ```
+
+Contract tests under `tests/contract/` are run one file at a time by the stage that owns them and are not part of `npm test`.
 
 `state.json` is auto-managed; do not hand-edit. Agent guidance lives in
 `AGENTS.md`; Claude Code specifics in `CLAUDE.md`. The private-work →

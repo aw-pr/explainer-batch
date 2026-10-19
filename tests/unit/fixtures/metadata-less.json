@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "hero": { "headline": "Metadata-less fixture", "headline_html": "Metadata-less fixture", "subtitle": "Invented values for unit tests." },
+  "top_block": { "kind": "pills", "pills": [{ "number": "0", "description": "metadata fields", "accent_color": "#336699" }, { "number": "1", "description": "test case", "accent_color": "#993366" }] },
+  "charts": [{ "title": "Invented values", "caption": "A synthetic chart.", "config_json": { "type": "bar", "data": { "labels": ["A", "B"], "datasets": [{ "label": "Synthetic", "data": [4, 9] }] }, "options": {} }, "config_raw": "" }],
+  "sections": [{ "label": "Method", "paragraphs": ["All values are invented."] }],
+  "end_takeaway": { "label": "Takeaway", "body": "This fixture is for tests." },
+  "references": ["<a href=\"https://example.test/reference\">Synthetic reference</a>"]
+}

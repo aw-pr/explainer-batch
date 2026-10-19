@@ -15,7 +15,7 @@
     "explainer"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "process": "ts-node src/index.ts process",
@@ -28,6 +28,7 @@
     "reextract": "ts-node scripts/reextract-figure.ts",
     "export-html": "ts-node scripts/export-html.ts",
     "typecheck": "tsc --noEmit",
+    "test": "TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test \"tests/unit/**/*.test.ts\"",
     "smoke": "ts-node scripts/smoke-models.ts",
     "build": "tsc",
     "guards:install": "bash ./scripts/install-guards.sh"

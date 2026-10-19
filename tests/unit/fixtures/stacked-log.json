@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "metadata": { "title": "Stacked logarithmic fixture", "eyebrow": "Test Research Explainer", "date_created": "2026-10-19", "filename_slug": "stacked-log" },
+  "hero": { "headline": "Stacked logarithmic values", "headline_html": "Stacked logarithmic values", "subtitle": "Invented values for unit tests." },
+  "top_block": { "kind": "pills", "pills": [{ "number": "2", "description": "synthetic datasets", "accent_color": "#336699" }, { "number": "2", "description": "stacked axes", "accent_color": "#993366" }] },
+  "charts": [{ "title": "Stacked bars", "caption": "An invented stacked logarithmic chart.", "config_json": { "type": "bar", "data": { "labels": ["A", "B", "C"], "datasets": [{ "label": "First", "data": [1, 10, 100] }, { "label": "Second", "data": [2, 20, 200] }] }, "options": { "scales": { "x": { "stacked": true }, "y": { "stacked": true, "type": "logarithmic" } } } }, "config_raw": "" }],
+  "sections": [{ "label": "Method", "paragraphs": ["All values are invented."] }],
+  "end_takeaway": { "label": "Takeaway", "body": "This fixture is for tests." },
+  "references": ["<a href=\"https://example.test/reference\">Synthetic reference</a>"]
+}
