@@ -170,8 +170,12 @@ function lanePrompt(lane: OpenAILane): string {
 }
 
 function useOpenAILanes(): boolean {
-  const raw = (process.env.OPENAI_USE_LANES ?? '1').toLowerCase();
-  return !(raw === '0' || raw === 'false' || raw === 'no');
+  const raw = process.env.OPENAI_USE_LANES?.toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function missingLanes(laneMap: Partial<Record<OpenAILane, string>> | undefined): OpenAILane[] {
+  return OPENAI_LANES.filter(lane => !laneMap || !(lane in laneMap));
 }
 
 function sourceReferenceText(item: InputItem): string {
@@ -672,14 +676,15 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     if (req.type !== 'explainer') continue;
 
     const laneMap = laneTextByPaper.get(customId);
-    if (!laneMap) {
+    const missing = missingLanes(laneMap);
+    if (missing.length > 0) {
       req.result = 'errored';
-      req.error = 'No lane outputs available for synthesis';
+      req.error = `Lane(s) failed: ${missing.join(', ')}`;
       continue;
     }
 
     const laneBody = OPENAI_LANES
-      .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+      .map(lane => `## ${lane}\n${laneMap![lane]}`)
       .join('\n\n');
 
     const userInstruction = buildUserInstruction(expectedDate, req.focusHint);
@@ -835,8 +840,16 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
           }
         }
 
+        const missing = missingLanes(laneMap);
+        if (missing.length > 0) {
+          req.result = 'errored';
+          req.error = `Lane(s) failed: ${missing.join(', ')}`;
+          console.error(`  ✗ ${customId} — ${req.error}`);
+          continue;
+        }
+
         const laneBody = OPENAI_LANES
-          .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+          .map(lane => `## ${lane}\n${laneMap[lane]}`)
           .join('\n\n');
 
         synthesis = await client.createMessage(
@@ -1078,8 +1091,16 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
           }
         }
 
+        const missing = missingLanes(laneMap);
+        if (missing.length > 0) {
+          req.result = 'errored';
+          req.error = `Lane(s) failed: ${missing.join(', ')}`;
+          console.error(`  ✗ ${item.customId} — ${req.error}`);
+          continue;
+        }
+
         const laneBody = OPENAI_LANES
-          .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+          .map(lane => `## ${lane}\n${laneMap[lane]}`)
           .join('\n\n');
 
         synthesis = await client.createMessage(

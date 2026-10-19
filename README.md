@@ -198,6 +198,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `OPENAI_API_KEY` | OpenAI batch / API | unset |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Max/Pro sync route | unset |
 | `PROVIDER` | Default provider when no `--provider` flag | `claude` |
+| `OPENAI_USE_LANES` | OpenAI lane mode: `1` splits each paper into four lanes; a failed lane fails that paper | unset: one call per paper with the full document |
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
 | `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
@@ -226,7 +227,7 @@ Fable runs once per paper, so its cost multiplies by paper count.
 |---|---|---|
 | Claude batch | `ANTHROPIC_API_KEY` | 50% discount, ~1h turnaround |
 | Claude sync | `CLAUDE_CODE_OAUTH_TOKEN` | Max/Pro quota; mixed OAuth+API-key env is rejected |
-| OpenAI batch | `OPENAI_API_KEY` | semantic-lane extraction + synthesis |
+| OpenAI batch | `OPENAI_API_KEY` | one explainer request per paper |
 | OpenAI sync | Codex CLI auth (no key fetched) or `OPENAI_API_KEY` | fast single runs, no batch wait |
 
 1Password is optional and orthogonal to the route: see the headless route
@@ -237,9 +238,9 @@ above and `docs/SECURITY.md`.
 ## How it works
 
 1. **Preprocess**: read local PDFs and the optional URL list.
-2. **Submit**: Claude sends one explainer request per paper. OpenAI runs
-   semantic lane extraction (`methods/results/limitations/implications`) with a
-   smaller lane model.
+2. **Submit**: Claude and OpenAI each send one explainer request per paper.
+   Set `OPENAI_USE_LANES=1` to opt into OpenAI's four-lane split
+   (`methods/results/limitations/implications`); a failed lane fails that paper.
 3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
    (skipped for `--sync`).
 4. **Synthesis + save**: OpenAI runs a second synthesis stage; all providers
