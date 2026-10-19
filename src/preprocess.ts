@@ -3,6 +3,7 @@ import path from 'path';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
 import type { FigureCandidate, RecreateDirective } from './state';
+import { isPdfUrl } from './figure-vlm';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
@@ -43,7 +44,7 @@ export interface InputItem {
 }
 
 export interface ImageOverride {
-  source_figure: string;
+  source_figure?: string;
   caption?: string;
   alt_text?: string;
   /** Optional 1-based page hint that short-circuits caption search in figure-extract. */
@@ -64,7 +65,7 @@ function normalizeFigureLabel(raw: string): string {
     : trimmed.replace(/^figure/i, 'Figure');
 }
 
-function parseFocusDirectives(raw: string): FocusDirectives {
+export function parseFocusDirectives(raw: string): FocusDirectives {
   const lines = raw.split('\n');
   const remaining: string[] = [];
   let sourceFigure: string | undefined;
@@ -75,6 +76,7 @@ function parseFocusDirectives(raw: string): FocusDirectives {
   let recreateX: string | undefined;
   let recreateY: string | undefined;
   let dataFile: string | undefined;
+  let sawImageKey = false;
 
   const figDirective = /^\s*image\s*:\s*((?:figure|fig\.?)\s*\d+(?:\.\d+)?[a-z]?)\s*$/i;
   const captionDirective = /^\s*image[_-]caption\s*:\s*(.+?)\s*$/i;
@@ -89,16 +91,18 @@ function parseFocusDirectives(raw: string): FocusDirectives {
     let m = line.match(figDirective);
     if (m) {
       sourceFigure = normalizeFigureLabel(m[1]);
+      sawImageKey = true;
       continue;
     }
     m = line.match(captionDirective);
-    if (m) { caption = m[1]; continue; }
+    if (m) { caption = m[1]; sawImageKey = true; continue; }
     m = line.match(altDirective);
-    if (m) { altText = m[1]; continue; }
+    if (m) { altText = m[1]; sawImageKey = true; continue; }
     m = line.match(pageHintDirective);
     if (m) {
       const n = Number.parseInt(m[1].trim(), 10);
       if (Number.isFinite(n) && n > 0) pageHint = n;
+      sawImageKey = true;
       continue;
     }
     m = line.match(recreateDirective);
@@ -109,11 +113,16 @@ function parseFocusDirectives(raw: string): FocusDirectives {
     if (m) { recreateY = m[1]; continue; }
     m = line.match(dataDirective);
     if (m) { dataFile = m[1]; continue; }
+    const unknownImageKey = line.match(/^\s*(image_[^:\s]*)\s*:/i);
+    if (unknownImageKey) {
+      console.warn(`  ⚠ unrecognised image directive: ${unknownImageKey[1]}`);
+      continue;
+    }
     remaining.push(line);
   }
 
   const focusHint = remaining.join('\n').trim() || undefined;
-  const imageOverride = sourceFigure
+  const imageOverride = sawImageKey
     ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint }
     : undefined;
 
@@ -153,6 +162,13 @@ function splitUrlAndFocus(line: string): FocusDirectives & { url: string } {
   return { url: m[1], ...parsed };
 }
 
+function imageOverrideLog(override: ImageOverride): string {
+  if (override.source_figure) return `image override: ${override.source_figure}`;
+  if (override.pageHint) return `image override: page hint ${override.pageHint}`;
+  if (override.caption || override.alt_text) return 'image override: caption or alt text';
+  return 'image override';
+}
+
 // Sanitising + truncating filenames/URLs can collapse distinct inputs onto
 // the same customId, which would silently overwrite one request with the
 // other. Suffix deterministically (-2, -3, ...) within the length budget.
@@ -164,11 +180,6 @@ function dedupeCustomId(base: string, used: Set<string>, maxLen: number): string
   }
   used.add(id);
   return id;
-}
-
-function isPdfUrl(url: string): boolean {
-  const lower = url.toLowerCase().split('?')[0];
-  return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
 }
 
 function extractTagAttr(tag: string, name: string): string | undefined {
@@ -539,7 +550,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
     });
     const flags = [
       focusHint ? 'focus hint loaded' : null,
-      imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+      imageOverride ? imageOverrideLog(imageOverride) : null,
       recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
     ].filter(Boolean).join('; ');
     console.log(`  ✓ ${filename} (${sizeKb} KB)${flags ? `  [${flags}]` : ''}`);
@@ -592,7 +603,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,
-        imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+        imageOverride ? imageOverrideLog(imageOverride) : null,
         recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
       ].filter(Boolean).join('; ');
       console.log(`  ✓ URL queued → ${url}${flags ? `  [${flags}]` : ''}`);

@@ -105,6 +105,9 @@ specific figure, `image_caption:` / `image_alt:` override the
 model-supplied text, and `image_page_hint:` biases the selection prompt
 towards a page without constraining it.
 
+A PDF URL source is downloaded to a temporary file and follows the PDF path;
+HTML URL sources continue through the existing snapshot and live-page paths.
+
 **Pinning means "this figure or nothing."** A retry after a failed crop
 may re-crop the pinned figure, but a selection that names a *different*
 figure, or names no figure at all, is rejected outright (drift guard, on
@@ -257,8 +260,6 @@ is a soft page hint; the figure label pins a specific figure.
   existing JSON leaves the previous caption/alt unless `--caption` /
   `--alt` are passed; it should refresh them from the new selection by
   default.
-- **Per-page point sizes.** `pageSizePts` reads the first page's size and
-  assumes uniform geometry; mixed-size PDFs could crop slightly off.
 - **Candidate shortlist for PDFs.** A cheap first pass could narrow large
   PDFs to a few candidate pages before the full selection call, to cut
   tokens on the subscription route.

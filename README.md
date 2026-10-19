@@ -167,15 +167,15 @@ For a PDF at `input/my-paper.pdf`, an optional sidecar at
 `input/my-paper.focus.md` lets you steer one paper without touching the global
 prompt. Structured directive lines are stripped before the model sees the
 prose; the remainder is appended verbatim to the user message under the
-heading `READER EMPHASIS FOR THIS PAPER`. Malformed directive lines are
-ignored silently.
+heading `READER EMPHASIS FOR THIS PAPER`. Each `image_*` directive works on
+its own. Unknown `image_*` directives are warned about and ignored.
 
 | Directive | Purpose |
 |---|---|
-| `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). Omit to let the vision model choose. |
-| `image_caption: …` | Override the caption attached to the lead image |
-| `image_alt: …` | Override the alt text for the lead image |
-| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
+| `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). This works on its own. |
+| `image_caption: …` | Override the caption attached to the lead image. This works on its own. |
+| `image_alt: …` | Override the alt text for the lead image. This works on its own. |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
 | `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
 | `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
 | `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |

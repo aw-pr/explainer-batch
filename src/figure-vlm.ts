@@ -19,6 +19,11 @@ export interface ImageOverride {
   pageHint?: number;
 }
 
+export function isPdfUrl(url: string): boolean {
+  const lower = url.toLowerCase().split('?')[0];
+  return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
+}
+
 /**
  * What the explainer already says, threaded into the selection prompt so the
  * model picks a figure that complements the article instead of duplicating
@@ -471,14 +476,16 @@ function pngSizePx(pngPath: string): { w: number; h: number } | null {
   }
 }
 
-function pageSizePts(pdfPath: string): { w: number; h: number } | null {
-  const result = spawnSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
+function pageSizePts(pdfPath: string, page: number): { w: number; h: number } | null {
+  const result = spawnSync('pdfinfo', ['-f', String(page), '-l', String(page), pdfPath], { encoding: 'utf8' });
   if (result.error || result.status !== 0) return null;
-  const m = result.stdout.match(/Page size:\s*([\d.]+)\s+x\s+([\d.]+)\s+pts/i);
+  const m = result.stdout.match(/(?:Page\s+\d+\s+)?size:\s*([\d.]+)\s+x\s+([\d.]+)\s+pts/i);
   if (!m) return null;
   const w = Number.parseFloat(m[1]);
   const h = Number.parseFloat(m[2]);
-  return w > 0 && h > 0 ? { w, h } : null;
+  const rotation = result.stdout.match(/(?:Page\s+\d+\s+)?rot:\s*(\d+)/i);
+  const rotated = rotation && (Number.parseInt(rotation[1], 10) === 90 || Number.parseInt(rotation[1], 10) === 270);
+  return w > 0 && h > 0 ? (rotated ? { w: h, h: w } : { w, h }) : null;
 }
 
 function pageCount(pdfPath: string): number | null {
@@ -586,7 +593,7 @@ function encodeJpegDataUrl(pngPath: string): string | null {
  * encoding), or null when the crop fails or looks blank.
  */
 function cropPdfBboxPng(pdfPath: string, page: number, bbox: [number, number, number, number], outDir: string, pad = CROP_PAD): string | null {
-  const size = pageSizePts(pdfPath);
+  const size = pageSizePts(pdfPath, page);
   if (!size) return null;
   const [x0, y0, x1, y1] = padBbox(bbox, pad);
   const ptsToPx = CROP_DPI / 72;
@@ -1248,6 +1255,20 @@ export async function extractFigureViaVlm(input: VlmFigureInput): Promise<VlmFig
   try {
     if (input.pdfPath && fs.existsSync(input.pdfPath)) {
       return await extractFromPdf(input.pdfPath, provider, opts, keepCrop);
+    }
+    if (input.url && isPdfUrl(input.url)) {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-vlm-pdf-url-'));
+      try {
+        const response = await fetch(input.url);
+        if (!response.ok) return null;
+        const pdfPath = path.join(tmpDir, 'source.pdf');
+        fs.writeFileSync(pdfPath, Buffer.from(await response.arrayBuffer()));
+        return await extractFromPdf(pdfPath, provider, opts, keepCrop);
+      } catch {
+        return null;
+      } finally {
+        cleanupTmp(tmpDir);
+      }
     }
     if (input.url) {
       if (input.snapshotCandidates?.length) {

@@ -171,7 +171,7 @@ function resolveSourcePdf(customId: string): string | null {
   return null;
 }
 
-function lookupImageOverride(customId: string): { source_figure: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
+function lookupImageOverride(customId: string): { source_figure?: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
   try {
     const state = readState();
     // Iterate newest-first: when a paper is re-run, the most recent batch's

@@ -63,7 +63,7 @@ export interface RequestState {
   usage?: TokenUsage;
   focusHint?: string;
   imageOverride?: {
-    source_figure: string;
+    source_figure?: string;
     caption?: string;
     alt_text?: string;
     pageHint?: number;
