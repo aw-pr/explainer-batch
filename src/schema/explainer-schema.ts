@@ -5,7 +5,8 @@
  *
  * This deliberately DIVERGES from the canonical `ExplainerJson` type
  * (`src/types/explainer-json.ts`, the saved-artifact / website contract) in
- * two ways, both required by OpenAI's strict structured-output subset:
+ * the ways below (the first two are required by OpenAI's strict
+ * structured-output subset):
  *
  *   1. `chart.config_json` is emitted as a STRINGIFIED Chart.js config
  *      (`{type:'string'}`) here, not an object. `src/output.ts` parses it
@@ -13,6 +14,8 @@
  *      still matches `ExplainerJson.config_json: unknown | null`.
  *   2. `image.src` is omitted entirely — the model must never emit it. It is
  *      filled in post-hoc by `attachFigureImage` (`src/output.ts`).
+ *   3. `metadata.quality` is omitted entirely: code writes it at save time
+ *      (the validation result); the model must never emit it.
  *
  * The strict subset also requires, on every object: `additionalProperties:false`
  * and every property listed in `required` (optional fields are expressed as

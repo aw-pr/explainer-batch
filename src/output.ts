@@ -6,6 +6,7 @@ import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { recreateFigureData } from './figure-data';
 import { readState, type FigureCandidate, type RecreateDirective } from './state';
 import { htmlToPlain } from './text';
+import { validateJsonOutput } from './quality';
 import { loadDotEnv } from './env';
 
 // Fill-only .env load must run before the path consts below read process.env.
@@ -445,6 +446,8 @@ export interface RunProvenance {
   model?: string;
   /** Dispatch route: batch API vs synchronous single request. */
   runMode?: 'sync' | 'batch';
+  /** Date the request was submitted (YYYY-MM-DD); the date the saved explainer is validated against. */
+  expectedDate?: string;
   /** First author's surname, detected deterministically upstream. Stamps the byline when the model drops or placeholders it. */
   detectedSurname?: string;
   /** Publication date ("Published Month Year") detected from source metadata. Authoritative over the model's guess. */
@@ -526,17 +529,25 @@ function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): 
 export async function saveResult(customId: string, rawText: string, provenance?: RunProvenance): Promise<SaveResult> {
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  let json: ExplainerJson;
-  try {
-    const parsed = extractJson(rawText);
-    json = normalizeExplainerJson(parsed as ExplainerJson);
-  } catch {
-    // Non-parseable output — save the raw text as a .txt for inspection
+  const keepRawOutput = (): string => {
     const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
     const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
     fs.writeFileSync(errFile, rawText, 'utf8');
-    throw new Error(`JSON parse failed; raw output saved to ${path.basename(errFile)}`);
+    return path.basename(errFile);
+  };
+
+  let parsed: unknown;
+  try {
+    parsed = extractJson(rawText);
+  } catch {
+    // Non-parseable output — save the raw text as a .txt for inspection
+    throw new Error(`JSON parse failed; raw output saved to ${keepRawOutput()}`);
   }
+  const candidate = parsed as { metadata?: unknown } | null;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate) || !candidate.metadata || typeof candidate.metadata !== 'object' || Array.isArray(candidate.metadata)) {
+    throw new Error(`Output has no metadata object; raw output saved to ${keepRawOutput()}`);
+  }
+  const json = normalizeExplainerJson(parsed as ExplainerJson);
 
   if (provenance) stampProvenanceByline(json, provenance);
   if (provenance?.model) json.metadata.model = provenance.model;
@@ -549,6 +560,15 @@ export async function saveResult(customId: string, rawText: string, provenance?:
   } catch (err) {
     console.warn(`  ⚠ ${customId}: figure attachment failed, saving without an image (${err instanceof Error ? err.message : String(err)})`);
     if (json.image) delete json.image;
+  }
+
+  const { quality: _previousQuality, ...validatable } = json.metadata;
+  const dateCreated = typeof json.metadata.date_created === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(json.metadata.date_created) ? json.metadata.date_created : undefined;
+  const expectedDate = provenance?.expectedDate ?? dateCreated ?? new Date().toISOString().slice(0, 10);
+  const validation = validateJsonOutput({ ...json, metadata: validatable }, { expectedDate });
+  json.metadata.quality = { issues: validation.issues, needs_review: validation.issues.length > 0 };
+  if (json.metadata.quality.needs_review) {
+    console.warn(`  ⚠ ${customId}: saved with ${validation.issues.length} validation issue(s), flagged needs_review`);
   }
 
   const filename = deriveFilename(customId, json);
