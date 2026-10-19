@@ -6,7 +6,7 @@ import type { ExplainerJson } from './types/explainer-json';
 export const MAX_REPAIR_ATTEMPTS = 2;
 
 export interface RepairResult {
-  html: string;
+  text: string;
   usage?: ProviderMessageResponse;
 }
 
@@ -21,24 +21,46 @@ export async function repairUntilValid({
   expectedDate,
   repair,
 }: RepairUntilValidOptions): Promise<RepairResult> {
-  let currentText = rawText;
-  let usage: ProviderMessageResponse | undefined;
+  let bestText = rawText;
+  let bestIssueCount: number;
 
-  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    let parsed: ExplainerJson;
-    try {
-      parsed = canonicaliseExplainerJson(extractJson(currentText) as ExplainerJson);
-    } catch {
-      return { html: currentText };
-    }
-
+  try {
+    const parsed = canonicaliseExplainerJson(extractJson(bestText) as ExplainerJson);
     const validation = validateJsonOutput(parsed, { expectedDate });
-    if (validation.ok || attempt === MAX_REPAIR_ATTEMPTS) return { html: currentText, usage };
-
-    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
-    usage = await repair(buildRepairInstruction(validation.issues, expectedDate), currentText);
-    currentText = usage.text;
+    if (validation.ok) return { text: bestText };
+    bestIssueCount = validation.issues.length;
+  } catch {
+    return { text: bestText };
   }
 
-  return { html: currentText, usage };
+  let usage: ProviderMessageResponse | undefined;
+
+  for (let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt += 1) {
+    const parsed = canonicaliseExplainerJson(extractJson(bestText) as ExplainerJson);
+    const validation = validateJsonOutput(parsed, { expectedDate });
+    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
+
+    const reply = await repair(buildRepairInstruction(validation.issues, expectedDate), bestText);
+    usage = usage
+      ? {
+        ...reply,
+        inputTokens: usage.inputTokens + reply.inputTokens,
+        outputTokens: usage.outputTokens + reply.outputTokens,
+      }
+      : reply;
+
+    try {
+      const repaired = canonicaliseExplainerJson(extractJson(reply.text) as ExplainerJson);
+      const repairedValidation = validateJsonOutput(repaired, { expectedDate });
+      if (repairedValidation.issues.length < bestIssueCount) {
+        bestText = reply.text;
+        bestIssueCount = repairedValidation.issues.length;
+        if (repairedValidation.ok) break;
+      }
+    } catch {
+      // Keep the best parseable candidate and try another repair.
+    }
+  }
+
+  return { text: bestText, usage };
 }

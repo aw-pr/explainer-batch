@@ -567,7 +567,7 @@ async function collectClaude(batchState: BatchState): Promise<void> {
         entry.text ?? '',
         expectedDate
       );
-      const saved = await finalizeResult(entry.customId, repaired.html, req, freshBatch.model || modelConfig.batchModel, 'batch');
+      const saved = await finalizeResult(entry.customId, repaired.text, req, freshBatch.model || modelConfig.batchModel, 'batch');
       savedResults.push(saved);
 
       req.result = 'succeeded';
@@ -631,7 +631,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           entry.text ?? '',
           expectedDate
         );
-        const saved = await finalizeResult(entry.customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'batch');
+        const saved = await finalizeResult(entry.customId, repaired.text, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'batch');
         savedResults.push(saved);
         req.result = 'succeeded';
         req.output = saved.jsonFile;
@@ -776,7 +776,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
         entry.text ?? '',
         expectedDate
       );
-      const saved = await finalizeResult(entry.customId, repaired.html, req, synthesisModel, 'batch');
+      const saved = await finalizeResult(entry.customId, repaired.text, req, synthesisModel, 'batch');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -913,7 +913,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
         expectedDate
       );
 
-      const saved = await finalizeResult(customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
+      const saved = await finalizeResult(customId, repaired.text, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -983,7 +983,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
         response.text,
         expectedDate
       );
-      const saved = await finalizeResult(item.customId, repaired.html, req, modelConfig.synthesisModel, 'sync');
+      const saved = await finalizeResult(item.customId, repaired.text, req, modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -1164,7 +1164,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
         expectedDate
       );
 
-      const saved = await finalizeResult(item.customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
+      const saved = await finalizeResult(item.customId, repaired.text, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
