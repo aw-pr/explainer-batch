@@ -60,6 +60,7 @@ All files listed here must be created or modified, except the frozen contract te
 - The route tag stays as today on every path (`batch` for the three batch collectors, `sync` for both sync runners and for `collectOpenAILocal`). Changing the codex local batch's tag is not part of this card.
 - Do not move stamping before validation (a separate review finding, `src/output.ts:531`), and do not change what `stampProvenanceByline` writes.
 - No provider-specific provenance handling: one helper for all six paths.
+- Card 04 (queued earlier) passes `expectedDate` from the provenance into `saveResult` for its quality date check. `finalizeResult` must carry `expectedDate` through on every path, persisting it in `RequestState` alongside the `detected*` fields, so that check does not silently become a no-op. `tests/contract/04-saved-explainers-record-their-quality-issues.test.ts` must stay green after this card.
 - No comment or string in `src/` may contain the literal text `saveResult(` outside the one real call, because the contract test counts call sites by that text.
 - Existing `state.json` files written before this card (requests without the new fields) must still load and collect; the fields are optional.
 - No network and no paid API calls while working; the contract test stubs the providers.
