@@ -70,6 +70,11 @@ export interface RequestState {
   };
   figureCandidates?: FigureCandidate[];
   recreate?: RecreateDirective;
+  /** Submit date (YYYY-MM-DD) the quality date check compares against. */
+  expectedDate?: string;
+  detectedSurname?: string;
+  detectedPublished?: string;
+  detectedReference?: string;
 }
 
 export interface BatchState {

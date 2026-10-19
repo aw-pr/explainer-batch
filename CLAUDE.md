@@ -36,8 +36,11 @@ content across three files and it drifted; keep it single-source.)
   results), gitignored, never hand-edited.
 - **Model defaults**: `src/model-config.ts`. Claude: batch/lane/synthesis
   `claude-opus-4-8`, repair `claude-sonnet-5-5`.
-- **Output post-processing**: every save path funnels through `saveResult`
-  (`src/output.ts`): `normalizeSchemaDrift` then `attachFigureImage`. Opus
+- **Output post-processing**: every save path in `src/batch.ts` goes through
+  `finalizeResult`, which stamps the detected provenance (author, date and
+  reference, persisted on the request in `state.json` at submit, so batch and
+  sync save the same JSON) and then calls `saveResult` (`src/output.ts`):
+  `normalizeSchemaDrift` then `attachFigureImage`. Opus
   consistently emits `paragraphs_html`/`heading` variants; the normaliser
   derives the canonical fields. Fix drift there, not in the prompt.
 

@@ -225,7 +225,30 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     imageOverride: req.imageOverride,
     figureCandidates: req.figureCandidates,
     recreate: req.recreate,
+    detectedSurname: req.detectedSurname,
+    detectedPublished: req.detectedPublished,
+    detectedReference: req.detectedReference,
   };
+}
+
+function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedSurname' | 'detectedPublished' | 'detectedReference'> {
+  return {
+    expectedDate,
+    detectedSurname: item.detectedSurname,
+    detectedPublished: item.detectedPublished,
+    detectedReference: item.detectedReference,
+  };
+}
+
+async function finalizeResult(customId: string, rawText: string, req: RequestState, model: string, runMode: 'sync' | 'batch'): Promise<SaveResult> {
+  return saveResult(customId, rawText, {
+    model,
+    runMode,
+    expectedDate: req.expectedDate,
+    detectedSurname: req.detectedSurname,
+    detectedPublished: req.detectedPublished,
+    detectedReference: req.detectedReference,
+  });
 }
 
 async function maybeRepairClaude(
@@ -333,6 +356,7 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
         imageOverride: item.imageOverride,
         figureCandidates: item.figureCandidates,
         recreate: item.recreate,
+        ...provenanceFields(item, expectedDate),
       } satisfies RequestState])
     ),
   };
@@ -357,6 +381,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
       recreate: item.recreate,
+      ...provenanceFields(item, expectedDate),
     };
     if (lanesEnabled) {
       for (const lane of OPENAI_LANES) {
@@ -539,7 +564,7 @@ async function collectClaude(batchState: BatchState): Promise<void> {
         entry.text ?? '',
         expectedDate
       );
-      const saved = await saveResult(entry.customId, repaired.html, { model: freshBatch.model || modelConfig.batchModel, runMode: 'batch', expectedDate });
+      const saved = await finalizeResult(entry.customId, repaired.html, req, freshBatch.model || modelConfig.batchModel, 'batch');
       savedResults.push(saved);
 
       req.result = 'succeeded';
@@ -603,7 +628,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           entry.text ?? '',
           expectedDate
         );
-        const saved = await saveResult(entry.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'batch', expectedDate });
+        const saved = await finalizeResult(entry.customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'batch');
         savedResults.push(saved);
         req.result = 'succeeded';
         req.output = saved.jsonFile;
@@ -748,7 +773,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
         entry.text ?? '',
         expectedDate
       );
-      const saved = await saveResult(entry.customId, repaired.html, { model: synthesisModel, runMode: 'batch', expectedDate });
+      const saved = await finalizeResult(entry.customId, repaired.html, req, synthesisModel, 'batch');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -885,7 +910,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
         expectedDate
       );
 
-      const saved = await saveResult(customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', expectedDate, detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
+      const saved = await finalizeResult(customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -955,7 +980,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
         response.text,
         expectedDate
       );
-      const saved = await saveResult(item.customId, repaired.html, { model: modelConfig.synthesisModel, runMode: 'sync', expectedDate, detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
+      const saved = await finalizeResult(item.customId, repaired.html, req, modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -1136,7 +1161,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
         expectedDate
       );
 
-      const saved = await saveResult(item.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', expectedDate, detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
+      const saved = await finalizeResult(item.customId, repaired.html, req, freshBatch.synthesis_model ?? modelConfig.synthesisModel, 'sync');
       savedResults.push(saved);
       req.result = 'succeeded';
       req.output = saved.jsonFile;
@@ -1202,6 +1227,7 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
       recreate: item.recreate,
+      ...provenanceFields(item, dateFromIso(batchState.submitted_at)),
     };
     if (provider === 'openai' && lanesEnabled) {
       for (const lane of OPENAI_LANES) {
