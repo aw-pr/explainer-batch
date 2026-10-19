@@ -1,6 +1,7 @@
 /**
  * MODEL-FACING JSON Schema for the explainer output, used to enforce
- * structured output at the API layer (OpenAI `text.format:{type:'json_schema'}`
+ * structured output at the API layer (OpenAI requests `text.format` with
+ * `type:'json_schema'` and `strict:true`
  * and Claude's forced-tool `input_schema`).
  *
  * This deliberately DIVERGES from the canonical `ExplainerJson` type

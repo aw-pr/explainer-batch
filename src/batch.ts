@@ -12,7 +12,7 @@ import { exportHtmlForJsonFiles } from './html-export';
 import { calcCost, formatUsd, BATCH_DISCOUNT } from './pricing';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
-import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
+import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, openAIJsonSchemaFormat, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
 import { repairUntilValid, type RepairResult } from './repair';
 import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
 
@@ -467,7 +467,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
             instructions: buildSystemPrompt(),
             input: [{ role: 'user' as const, content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction) }],
             ...(structuredOutputEnabled()
-              ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+              ? { text: { format: openAIJsonSchemaFormat(EXPLAINER_JSON_SCHEMA) } }
               : {}),
           },
         }));
@@ -727,7 +727,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
         }],
         ...(structuredOutputEnabled()
-          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+          ? { text: { format: openAIJsonSchemaFormat(EXPLAINER_JSON_SCHEMA) } }
           : {}),
       },
     }));

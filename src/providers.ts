@@ -60,6 +60,23 @@ export interface OpenAIBatchResultItem {
   error?: string;
 }
 
+function assertCompleteResponse(
+  provider: ProviderName,
+  response: { truncated: boolean; reason?: string | null },
+): void {
+  if (response.truncated) {
+    throw new Error(`${provider} response incomplete: ${response.reason ?? 'unknown reason'}`);
+  }
+}
+
+function assertClaudeResponseComplete(response: { stop_reason?: string | null }): void {
+  const reason = response.stop_reason;
+  assertCompleteResponse('claude', {
+    truncated: reason === 'max_tokens' || reason === 'model_context_window_exceeded',
+    reason,
+  });
+}
+
 const CODEX_AUTH_FILE = path.join(os.homedir(), '.codex', 'auth.json');
 
 function readCodexAuth(): Record<string, unknown> | null {
@@ -219,6 +236,16 @@ export class ClaudeProvider {
       }
 
       const message = item.result.message;
+      try {
+        assertClaudeResponseComplete(message);
+      } catch (error) {
+        yield {
+          customId: item.custom_id,
+          type: 'errored',
+          error: error instanceof Error ? error.message : String(error),
+        };
+        continue;
+      }
       const text = extractClaudeText(message.content);
       yield {
         customId: item.custom_id,
@@ -259,6 +286,7 @@ export class ClaudeProvider {
     } as never);
     const resp = await stream.finalMessage();
 
+    assertClaudeResponseComplete(resp);
     const text = extractClaudeText(resp.content);
 
     return {
@@ -333,9 +361,22 @@ interface ResponsesOutputItem {
 }
 
 interface ResponsesBody {
+  status?: string;
+  incomplete_details?: { reason?: string | null };
   output_text?: string;
   output?: ResponsesOutputItem[];
   usage?: ResponseUsage;
+}
+
+export function openAIJsonSchemaFormat(schema: Record<string, unknown>) {
+  return { type: 'json_schema' as const, name: 'explainer' as const, strict: true as const, schema };
+}
+
+function assertOpenAIResponseComplete(body: ResponsesBody): void {
+  assertCompleteResponse('openai', {
+    truncated: body.status === 'incomplete',
+    reason: body.incomplete_details?.reason ?? body.status,
+  });
 }
 
 export class OpenAIProvider {
@@ -470,16 +511,41 @@ export class OpenAIProvider {
     if (batch.outputFileId) {
       const content = await this.requestText('GET', `/files/${batch.outputFileId}/content`);
       for (const line of content.split('\n').map(s => s.trim()).filter(Boolean)) {
-        const row = JSON.parse(line) as { custom_id?: string; response?: { body?: ResponsesBody }; error?: { message?: string } };
+        const row = JSON.parse(line) as {
+          custom_id?: string;
+          response?: { status_code?: number; body?: ResponsesBody & { error?: { message?: string } } };
+          error?: { message?: string } | null;
+        };
         if (!row.custom_id) continue;
         if (row.error) {
           yield { customId: row.custom_id, type: 'errored', error: row.error.message ?? 'Unknown OpenAI batch error' };
           continue;
         }
 
-        const body = row.response?.body;
+        const response = row.response;
+        const body = response?.body;
         if (!body) {
           yield { customId: row.custom_id, type: 'errored', error: 'Missing response body' };
+          continue;
+        }
+
+        if (typeof response.status_code === 'number' && (response.status_code < 200 || response.status_code >= 300)) {
+          yield {
+            customId: row.custom_id,
+            type: 'errored',
+            error: `HTTP ${response.status_code}: ${body.error?.message ?? 'Unknown OpenAI batch error'}`,
+          };
+          continue;
+        }
+
+        try {
+          assertOpenAIResponseComplete(body);
+        } catch (error) {
+          yield {
+            customId: row.custom_id,
+            type: 'errored',
+            error: error instanceof Error ? error.message : String(error),
+          };
           continue;
         }
 
@@ -519,10 +585,11 @@ export class OpenAIProvider {
         instructions,
         input,
         ...(jsonSchema && structuredOutputEnabled()
-          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: jsonSchema } } }
+          ? { text: { format: openAIJsonSchemaFormat(jsonSchema) } }
           : {}),
       }) as ResponsesBody;
 
+      assertOpenAIResponseComplete(body);
       return {
         text: extractOutputText(body),
         inputTokens: Number(body.usage?.input_tokens ?? 0),
