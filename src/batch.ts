@@ -10,10 +10,10 @@ import { buildSystemPrompt, buildUserInstruction } from './prompt';
 import { saveResult, OUTPUT_DIR, type SaveResult } from './output';
 import { exportHtmlForJsonFiles } from './html-export';
 import { calcCost, formatUsd, BATCH_DISCOUNT } from './pricing';
-import { buildRepairInstruction, validateJsonOutput } from './quality';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
 import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
+import { repairUntilValid, type RepairResult } from './repair';
 import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
 
 // Optional shared batch-dashboard integration. Defaults to `<repo>/jobs`;
@@ -34,7 +34,6 @@ const POLL_SYNTH_INITIAL_WAIT_MS = 90_000; // synthesis batches are smaller/fast
 const POLL_MAX_TOTAL_MS = 12 * 60 * 60_000;
 const POLL_MAX_CONSECUTIVE_ERRORS = 5;
 const POLL_ERROR_BACKOFF_CAP_MS = 8 * 60_000;
-const MAX_REPAIR_ATTEMPTS = 2;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
@@ -80,11 +79,6 @@ async function pollUntilEnded(
     console.log(`  Next ${label} poll in ${Math.round(waitMs / 1000)}s…`);
     await sleep(waitMs);
   }
-}
-
-interface RepairResult {
-  html: string;
-  usage?: ProviderMessageResponse;
 }
 
 function dateFromIso(value: string): string {
@@ -238,34 +232,16 @@ async function maybeRepairClaude(
   rawText: string,
   expectedDate: string
 ): Promise<RepairResult> {
-  let currentText = rawText;
-  let usage: ProviderMessageResponse | undefined;
-
-  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    let parsed: unknown;
-    try {
-      const { extractJson, normalizeSchemaDrift } = await import('./output');
-      parsed = extractJson(currentText);
-      normalizeSchemaDrift(parsed as never);
-    } catch {
-      return { html: currentText }; // unparseable — saveResult will handle the error
-    }
-
-    const validation = validateJsonOutput(parsed, { expectedDate });
-    if (validation.ok) return { html: currentText, usage };
-    if (attempt === MAX_REPAIR_ATTEMPTS) return { html: currentText, usage };
-
-    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
-    const repairSystem = buildRepairInstruction(validation.issues, expectedDate);
-    if (authMode === 'claude_cli') {
-      usage = await client.createMessageViaCli(repairModel, repairSystem, currentText);
-    } else {
-      usage = await client.createMessage(repairModel, repairMaxTokens, repairSystem, currentText, false, EXPLAINER_JSON_SCHEMA);
-    }
-    currentText = usage.text;
-  }
-
-  return { html: currentText, usage };
+  return repairUntilValid({
+    rawText,
+    expectedDate,
+    repair: async (repairSystem, text) => {
+      if (authMode === 'claude_cli') {
+        return client.createMessageViaCli(repairModel, repairSystem, text);
+      }
+      return client.createMessage(repairModel, repairMaxTokens, repairSystem, text, false, EXPLAINER_JSON_SCHEMA);
+    },
+  });
 }
 
 async function maybeRepairOpenAI(
@@ -275,36 +251,18 @@ async function maybeRepairOpenAI(
   rawText: string,
   expectedDate: string
 ): Promise<RepairResult> {
-  let currentText = rawText;
-  let usage: ProviderMessageResponse | undefined;
-
-  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    let parsed: unknown;
-    try {
-      const { extractJson, normalizeSchemaDrift } = await import('./output');
-      parsed = extractJson(currentText);
-      normalizeSchemaDrift(parsed as never);
-    } catch {
-      return { html: currentText };
-    }
-
-    const validation = validateJsonOutput(parsed, { expectedDate });
-    if (validation.ok) return { html: currentText, usage };
-    if (attempt === MAX_REPAIR_ATTEMPTS) return { html: currentText, usage };
-
-    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
-    usage = await client.createMessage(
+  return repairUntilValid({
+    rawText,
+    expectedDate,
+    repair: (repairSystem, text) => client.createMessage(
       repairModel,
       repairMaxTokens,
-      buildRepairInstruction(validation.issues, expectedDate),
-      [{ role: 'user', content: [{ type: 'input_text', text: currentText }] }],
+      repairSystem,
+      [{ role: 'user', content: [{ type: 'input_text', text }] }],
       false,
-      EXPLAINER_JSON_SCHEMA
-    );
-    currentText = usage.text;
-  }
-
-  return { html: currentText, usage };
+      EXPLAINER_JSON_SCHEMA,
+    ),
+  });
 }
 
 function applyUsage(

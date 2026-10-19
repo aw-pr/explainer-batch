@@ -378,7 +378,7 @@ function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): nu
   return max;
 }
 
-function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
+export function canonicaliseExplainerJson(json: ExplainerJson): ExplainerJson {
   stripSchemaNulls(json);
   normalizeSchemaDrift(json);
   const legacyChart = isRecord(json.chart) ? normalizeChartEntry(json.chart) : undefined;
@@ -389,6 +389,16 @@ function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
     : [];
 
   const candidates = charts.length > 0 ? charts : legacyChart ? [legacyChart] : [];
+
+  json.charts = candidates.length > 0 ? candidates : undefined;
+  json.chart = candidates[0] ?? undefined;
+
+  return json;
+}
+
+function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
+  canonicaliseExplainerJson(json);
+  const candidates = json.charts ?? [];
 
   // Drop information-poor charts (longest series < MIN_CHART_POINTS).
   const kept = candidates.filter((c) => {

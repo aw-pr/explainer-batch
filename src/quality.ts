@@ -254,6 +254,9 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
     if (!('config_json' in chart) && !isNonEmptyString(chart['config_raw'])) {
       issues.push(`charts[${i}] must include config_json or config_raw.`);
     }
+    if (typeof chart['config_json'] === 'string') {
+      issues.push(`charts[${i}].config_json is not a valid JSON object.`);
+    }
     for (const issue of chartDataIssues(chart, i)) issues.push(issue);
   });
   if (j['chart'] != null && !isRecord(j['chart'])) {
