@@ -8,7 +8,7 @@
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/19-design-chart-value-gate
-- **Worker effort:** high
+- **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Gate:** stage-completed: 16-design-content-contract-v2
@@ -174,3 +174,15 @@ Return the standard envelope with:
 
 - **Codex (worker):** workspace-write is enough; it permits reading `../promo-flow` and the main checkout's gitignored `input/_held/` through `../explainer-batch`, and running `pdftotext`. No network. Commit the document yourself, authored with `git commit --author="$(agent-whoami)"`.
 - **Claude (verifier):** runs unsandboxed; re-runs the `pdftotext` checks against `../explainer-batch/input/_held/` and makes no network calls.
+
+## Re-brief 2026-10-20 (attempt 2)
+
+Attempt 1 (WIP preserved at `1aab9a9` on `wip/19-design-chart-value-gate-attempt-1`) passed every criterion except 14, 16 and 17. The verifier's findings are correct; its full report is `state/verifiers/19-design-chart-value-gate.json`. The document is otherwise sound, so **do not rewrite it**: from current `dev`, run `git checkout 1aab9a9be03eb11630869d7f70f918bea674e61a -- docs/design/chart-value-gate.md` and fix only what follows. Line numbers refer to the attempt-1 document.
+
+1. **D11: one verdict contract, producer and consumer agree (criterion 14).** The import lint and `check:contract` (`:553-561`, and W-card outcome `:909`) fail a non-legacy kept chart that has no recorded gate verdict, but the gate writes no `dropped` entry for a kept chart and writes its verdict to `issues` only in report-only mode (`:456-459`); Q14 (`:843`) defers a structured record without resolving this. A chart saved after enforcement is enabled therefore fails the lint. Pick one rule: either the gate always records a verdict for every kept chart (say where, in every mode), or the lint checks something the gate does produce (for example re-running `gateCharts()` with no page text, as `:909` already does). Make D11's row, the gate's output section, the lint section and Q14 tell the same story.
+2. **Use only fields stage 16 defines (criterion 16).** `:389` detects stacking from `series[].stack` on the v2 chart, but stage 16's v2 chart has no such field: series are `{name, values?, points?, source}` (`docs/design/content-contract-v2.md:326`) and stacking is `kind: stacked_bar` (`:322`). Detect v2 stacking from `kind` alone, keep the v1 `dataset.stack` check, and check every other v2 field this document reads against `docs/design/content-contract-v2.md`. A field stage 16 lacks goes in Open questions as a stage-16 follow-up, like the existing deferrals at `:840-843`.
+3. **W7 runs on input that still has the charts it counts (criterion 17).** W7's sweep expects 67 rows including 12 code-only legacy and 5 banned-type charts, but it depends on stage 16's `the-archives-are-rewritten-to-v2`, which drops exactly those charts (`docs/design/content-contract-v2.md:747`, `:997-1001`). The sweep is also meant to inform that migration (`:569-573`) while depending on its completion. Run the sweep on the pre-migration live JSON (or a named snapshot of it) and drop the dependency on the archive rewrite, or move it after the rewrite with an outcome counted on migrated files. Either way, the order, the counts and the "informs the migration" claim must agree.
+
+**Self-audit before returning.** For every Wn card, check (a) its outcome command passes after only its own Files change on top of its dependencies, on the input that exists at that point, (b) every dependency appears earlier in the list, (c) every v2 field the document reads exists in `docs/design/content-contract-v2.md`. Quote the audit as a table in the envelope's `notes`.
+
+All other deliverables, constraints and acceptance criteria stand. Worker effort is lowered to medium for this narrow fix, per Autometta's effort rule.
