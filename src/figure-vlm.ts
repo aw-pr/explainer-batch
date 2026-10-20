@@ -181,7 +181,7 @@ function pageHintLine(pageHint?: number): string[] {
   return [`The user suggests the figure is on page ${pageHint}. Check that page first, but choose a better figure elsewhere if that page has none.`, ''];
 }
 
-function selectionPrompt(opts: SelectionOpts): string {
+export function selectionPrompt(opts: SelectionOpts): string {
   const target = opts.named
     ? `The explainer requires a specific figure: "${opts.named}". Locate exactly that figure.`
     : 'No specific figure was requested, so choose the one figure that best illustrates the work.';
@@ -192,6 +192,7 @@ function selectionPrompt(opts: SelectionOpts): string {
     ...pageHintLine(opts.pageHint),
     ...previousBlock(opts.prev),
     'Each page image is preceded by its label ("Page N of M"); use those labels for the "page" field.',
+    'Caption rules: use British spelling and no em dashes. The plain-words gloss must not change what the statistic means.',
     '',
     'Return ONLY this JSON (no prose, no code fence):',
     '{',
@@ -817,7 +818,7 @@ interface CandidateSelection {
   confidence?: number;
 }
 
-function candidatePrompt(opts: SelectionOpts, count: number): string {
+export function candidatePrompt(opts: SelectionOpts, count: number): string {
   const target = opts.named
     ? `The explainer requires a specific figure: "${opts.named}". Choose the candidate showing exactly that figure.`
     : 'No specific figure was requested, so choose the candidate that best illustrates the work.';
@@ -827,6 +828,7 @@ function candidatePrompt(opts: SelectionOpts, count: number): string {
     ...contextBlock(opts.context),
     ...previousBlock(opts.prev),
     `You are shown ${count} candidate images, labelled "Candidate 1" to "Candidate ${count}".`,
+    'Caption rules: use British spelling and no em dashes. The plain-words gloss must not change what the statistic means.',
     '',
     'Return ONLY this JSON (no prose, no code fence):',
     '{',

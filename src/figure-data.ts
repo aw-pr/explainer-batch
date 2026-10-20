@@ -171,7 +171,7 @@ const EXTRACTION_SYSTEM =
   'number came from. "Not recoverable" is a correct and common answer; a ' +
   'plausible-but-wrong chart is far worse than no chart. Reply with ONLY a JSON object.';
 
-function extractionPrompt(input: RecreateInput, hasPages: boolean): string {
+export function extractionPrompt(input: RecreateInput, hasPages: boolean): string {
   const label = input.directive?.target ?? input.sourceFigure;
   const lines: string[] = [
     label
@@ -192,6 +192,7 @@ function extractionPrompt(input: RecreateInput, hasPages: boolean): string {
     '2. Only if a series has no printed numbers may you ESTIMATE values by reading positions against the axes, and only when the figure is a simple discrete chart (bars, a few labelled points) where each value can be read confidently to within ~2% of the axis range. Mark such a series "provenance": "estimated" and describe how you read it in "source".',
     '3. Return "recoverable": false when data cannot be recovered honestly: dense or overlapping line plots, unlabelled log axes, shaded error bands, too many points to read, or a figure that is not a data chart at all. State why in "reason".',
     '4. Never invent, interpolate, or smooth values. Never pad a series to look complete. A partial but honest series set is fine.',
+    'Caption rules: use British spelling and no em dashes. The plain-words gloss must not change what the statistic means.',
     '',
     'Return ONLY this JSON (no prose, no code fence):',
     '{',

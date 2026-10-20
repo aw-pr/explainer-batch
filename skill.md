@@ -153,7 +153,7 @@ Architecture, systems-design, framework, and position papers *tend* toward table
 
 Use any Chart.js type the data calls for: grouped bar, stacked bar, line, radar, scatter. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
 
-**Captions are for the glancing reader — translate, don't cite.** When a chart (or the pill set) leans on a statistical construct — a CCDF/`1 − F(x)`, a shape or tail parameter, a hazard rate, an elasticity, a log axis, confidence bands — the caption must do two things in plain words: (a) open with a one-sentence *how to read it* stating what a single point on the chart literally means, and (b) end with the takeaway a busy reader should leave with. Never use a symbol or technical term in a caption, axis label, or pill description that the same text does not translate ("α = 0.92" needs "the only project type where huge overruns are so common the average stops working", not just "median Pareto tail parameter"). The audience includes readers who could follow the full paper but came here for the glanceable version — serve them first.
+**Captions are for the glancing reader: translate, don't cite.** When a chart (or the pill set) leans on a statistical construct (a CCDF/`1 − F(x)`, a shape or tail parameter, a hazard rate, an elasticity, a log axis, confidence bands), the caption must do two things in plain words: (a) open with a one-sentence *how to read it* stating what a single point on the chart literally means, and (b) end with the takeaway a busy reader should leave with. Never use a symbol or technical term in a caption, axis label, or pill description that the same text does not translate. For example: "For a Pareto tail, α = 0.92 means the model allows overruns large enough that its theoretical mean is not finite." This describes the size of extreme overruns under that model, not how often projects overrun. The plain-words gloss must not change what the statistic means. The audience includes readers who could follow the full paper but came here for the glanceable version; serve them first.
 
 **Choose the chart type by trigger, not default.** Bar is not the safe pick; match the shape of the data:
 
@@ -218,34 +218,35 @@ Prose sections may refer to figures by number so the reader can find them in the
 
 ## Headline rules
 
-Plain-text lead clause + `, ` + contrast clause. Wrap the key phrase after the comma in `<span>` in `headline_html` only.
+State the paper's main finding in plain text. Use "X, but Y" only when the finding is a contrast. Wrap the key phrase in `<span>` in `headline_html` only.
+
+Illustrative example of a contrasting finding (not a claim about a real study):
 
 ```
-"headline":      "AI makes novice developers faster, but quietly stops them from learning",
-"headline_html": "AI makes novice developers faster, but <span>quietly stops them from learning</span>"
+"headline":      "The method improves accuracy, but takes longer to run",
+"headline_html": "The method improves accuracy, but <span>takes longer to run</span>"
 ```
 
 - Use a comma before `but` / `yet` / `while`.
 - No semicolons.
-- No em dashes (— is banned anywhere in the document).
 
 ---
 
 ## Writing the prose
 
-Write like a well-edited long-form blog post. Second person is fine where it helps. Concrete numbers, plain explanations of jargon on first use, 2–3 short paragraphs per section. A reader who never opens the PDF should understand the paper's contribution in under four minutes.
+Apply these rules in ranked order:
 
-**Plain terms are the default register, not a garnish.** Assume an intelligent reader from outside the field: every technical term either earns its place (glossed in plain English on first use) or gets replaced with the plain phrase outright. One idea per sentence; break anything over about 28 words. Prefer concrete subjects and active verbs ("the model memorises the benchmark", not "benchmark contamination is exhibited"). If a sentence would need re-reading, rewrite it. The test: read each paragraph aloud; if it sounds like a paper abstract rather than a person explaining something, redo it.
-
-**Voice:** Professional-informal. Serious ideas, light touch. British dry wit and understatement. Assertive: take positions, state findings directly. Mix short punchy sentences with longer analytical ones. Close each section and the `end_takeaway` on a reversal or a quiet punchline, never a summary restating what was just said (no "In summary", no recap sentences, no trailing observations).
-
-**Hard rules:**
-- No em dashes anywhere. Use a comma, parenthesis, or restructure.
-- British English spelling throughout: colour, behaviour, analyse, optimise, and the other -ise verbs.
-- No corporate jargon: leverage, ecosystem, robust, seamless, pain points, bandwidth (metaphorical), synergy, circle back.
-- No AI tell-tales: delve, it's worth noting, in conclusion, fascinating, certainly, unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry.
-- No hedging openers ("In today's rapidly changing world...").
-- No rhetorical questions as section labels.
+1. **Faithful.** State only what the paper supports. No invented statistics, quotes, metaphors or conclusions. Match the paper's own confidence and hedges.
+2. **Headlines and pills claim no more than the body.** Every number in them appears in the body. Make no claims about other researchers' motives or the whole field, such as "nobody", "pretending" or "not even close".
+3. **Plain English.** Gloss each technical or statistical term on first use, including in pills. Write for an intelligent reader from outside the field.
+4. **One idea per sentence**, about 28 words at most. Prefer concrete subjects and active verbs.
+5. **Lead each section with its finding.** Use the rest of the section to explain the evidence and its limits.
+6. **End a section on its most useful specific finding, number or caveat.** No recap and no manufactured twist. Use at most one figurative line per article; analogies only where they explain a mechanism.
+7. **`end_takeaway` is the plain "so what" with the key number.** Summary is allowed.
+8. **Tone is calm and neutral; dry at most.** No jokes.
+9. **Templates are capped.** Use ", not Y" at most twice per article. No "It is not X. It is Y." couplets; no verbless fragment closers.
+10. **Headline contrast.** Use "X, but Y" only when the finding is a contrast.
+11. **Hard floor.** Use British English throughout: colour, behaviour, analyse, optimise and other -ise verbs. No em dashes; use a comma, parenthesis or restructure. Banned words and phrases: leverage, ecosystem, robust, seamless, pain points, bandwidth (metaphorical), synergy, circle back, delve, it's worth noting, in conclusion, fascinating, certainly, unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry. No hedging openers such as "In today's rapidly changing world...". No rhetorical questions as section labels.
 
 ---
 
@@ -262,6 +263,4 @@ Write like a well-edited long-form blog post. Second person is fine where it hel
 - [ ] No `image` field is emitted. The image block is attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a per-paper sidecar); the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
 - [ ] `references` follows the single-entry rule above: one entry, anchor with `target="_blank"` and `rel="noopener noreferrer"`, no cited-work bibliography.
-- [ ] No em dashes, corporate jargon, or AI tell-tales in prose (the banned lists include unlock, game-changer, cutting-edge, "navigate the complexities", "testament to", tapestry).
-- [ ] British English spelling throughout (colour, behaviour, -ise verbs).
-- [ ] Every section and the `end_takeaway` closes on a reversal or a quiet punchline, not a recap sentence ("In summary" and restatement closers are out).
+- [ ] All text meets the hard floor in rule 11 of "Writing the prose".
