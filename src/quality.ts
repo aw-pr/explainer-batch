@@ -1,4 +1,5 @@
 import type { ExplainerJson } from './types/explainer-json';
+import { lintStyle } from './style-lint';
 
 export interface JsonValidation {
   ok: boolean;
@@ -290,6 +291,10 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
         issues.push(`references[${i}] contains a bare URL outside an anchor tag.`);
       }
     });
+  }
+
+  for (const issue of lintStyle(json)) {
+    issues.push(`style (${issue.check}) at ${issue.path}: ${issue.message}`);
   }
 
   return { ok: issues.length === 0, issues };
