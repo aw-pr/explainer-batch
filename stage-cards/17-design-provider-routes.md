@@ -4,15 +4,15 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
-- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
+- **Worker:** GPT-6 Astra <gpt-6-astra@local>
+- **Verifier:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Base branch:** dev
 - **Run branch:** autometta/17-design-provider-routes
 - **Worker effort:** xhigh
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/provider-routes.md
-- **Pairing rationale:** The provider abstraction decides the shape of most wave-2 code in `src/batch.ts`, `src/providers.ts`, `src/vision.ts`, `src/state.ts` and `src/pricing.ts`, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs. The four design cards (16 to 19) share this pairing; they claim disjoint paths, so they do not alternate worker family.
+- **Pairing rationale:** The provider abstraction decides the shape of most wave-2 code in `src/batch.ts`, `src/providers.ts`, `src/vision.ts`, `src/state.ts` and `src/pricing.ts`, so it gets a frontier design tier. Re-paired on 2026-10-20 to spread load across providers: the worker is GPT-6 Astra (frontier reasoning) and the verifier is from the other family (Claude Opus 5.5), judgement-capable as a prose stage needs. Stages 16 and 18 keep a Fable 5.1 worker, so the worker family alternates across 16 to 19; the four claim disjoint paths.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -166,17 +166,18 @@ Prose-only stage: the deliverable is a design document, so there is nothing exec
 
 - **Worker wall-clock:** 120 minutes
 - **Verifier wall-clock:** 45 minutes
-- **Spend basis:** Fable 5.1 worker median 11M tokens per design card in the promo-flow cost log; Astra verifier median 2.6M tokens. This card reads the most code of the four (about 3,000 lines across seven files), so expect the worker above the median.
+- **Spend basis:** Astra worker median 6.8M tokens in the promo-flow cost log (a design card runs higher; budget about 11M, the Fable design-card median); Opus 5.5 verifier median 2.6M tokens. This card reads the most code of the four (about 3,000 lines across seven files), so expect the worker above the median.
 
 ## Dispatch envelope
 
 Return the standard envelope with:
 - `status`: pass or fail.
-- `commit`: the commit SHA on `autometta/17-design-provider-routes` that adds the document, authored as `Claude Fable 5.1 <claude-fable-5-1@local>`.
+- `commit`: the commit SHA on `autometta/17-design-provider-routes` that adds the document, authored as `GPT-6 Astra <gpt-6-astra@local>`.
 - `deliverables`: `docs/design/provider-routes.md`.
 - `evidence`: the output of acceptance commands 1 to 10 as you ran them before committing, and of command 11 after committing.
 - `notes`: the Wn list (ids and slugs only), every question deferred to the operator, and any wave-1 change you found on your base that altered a defect in the table.
 
 ## Family-specific notes
 
-None. The worker is a Claude role and reads the sibling mcp-hub checkout directly. The verifier (Codex harness) runs under workspace-write, which permits reading `../mcp-hub` and running `codex exec --help`; no criterion needs the network.
+- **Codex (worker):** workspace-write is enough; it permits reading the sibling `../mcp-hub` checkout and running `codex exec --help`. No network. Commit the document yourself, authored with `git commit --author="$(agent-whoami)"`.
+- **Claude (verifier):** runs unsandboxed; reads `../mcp-hub` directly and makes no network calls.

@@ -12,7 +12,7 @@
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/figure-locator.md
-- **Pairing rationale:** The figure pipeline replaces most of a 1,222-line module, and its design choices (which tool finds which region) decide whether wave 2 works, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the poppler commands the evaluation set relies on. The four design cards (16 to 19) share this pairing; they claim disjoint paths, so they do not alternate worker family.
+- **Pairing rationale:** The figure pipeline replaces most of a 1,222-line module, and its design choices (which tool finds which region) decide whether wave 2 works, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the poppler commands the evaluation set relies on. On 2026-10-20 stages 17 and 19 were re-paired to a GPT-6 Astra worker with a Claude Opus 5.5 verifier to spread load across providers, so the worker family alternates across 16 to 19; the four claim disjoint paths.
 - **Open decisions:** none
 
 ## Surfacing concern

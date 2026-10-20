@@ -4,8 +4,8 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
-- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
+- **Worker:** GPT-6 Astra <gpt-6-astra@local>
+- **Verifier:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Base branch:** dev
 - **Run branch:** autometta/19-design-chart-value-gate
 - **Worker effort:** xhigh
@@ -13,7 +13,7 @@
 - **Verifier panel:** false
 - **Gate:** stage-completed: 16-design-content-contract-v2
 - **Path claims:** docs/design/chart-value-gate.md
-- **Pairing rationale:** The gate decides which charts reach readers and replaces the 6-point rule, so its matching rules need the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the `pdftotext` checks the fixtures rely on. The four design cards (16 to 19) share this pairing; they claim disjoint paths, so they do not alternate worker family. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs.
+- **Pairing rationale:** The gate decides which charts reach readers and replaces the 6-point rule, so its matching rules need a frontier design tier. Re-paired on 2026-10-20 to spread load across providers: the worker is GPT-6 Astra (frontier reasoning) and the verifier is from the other family (Claude Opus 5.5), judgement-capable as a prose stage needs. Stages 16 and 18 keep a Fable 5.1 worker, so the worker family alternates across 16 to 19; the four claim disjoint paths. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -159,17 +159,18 @@ Prose-only stage: the deliverable is a design document, so there is nothing exec
 
 - **Worker wall-clock:** 120 minutes
 - **Verifier wall-clock:** 45 minutes
-- **Spend basis:** Fable 5.1 worker median 11M tokens per design card in the promo-flow cost log; Astra verifier median 2.6M tokens. Fewer files than stages 17 and 18 but more fixture work, so expect the worker near the median.
+- **Spend basis:** Astra worker median 6.8M tokens in the promo-flow cost log (a design card runs higher; budget about 11M, the Fable design-card median); Opus 5.5 verifier median 2.6M tokens. Fewer files than stages 17 and 18 but more fixture work, so expect the worker near the median.
 
 ## Dispatch envelope
 
 Return the standard envelope with:
 - `status`: pass or fail.
-- `commit`: the commit SHA on `autometta/19-design-chart-value-gate` that adds the document, authored as `Claude Fable 5.1 <claude-fable-5-1@local>`.
+- `commit`: the commit SHA on `autometta/19-design-chart-value-gate` that adds the document, authored as `GPT-6 Astra <gpt-6-astra@local>`.
 - `deliverables`: `docs/design/chart-value-gate.md`.
 - `evidence`: the output of acceptance commands 1 to 12 as you ran them before committing, and of command 13 after committing.
 - `notes`: the Wn list (ids and slugs only), every question deferred to the operator or to stage 16's owner, and any wave-1 change you found on your base that altered a defect in the table.
 
 ## Family-specific notes
 
-None. The worker is a Claude role. The verifier (Codex harness) runs under workspace-write, which permits reading `../promo-flow` and the main checkout's gitignored `input/_held/` through `../explainer-batch`, and running `pdftotext`; no criterion needs the network.
+- **Codex (worker):** workspace-write is enough; it permits reading `../promo-flow` and the main checkout's gitignored `input/_held/` through `../explainer-batch`, and running `pdftotext`. No network. Commit the document yourself, authored with `git commit --author="$(agent-whoami)"`.
+- **Claude (verifier):** runs unsandboxed; re-runs the `pdftotext` checks against `../explainer-batch/input/_held/` and makes no network calls.
