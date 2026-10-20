@@ -4,8 +4,8 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** GPT-6 Astra <gpt-6-astra@local>
-- **Verifier:** Claude Opus 5.5 <claude-opus-5-5@local>
+- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
+- **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/19-design-chart-value-gate
 - **Worker effort:** high
@@ -13,7 +13,7 @@
 - **Verifier panel:** false
 - **Gate:** stage-completed: 16-design-content-contract-v2
 - **Path claims:** docs/design/chart-value-gate.md
-- **Pairing rationale:** Fresh, high-complexity design: the gate decides which charts reach readers and replaces the 6-point rule, so its matching rules get a frontier worker, GPT-6 Astra at high effort; an OpenAI worker balances the Claude Fable worker on 18. The verifier is Claude Opus 5.5 from the other family, judgement-capable for checking matching rules against the criteria without the frontier tier. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs.
+- **Pairing rationale:** Fresh, high-complexity design: the gate decides which charts reach readers and replaces the 6-point rule, so its matching rules get a frontier worker, Claude Fable 5.1 at high effort; Fable rather than GPT-6 Astra keeps the worker off the Codex weekly slot allowance. The verifier is GPT-6.1 Sol from the other family, judgement-capable for checking matching rules against the criteria without the frontier tier. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs.
 - **Open decisions:** none
 
 ## Surfacing concern

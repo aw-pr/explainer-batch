@@ -5,14 +5,14 @@
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
+- **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/16-design-content-contract-v2
 - **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/content-contract-v2.md
-- **Pairing rationale:** Attempt 4 is a narrow consistency fix on preserved attempt 3 (null ordering through validation, one order across schema, Q6, Q7, D5 and the pipeline), not fresh design, so the worker is Claude Opus 5.5 at medium effort; three Fable xhigh attempts showed tier and effort do not buy consistency here. Verification is the judgement-heavy role: every wave-2 contract card is carded from this document, and the defect-coverage, citation and cross-section consistency checks need a reader who opens the code, so the verifier is GPT-6 Astra from the other family, the tier that caught the attempt-3 D5 defect. 16 and 18 claim disjoint paths and may run in parallel.
+- **Pairing rationale:** Attempt 4 is a narrow consistency fix on preserved attempt 3 (null ordering through validation, one order across schema, Q6, Q7, D5 and the pipeline), not fresh design, so the worker is Claude Opus 5.5 at medium effort; three Fable xhigh attempts showed tier and effort do not buy consistency here. Verification is the judgement-heavy role (every wave-2 contract card is carded from this document, and the defect-coverage, citation and cross-section consistency checks need a reader who opens the code), but the verifier is GPT-6.1 Sol from the other family rather than GPT-6 Astra to stay inside the Codex weekly slot allowance; the criteria are explicit enough for Sol at high effort. 16 and 18 claim disjoint paths and may run in parallel.
 - **Open decisions:** none
 
 ## Surfacing concern
