@@ -169,3 +169,18 @@ Return the standard envelope with:
 ## Family-specific notes
 
 None. The worker is a Claude role and reads the sibling checkouts directly. The verifier (Codex harness) runs under workspace-write, which permits reading `../promo-flow` and needs no network for any criterion.
+
+## Re-brief 2026-10-20 (attempt 2)
+
+Attempt 1 (WIP preserved at `a52eb33` on `wip/16-design-content-contract-v2-attempt-1`) passed every criterion except 12 (D5) and 13 (the wave-2 list is cardable). The verifier's findings are correct. The document is otherwise sound, so **do not rewrite it**: start from current `dev`, restore the attempt-1 document with `git checkout a52eb33 -- docs/design/content-contract-v2.md`, and fix only what follows. Line numbers below refer to the attempt-1 document.
+
+1. **D5, one owner per field.** The draft makes the model emit exactly one reference unconditionally (`:378`), labels its fields model/detection (`:320-324`), then replaces it wholesale when detection succeeds (`:734`), while `:733` claims the model no longer emits it, and repair validates a `ModelOutputV2` that still requires it (`:733`, `:766`). That is today's generate-then-overwrite. Define the boundary once: which schema the model fills, which fields are stamped after it, what the model emits for the reference when detection has a value and when it does not, and what repair validates. No field may be both required of the model and overwritten by a stamp. The same rule applies to every stamped field (author, date, provider, route), not only the reference.
+2. **Migration must produce a valid v2.** The stored schema requires `metadata.provider` and `metadata.route` (`:187-189`, `:235-247`), but migration omits them when unknown (`:597`), and 43 of the 49 live files carry no `run_mode`. Pick a truthful representation (for example an explicit `unknown` value or a `migrated_from_v1` provenance marker) so that every migrated file parses as `ExplainerV2`, and say so in the schema and the migration section.
+3. **Each Wn outcome is satisfiable by its own Files and dependencies.** W7's grep outcome (`:790`) needs files that belong to W9 (`promo-flow/src/lib/explainer-to-html-core.mjs`, `promo-flow/src/components/explainers/ExplainerChartCanvas.tsx`), and W9 depends on W7. Fix the scope or the order.
+4. **Order matches dependencies.** List the Wn cards in dependency order (W8 currently precedes its dependency W9, `:794-804`), and make the migration sequence (`:630-660`) agree: the archive rewrite cannot come before the baker it needs.
+5. **Parallelism claims are true.** W4 and W5 are called disjoint (`:749-750`) but both claim `src/output.ts`, `docs/FIGURE-EXTRACTION.md` and `tests/unit/fixtures/` (`:773`, `:779`). Either make the claims disjoint or mark the pair serial. Check every other parallel claim the same way.
+6. **Citation.** `:504-505` cites `promo-flow/src/app/api/admin/approve/[filename]/route.ts:90` for the JSON read; the read and parse are at `:73-74`, and `:90` calls `renderExplainerToHtml(json)`.
+
+**Self-audit before returning.** For every Wn card, check (a) its outcome command can pass after only its own Files change on top of its dependencies, (b) every dependency appears earlier in the list, (c) every parallel pair has disjoint Files. Quote the audit as a table in the envelope's `notes`.
+
+All other deliverables, constraints and acceptance criteria stand. Cards 17, 18 and 19 may already be reading this document; if a fix changes a field or name that stage 19 relies on (the v2 chart shape and `source`), keep the name stable or record the rename in Open questions.
