@@ -124,3 +124,28 @@ Any edit to the frozen contract block fails the stage. The worker runs criteria 
 
 - **Run worktree setup, every role:** the run worktree has no `node_modules`. Clone it from the shared checkout before running anything: `cp -cR ../explainer-batch/node_modules node_modules` (an APFS clone; never a symlink, never `npm install`).
 - **Codex (verifier):** workspace-write is enough. No network, no browser, no API keys: the test reads `skill.md` and calls pure prompt builders.
+
+## Re-brief 2026-10-20 (attempt 2)
+
+Attempt 1 (WIP preserved at `667c0f9` on `wip/02-charts-come-only-from-stated-values-attempt-1`) passed criteria 1 to 4 and failed criterion 5. The verifier was right: the new rule makes the caption name its table or page, while the caption paragraph (now `skill.md:156`, "Captions are for the glancing reader: translate, don't cite.") still tells the model not to cite, and the chart example caption ("Plain-language reading guide, then the source table or page.") sits between them. Three caption instructions, two of them in conflict.
+
+**Base.** Start from current `dev`, not from the WIP. Card 14 has since landed and rewrote the style text, including the `:156` paragraph (em dashes gone, new Pareto example), so line numbers in Deliverables are stale; re-check every one. You may read the WIP diff (`git diff 291088c 667c0f9 -- skill.md src/prompt.ts`) and reuse its wording where it still fits; most of it was sound.
+
+**One caption rule.** Every chart caption has the same shape, stated once:
+
+1. Plain words first: how to read the chart (what one point or bar means) and the takeaway, as the `:156` paragraph already asks.
+2. Then a short source tag in brackets at the very end, naming the table or page the values come from: `(Table 3, p. 12)`, or `(Table 2)`, or for a URL source the table or the section heading: `(section "Results")`.
+
+Concretely:
+
+- Rewrite the `:156` heading so it no longer says "don't cite". Something like "Captions translate first, then tag the source." Keep the rest of that paragraph's substance (how-to-read, takeaway, translate every symbol, do not change what the statistic means); it was card 14's work and is not being reopened.
+- The stated-values bullet says the caption "must name the table or page" (the test phrase) and points to the bracketed tag, not to an "Author (Year), Table 3" lead-in. No author-year prefix in chart captions: the explainer is about one paper.
+- The chart JSON example caption and the `table` example caption (`skill.md:120`, currently "Author (Year), Table/Figure N. What the numbers are.") follow the same shape: plain words, then the bracketed tag. The table example must not name a Figure as a source, since figure value labels do not count as stated.
+- The checklist line says the same thing in a few words.
+- Nothing anywhere in `skill.md` or `src/prompt.ts` may tell the model both to cite and not to cite. Grep for `cite`, `caption`, `source` and `attribution` before returning, and quote each surviving line in the envelope.
+
+**Unchanged.** All other deliverables, constraints, acceptance criteria and the frozen contract test stand as written. Criterion 4's "Headline rules" and "Writing the prose" constraint still holds: the `:156` caption paragraph sits in the chart section, so editing its heading is in scope; the two named sections are not. The em-dash rule still applies to every paragraph you touch.
+
+**Verifier focus for criterion 5.** Read every caption-related line in the diff and in the final `skill.md`. FAIL if any two of them disagree about whether or how a caption names its source.
+
+**Worktree note.** Clone `node_modules` (`cp -cR`), never symlink it; attempt 1's worktree had a symlink.
