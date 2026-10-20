@@ -8,7 +8,7 @@
 - **Verifier:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Base branch:** dev
 - **Run branch:** autometta/19-design-chart-value-gate
-- **Worker effort:** xhigh
+- **Worker effort:** high
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Gate:** stage-completed: 16-design-content-contract-v2

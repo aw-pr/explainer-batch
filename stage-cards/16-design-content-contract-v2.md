@@ -8,7 +8,7 @@
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/16-design-content-contract-v2
-- **Worker effort:** xhigh
+- **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/content-contract-v2.md
