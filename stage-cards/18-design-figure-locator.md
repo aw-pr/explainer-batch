@@ -4,15 +4,15 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
-- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
+- **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
+- **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/18-design-figure-locator
 - **Worker effort:** xhigh
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/figure-locator.md
-- **Pairing rationale:** The figure pipeline replaces most of a 1,222-line module, and its design choices (which tool finds which region) decide whether wave 2 works, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the poppler commands the evaluation set relies on. On 2026-10-20 stages 17 and 19 were re-paired to a GPT-6 Astra worker with a Claude Opus 5.5 verifier to spread load across providers, so the worker family alternates across 16 to 19; the four claim disjoint paths.
+- **Pairing rationale:** The figure pipeline replaces most of a 1,222-line module, and its design choices (which tool finds which region) decide whether wave 2 works, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the poppler commands the evaluation set relies on. On 2026-10-20 stages 17 and 19 were re-paired to a GPT-6 Astra worker with a Claude Opus 5.5 verifier to spread load across providers, so the worker family alternates across 16 to 19; the four claim disjoint paths. Re-pinned 2026-10-20 evening for spend: Fable 5.1 to Claude Opus 5.5 and GPT-6 Astra to GPT-6.1 Sol (Autometta's new Codex default, about a fifth of Astra's rate), keeping the cross-family pairing and the equal Claude/OpenAI split.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -163,13 +163,13 @@ Prose-only stage: the deliverable is a design document, so there is nothing exec
 
 - **Worker wall-clock:** 120 minutes
 - **Verifier wall-clock:** 45 minutes
-- **Spend basis:** Fable 5.1 worker median 11M tokens per design card in the promo-flow cost log; Astra verifier median 2.6M tokens. The full read of `src/figure-vlm.ts` plus poppler experiments puts the worker at or slightly above the median.
+- **Spend basis:** Opus 5.5 worker; the Fable design-card median was 11M tokens in the promo-flow cost log, and stage 16 attempt 3 used 3.9M. The full read of `src/figure-vlm.ts` plus poppler experiments puts this worker at about 5-8M; Sol verifier about 1.5M.
 
 ## Dispatch envelope
 
 Return the standard envelope with:
 - `status`: pass or fail.
-- `commit`: the commit SHA on `autometta/18-design-figure-locator` that adds the document, authored as `Claude Fable 5.1 <claude-fable-5-1@local>`.
+- `commit`: the commit SHA on `autometta/18-design-figure-locator` that adds the document, authored as `Claude Opus 5.5 <claude-opus-5-5@local>`.
 - `deliverables`: `docs/design/figure-locator.md`.
 - `evidence`: the output of acceptance commands 1 to 12 as you ran them before committing, and of command 13 after committing.
 - `notes`: the Wn list (ids and slugs only), every question deferred to the operator, the lines-deleted total from the deletion map, and any wave-1 change you found on your base that altered a defect in the table.

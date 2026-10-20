@@ -4,15 +4,15 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
-- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
+- **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
+- **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/16-design-content-contract-v2
 - **Worker effort:** xhigh
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/content-contract-v2.md
-- **Pairing rationale:** Design work whose output every wave-2 contract card is carded from, so it gets the strongest design tier (Fable 5.1 is reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs: most criteria are greppable, but the defect-coverage and citation checks need a reader who can open the code. The four design cards (16 to 19) all use this pairing; they claim disjoint paths, so they do not alternate worker family.
+- **Pairing rationale:** Design work whose output every wave-2 contract card is carded from, so it gets the strongest design tier (Fable 5.1 is reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs: most criteria are greppable, but the defect-coverage and citation checks need a reader who can open the code. The four design cards (16 to 19) all use this pairing; they claim disjoint paths, so they do not alternate worker family. Re-pinned 2026-10-20 evening for spend: Fable 5.1 to Claude Opus 5.5 and GPT-6 Astra to GPT-6.1 Sol (Autometta's new Codex default, about a fifth of Astra's rate), keeping the cross-family pairing and the equal Claude/OpenAI split.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -155,13 +155,13 @@ Prose-only stage: the deliverable is a design document, so there is nothing exec
 
 - **Worker wall-clock:** 120 minutes
 - **Verifier wall-clock:** 45 minutes
-- **Spend basis:** Fable 5.1 worker median 11M tokens per design card in the promo-flow cost log (no p95 yet for Fable); Astra verifier median 2.6M tokens. A long, cross-repo read; expect the worker near the median.
+- **Spend basis:** Opus 5.5 worker; attempt 3 used 3.9M worker and 1.0M verifier tokens under Fable/Astra. This attempt edits the preserved attempt-3 document rather than rewriting it, so budget about 4M worker and 1.5M Sol verifier tokens.
 
 ## Dispatch envelope
 
 Return the standard envelope with:
 - `status`: pass or fail.
-- `commit`: the commit SHA on `autometta/16-design-content-contract-v2` that adds the document, authored as `Claude Fable 5.1 <claude-fable-5-1@local>`.
+- `commit`: the commit SHA on `autometta/16-design-content-contract-v2` that adds the document, authored as `Claude Opus 5.5 <claude-opus-5-5@local>`.
 - `deliverables`: `docs/design/content-contract-v2.md`.
 - `evidence`: the output of acceptance commands 1 to 10 as you ran them before committing, and of command 11 after committing.
 - `notes`: the Wn list (ids and slugs only), every question deferred to the operator, and any defect row you judged out of scope with the owning stage.
@@ -184,3 +184,13 @@ Attempt 1 (WIP preserved at `a52eb33` on `wip/16-design-content-contract-v2-atte
 **Self-audit before returning.** For every Wn card, check (a) its outcome command can pass after only its own Files change on top of its dependencies, (b) every dependency appears earlier in the list, (c) every parallel pair has disjoint Files. Quote the audit as a table in the envelope's `notes`.
 
 All other deliverables, constraints and acceptance criteria stand. Cards 17, 18 and 19 may already be reading this document; if a fix changes a field or name that stage 19 relies on (the v2 chart shape and `source`), keep the name stable or record the rename in Open questions.
+
+## Re-brief 2026-10-20 (attempt 4, supersedes the attempt-2 restore step)
+
+Attempt 3 (WIP preserved at `5142989` on `wip/16-design-content-contract-v2-attempt-3`) passed every criterion except 12 (D5). **Start from attempt 3, not attempt 1:** from current `dev`, run `git checkout 514298943f543f3c047fe41c40fec613e6ef06d6 -- docs/design/content-contract-v2.md` and fix only what follows. Do not rewrite the document. The attempt-2 instructions above are already applied in that file. Line numbers refer to the attempt-3 document.
+
+1. **Wire nulls survive validation and repair.** `:405` makes `onWire.opt` nullable and `:426-440` makes `citation` a required nullable property, but Q6 (`:861`) drops nulls *before* validating with `modelOutputValidator`. A compliant detected-reference response (`citation: null`, per Q7 at `:862`) then fails the required-property check and triggers repair for a field the harness owns. Reorder: validate and repair the model output with its wire nulls intact, and strip nulls only when composing the stored artefact. The null-strip today is `src/output.ts:139-153`.
+2. **Canonicalise an ignored citation before validation.** When detection owns the reference, set the model's `citation` to `null` before validation, so a malformed citation the harness will discard cannot trigger repair.
+3. **One story everywhere.** The schema section, Q6, Q7, D5's row (`:191`) and the pipeline description must describe the same order: canonicalise, validate/repair with nulls, stamp, strip nulls, store. Check every other stamped field (author, date, provider, route) against the same order.
+
+All other deliverables, constraints and acceptance criteria stand. Keep the names stage 19 relies on (the v2 chart shape and `source`) stable.

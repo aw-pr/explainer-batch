@@ -4,7 +4,7 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** GPT-6 Astra <gpt-6-astra@local>
+- **Worker:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Verifier:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Base branch:** dev
 - **Run branch:** autometta/19-design-chart-value-gate
@@ -13,7 +13,7 @@
 - **Verifier panel:** false
 - **Gate:** stage-completed: 16-design-content-contract-v2
 - **Path claims:** docs/design/chart-value-gate.md
-- **Pairing rationale:** The gate decides which charts reach readers and replaces the 6-point rule, so its matching rules need a frontier design tier. Re-paired on 2026-10-20 to spread load across providers: the worker is GPT-6 Astra (frontier reasoning) and the verifier is from the other family (Claude Opus 5.5), judgement-capable as a prose stage needs. Stages 16 and 18 keep a Fable 5.1 worker, so the worker family alternates across 16 to 19; the four claim disjoint paths. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs.
+- **Pairing rationale:** The gate decides which charts reach readers and replaces the 6-point rule, so its matching rules need a frontier design tier. Re-paired on 2026-10-20 to spread load across providers: the worker is GPT-6 Astra (frontier reasoning) and the verifier is from the other family (Claude Opus 5.5), judgement-capable as a prose stage needs. Stages 16 and 18 keep a Fable 5.1 worker, so the worker family alternates across 16 to 19; the four claim disjoint paths. Gated on stage 16 because the gate is built on the v2 chart shape that stage 16 designs. Re-pinned 2026-10-20 evening for spend: Fable 5.1 to Claude Opus 5.5 and GPT-6 Astra to GPT-6.1 Sol (Autometta's new Codex default, about a fifth of Astra's rate), keeping the cross-family pairing and the equal Claude/OpenAI split.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -159,13 +159,13 @@ Prose-only stage: the deliverable is a design document, so there is nothing exec
 
 - **Worker wall-clock:** 120 minutes
 - **Verifier wall-clock:** 45 minutes
-- **Spend basis:** Astra worker median 6.8M tokens in the promo-flow cost log (a design card runs higher; budget about 11M, the Fable design-card median); Opus 5.5 verifier median 2.6M tokens. Fewer files than stages 17 and 18 but more fixture work, so expect the worker near the median.
+- **Spend basis:** GPT-6.1 Sol worker; stage 17 (the same shape under Astra) is the nearest comparison. Budget about 6M worker and 1.5M Opus 5.5 verifier tokens. Fewer files than stages 17 and 18 but more fixture work.
 
 ## Dispatch envelope
 
 Return the standard envelope with:
 - `status`: pass or fail.
-- `commit`: the commit SHA on `autometta/19-design-chart-value-gate` that adds the document, authored as `GPT-6 Astra <gpt-6-astra@local>`.
+- `commit`: the commit SHA on `autometta/19-design-chart-value-gate` that adds the document, authored as `GPT-6.1 Sol <gpt-6-1-sol@local>`.
 - `deliverables`: `docs/design/chart-value-gate.md`.
 - `evidence`: the output of acceptance commands 1 to 12 as you ran them before committing, and of command 13 after committing.
 - `notes`: the Wn list (ids and slugs only), every question deferred to the operator or to stage 16's owner, and any wave-1 change you found on your base that altered a defect in the table.
