@@ -4,7 +4,7 @@
 
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
+- **Worker:** Claude Fable 5.1 <claude-fable-5-1@local>
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/18-design-figure-locator
@@ -12,7 +12,7 @@
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/figure-locator.md
-- **Pairing rationale:** The figure pipeline replaces most of a 1,222-line module, and its design choices (which tool finds which region) decide whether wave 2 works, so it gets the design tier (Fable 5.1, reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs; it can also re-run the poppler commands the evaluation set relies on. On 2026-10-20 stages 17 and 19 were re-paired to a GPT-6 Astra worker with a Claude Opus 5.5 verifier to spread load across providers, so the worker family alternates across 16 to 19; the four claim disjoint paths. Re-pinned 2026-10-20 evening for spend: Fable 5.1 to Claude Opus 5.5 and GPT-6 Astra to GPT-6.1 Sol (Autometta's new Codex default, about a fifth of Astra's rate), keeping the cross-family pairing and the equal Claude/OpenAI split.
+- **Pairing rationale:** Fresh, high-complexity design: the figure pipeline replaces most of a 1,222-line module and its choice of which tool finds which region decides whether wave 2 works, so the worker is Claude Fable 5.1 at high effort. Verification is mostly reproducible checks (re-running the poppler commands over the evaluation set against the criteria), so the verifier is GPT-6.1 Sol from the other family, judgement-capable for a prose stage without the frontier tier. 16 and 18 claim disjoint paths and may run in parallel.
 - **Open decisions:** none
 
 ## Surfacing concern

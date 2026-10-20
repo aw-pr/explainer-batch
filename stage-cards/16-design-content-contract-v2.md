@@ -5,14 +5,14 @@
 - **Authored:** 2026-10-19
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
 - **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
+- **Verifier:** GPT-6 Astra <gpt-6-astra@local>
 - **Base branch:** dev
 - **Run branch:** autometta/16-design-content-contract-v2
 - **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/content-contract-v2.md
-- **Pairing rationale:** Design work whose output every wave-2 contract card is carded from, so it gets the strongest design tier (Fable 5.1 is reserved for the four design cards). The verifier is from the other family (GPT-6 Astra) and is judgement-capable, which a prose stage needs: most criteria are greppable, but the defect-coverage and citation checks need a reader who can open the code. The four design cards (16 to 19) all use this pairing; they claim disjoint paths, so they do not alternate worker family. Re-pinned 2026-10-20 evening for spend: Fable 5.1 to Claude Opus 5.5 and GPT-6 Astra to GPT-6.1 Sol (Autometta's new Codex default, about a fifth of Astra's rate), keeping the cross-family pairing and the equal Claude/OpenAI split.
+- **Pairing rationale:** Attempt 4 is a narrow consistency fix on preserved attempt 3 (null ordering through validation, one order across schema, Q6, Q7, D5 and the pipeline), not fresh design, so the worker is Claude Opus 5.5 at medium effort; three Fable xhigh attempts showed tier and effort do not buy consistency here. Verification is the judgement-heavy role: every wave-2 contract card is carded from this document, and the defect-coverage, citation and cross-section consistency checks need a reader who opens the code, so the verifier is GPT-6 Astra from the other family, the tier that caught the attempt-3 D5 defect. 16 and 18 claim disjoint paths and may run in parallel.
 - **Open decisions:** none
 
 ## Surfacing concern
