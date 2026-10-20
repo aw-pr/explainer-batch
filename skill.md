@@ -19,10 +19,10 @@ Your job is to read the paper, understand its real contribution, and surface it 
 
 ## Steps
 
-1. Read the paper end to end. Look at the figures and tables as well as the prose.
+1. Read the paper end to end. Look at the figures to understand the argument, but take every number from the text and the tables.
 2. Decide whether the paper is primarily empirical (measured results) or conceptual (a framework, taxonomy, or argument).
 3. Fill every required field in the JSON schema below.
-4. If the paper has real measured magnitudes worth comparing, recreate the relevant figure as a Chart.js chart (see the chart-decision rules below); many papers correctly get zero charts. If you do include charts, put the most important one first; it renders after the opening prose section.
+4. If the paper has real measured magnitudes worth comparing, draw a Chart.js chart only when every value in it is stated in the text or a table (see the chart-decision rules below); many papers correctly get zero charts. If you do include charts, put the most important one first; it renders after the opening prose section.
 5. Return only the JSON object.
 
 ## Output format
@@ -117,12 +117,12 @@ Include `end_takeaway` only when `top_block.kind` is `"pills"`.
     ]
   },
   "table": {
-    "caption": "Author (Year), Table/Figure N. What the numbers are.",
-    "columns": ["Dataset", "Mistral 7B", "Llama 3.1 8B", "Yi 9B"],
+    "caption": "What the numbers are, in plain words (Table 2, p. 6).",
+    "columns": ["Benchmark", "System A", "System B", "System C"],
     "rows": [
-      ["HotpotQA",  "58.4", "52.0", "52.1"],
-      ["MuSiQue",   "63.6", "58.8", "58.4"],
-      ["MultiNews", "20.1", "17.7", "16.4"]
+      ["Benchmark 1", "12.3", "45.6", "78.9"],
+      ["Benchmark 2", "23.4", "56.7", "89.0"],
+      ["Benchmark 3", "34.5", "67.8", "90.1"]
     ],
     "align": ["left", "right", "right", "right"]
   }
@@ -137,34 +137,31 @@ Use `list` when the source material is genuinely a sequence, taxonomy, or named 
 
 Use `table` for a grid of values the reader *reads off and scans* rather than compares by magnitude: a metric × system matrix, a per-dataset breakdown, a feature comparison. `columns` are the headers (first column is usually the row label), `rows` are plain-text cells aligned to `columns` by index, and `align` (optional) sets per-column text alignment (default: first column left, the rest right). Cells are strings so units and ranges render verbatim (`"32.3"`, `"16-64%"`, `"OOM"`, `"O(N²)"`).
 
-**A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart** (full rule in "When does a chart earn its place?" below). Reserve charts for a genuine trend (line), a two-variable relationship (scatter), or a capability profile (radar). When in doubt between a bar chart and a table, choose the table.
+**A table is the right home for most multi-row numeric breakdowns. Reach for it before a bar chart** (full rule in "When does a chart earn its place?" below). Reserve charts for a genuine trend over time or another continuous axis (line) or a two-variable relationship (scatter), and only when the paper states every value. When in doubt between a bar chart and a table, choose the table.
 
-Architecture, systems-design, framework, and position papers *tend* toward table-and-prose: their numbers usually sit better in `table` blocks and their argument in prose, so they often warrant **zero or one** chart. Treat that as a prior about what such papers usually hold, not a ceiling. If the paper does contain a genuine data figure (an evaluation plot, a measured trend, a benchmark comparison with real magnitudes), reproduce it as a chart whatever the paper's genre. The rule forbids *manufacturing* charts to fill space; it does not mean suppressing a real figure because you have filed the paper under "conceptual".
+Architecture, systems-design, framework, and position papers *tend* toward table-and-prose: their numbers usually sit better in `table` blocks and their argument in prose, so they often warrant **zero or one** chart. Treat that as a prior about what such papers usually hold, not a ceiling. A paper of any genre earns a chart when its text or tables state the values and the data passes the checks below. The rule forbids *manufacturing* charts to fill space; it does not mean suppressing a chart the stated values support because you have filed the paper under "conceptual".
 
 ### chart
 
 ```json
 {
   "title": "Chart card title",
-  "caption": "Source attribution in plain text.",
+  "caption": "How to read the chart, then the takeaway, in plain words (Table 3, p. 12).",
   "config_json": { /* Chart.js config, JSON-compatible */ }
 }
 ```
 
-Use any Chart.js type the data calls for: grouped bar, stacked bar, line, radar, scatter. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
+Use the Chart.js type the data calls for: grouped bar, stacked bar, line or scatter. Label arrays instead of `ticks.callback` for axis formatting. Explain acronyms in the caption, not the title.
 
-**Captions are for the glancing reader: translate, don't cite.** When a chart (or the pill set) leans on a statistical construct (a CCDF/`1 − F(x)`, a shape or tail parameter, a hazard rate, an elasticity, a log axis, confidence bands), the caption must do two things in plain words: (a) open with a one-sentence *how to read it* stating what a single point on the chart literally means, and (b) end with the takeaway a busy reader should leave with. Never use a symbol or technical term in a caption, axis label, or pill description that the same text does not translate. For example: "For a Pareto tail, α = 0.92 means the model allows overruns large enough that its theoretical mean is not finite." This describes the size of extreme overruns under that model, not how often projects overrun. The plain-words gloss must not change what the statistic means. The audience includes readers who could follow the full paper but came here for the glanceable version; serve them first.
+**Captions translate first, then tag the source.** Every chart caption, and every `table` caption, has one shape: plain words for the glancing reader, then a short source tag in brackets at the very end naming the table or page the values come from, such as `(Table 3, p. 12)` or `(Table 2)`. A URL source has no page numbers, so its tag names the table or the section heading of the page, such as `(section "Results")`. Do not open a caption with an author and year; the explainer covers one paper. When a chart (or the pill set) leans on a statistical construct (a CCDF/`1 − F(x)`, a shape or tail parameter, a hazard rate, an elasticity, a log axis, confidence bands), the plain words must do two things: (a) open with a one-sentence *how to read it* stating what a single point on the chart literally means, and (b) finish with the takeaway a busy reader should leave with, just before the source tag. Never use a symbol or technical term in a caption, axis label, or pill description that the same text does not translate. For example: "For a Pareto tail, α = 0.92 means the model allows overruns large enough that its theoretical mean is not finite." This describes the size of extreme overruns under that model, not how often projects overrun. The plain-words gloss must not change what the statistic means. The audience includes readers who could follow the full paper but came here for the glanceable version; serve them first.
 
 **Choose the chart type by trigger, not default.** Bar is not the safe pick; match the shape of the data:
 
-- **radar**: 3-6 systems compared on the same set of 3+ comparable metrics; capability or profile shapes. If the paper itself uses a radar/spider chart, reproduce that shape.
 - **scatter**: two continuous variables plotted against each other (cost vs accuracy, latency vs throughput, parameters vs benchmark score).
-- **line**: any series indexed by time, training steps, or another continuous axis.
-- **grouped or stacked bar**: comparison across discrete categories with a single scalar (or stacked components) each.
+- **line**: a series indexed by time, training steps, or another continuous axis. Never join categories with a line: models, datasets or conditions on the x-axis are bars or a `table`.
+- **grouped or stacked bar**: comparison across discrete categories with a single scalar (or stacked components) each. Never draw stacked bars on a log axis, because stacked segments only add up on a linear scale.
 
-Pie and doughnut are off the menu. Share-of-whole splits belong in `top_block.pills` or prose, not a chart.
-
-If the paper's own central figure is a radar, spider, scatter, or line, reproduce that shape. Do not collapse it to a bar.
+Pie, doughnut or radar charts are banned outright. Share-of-whole splits belong in `top_block.pills` or prose, and a set of systems scored across several metrics belongs in a `table`.
 
 **Every numeric axis must carry its unit** (full rule in "When does a chart earn its place?" below).
 
@@ -190,13 +187,21 @@ When the paper contains figures (results charts, conceptual diagrams, architectu
 
 ### When does a chart earn its place?
 
-**First decide: does this paper need any charts at all?** Before authoring a single chart, ask: does the paper contain real measured magnitudes (benchmark scores, latencies, accuracies, token counts, dollar costs, parameter counts, training steps, percentages from a measurement) that a reader would actually compare against each other?
+**First decide: does this paper need any charts at all?** Before authoring a single chart, ask: does the paper state real measured magnitudes (benchmark scores, latencies, accuracies, token counts, dollar costs, parameter counts, training steps, percentages from a measurement) that a reader would actually compare against each other?
 
 If no, the right answer is **zero charts**. System-architecture writeups, conceptual frameworks, design-space surveys, position papers, and qualitative analyses often have no chartable data at all. Forcing two or three charts out of an architecture paper produces ordinal-ranking-as-bars (`[1, 2, 3, 4]` encoding layer order) and proportions-as-bars (a 2-value split that should have been pills). Both are wrong, and they leak the model's discomfort with returning an empty list.
 
 Emit `charts: []` (or omit `charts` entirely) and let prose carry the explanation. Zero charts is the correct answer for many papers; do not pad. One chart is also fine. The schema allows 0-4, and the lower end of that range exists for a reason.
 
-If the paper *does* have measured magnitudes worth charting, run every one of the following checks against the data before putting it in a chart. This is the single authoritative list; every other section's chart-gating mention is a pointer back here.
+**Chart only the values the paper states.** Use the figures to understand the paper, never as a source of chart data:
+
+- Every value in a chart must be stated in the text or a table: printed as a number in the prose or in a table cell. A number printed only as a label inside a figure does not count yet, because nothing downstream can check it. Never read values off a figure's axes, bars or curves, and never estimate, interpolate or trace one.
+- The caption must name the table or page every value comes from, in the bracketed source tag that ends the caption (format under "Captions translate first, then tag the source" above).
+- Never split a reported range. A reported "28–33%" is one stated range, not two data points; keep it whole in a pill, a table cell or prose.
+- If a chart would need any value the paper does not state, prefer a table of the values it does state, or prose. Do not chart the gap.
+- A URL source (a fetched web page rather than a PDF) gets at most one chart.
+
+If the paper *does* state magnitudes worth charting, run every one of the following checks against the data before putting it in a chart. Together with the stated-values rule above, this is the single authoritative list; every other section's chart-gating mention is a pointer back here.
 
 1. **Not a share-of-whole.** If the values sum to ~100% or ~1.0, or read as "X% does A, Y% does B", that is `top_block.pills` or prose, not a chart. A two-value split like `1.6 / 98.4` rendered as bars is the same proportion in disguise; bar-encoding it does not make it a chart.
 2. **Not an ordinal ranking.** If the dataset is `[1, 2, 3, 4]`, `[0, 1, 2, 3]`, or any sequence that just encodes "this comes before that" rather than measured magnitudes, that is prose, not a chart. Bar height must encode a real quantity (tokens per second, accuracy, latency, cost). Rank order belongs in a numbered list.
@@ -206,9 +211,9 @@ If the paper *does* have measured magnitudes worth charting, run every one of th
 6. **Prefer a `table` over a grouped/stacked bar for a value grid.** A metric × system matrix (per-dataset, per-model, per-config breakdowns) reads more precisely as a `table` than as bars, and a reader rarely needs bar height to compare them. Default such data to a `table` block in a prose section. A bar chart earns its place only when the *shape* of the magnitudes across a handful of categories is itself the point and a table would bury it.
 7. **Every numeric axis must carry its unit.** Set `options.scales.<axis>.title.text` to the real quantity and unit from the paper, and set `options.scales.<axis>.title.display` to `true`. Examples: `"Tokens per second"`, `"Throughput (tok/s/GPU)"`, `"Latency (ms)"`, `"Cost per million tokens (USD)"`, `"Memory (GB)"`. Never use `"Value"`, `"Amount"`, `"Number"`, a blank string, or leave `display: false` on a numeric axis. Category axes (model names, layer types, stages) do not need a unit; a numeric axis always does.
 
-If any check fails, do not emit that chart. Find a different cut of the paper that has genuine magnitudes to compare, or just write it in prose.
+If any check fails, do not emit that chart. Find a different cut of the paper that has stated magnitudes to compare, or just write it in prose.
 
-For what does qualify: reproduce it as a Chart.js chart in `charts`. Match the axes, groupings, and data points. If multiple central results figures exist and each adds a distinct story, include multiple charts. Put the most important chart first; it renders after the first prose section, below the opening text.
+For data that passes every check, build the Chart.js chart in `charts` from the stated values alone. If several stated results each add a distinct story, include one chart for each, within the URL limit above. Put the most important chart first; it renders after the first prose section, below the opening text.
 
 **Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream by the figure pipeline: a vision model auto-picks the paper's best figure, and a per-paper sidecar (`<paper>.focus.md`) can optionally override that pick to pin a specific figure. Your job is to author the prose, pills, charts, and structure; the image is supplied externally, by whichever of those paths applies, or omitted entirely.
 
@@ -258,7 +263,7 @@ Apply these rules in ranked order:
 - [ ] `hero.publication_date` uses `"Published Month Year"`.
 - [ ] `top_block` is `pills` when the paper has measured results or a central 2–6 item sequence; otherwise `takeaway`. `end_takeaway` is present iff `top_block.kind === "pills"`.
 - [ ] Every pill `description` is a lowercase continuation phrase completing its `number`, not a standalone capitalised sentence.
-- [ ] Every chart comes from real data or a faithfully recreated figure from the paper. The most important chart is first.
+- [ ] Every chart value is stated in the text or a table of the paper (never read off a figure), and each caption ends with a bracketed tag naming that table or page. The most important chart is first.
 - [ ] Every chart passes all seven checks in "When does a chart earn its place?" above: not a share-of-whole, not an ordinal ranking, not a single number or proportion, at least 6 points in a series, not a uniform-value checklist, not a value grid a `table` would serve better, and every numeric axis carries a real unit with `title.display: true`.
 - [ ] No `image` field is emitted. The image block is attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a per-paper sidecar); the model does not author it.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
