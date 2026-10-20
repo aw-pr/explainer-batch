@@ -8,7 +8,7 @@
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/18-design-figure-locator
-- **Worker effort:** high
+- **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Path claims:** docs/design/figure-locator.md
@@ -177,3 +177,15 @@ Return the standard envelope with:
 ## Family-specific notes
 
 None. The worker is a Claude role and may make the optional read-only fetches listed in Inputs. The verifier (Codex harness) runs under workspace-write, which permits reading the main checkout's gitignored `input/_held/` through `../explainer-batch` and running poppler; no criterion needs the network.
+
+## Re-brief 2026-10-20 (attempt 2)
+
+Attempt 1 (WIP preserved at `7011023` on `wip/18-design-figure-locator-attempt-1`) passed every criterion except 16 (the implementation list is cardable). The verifier's findings are correct. The document is otherwise sound, so **do not rewrite it**: from current `dev`, run `git checkout 701102374af217b5ab3ac3359348e4eb107543fa -- docs/design/figure-locator.md` and fix only what follows. Line numbers refer to the attempt-1 document.
+
+1. **The embedded-image rule, E3 and W2 agree with the measured geometry.** Rule 6 (`:272`) takes the `pdf-embedded` shortcut only when one image box covers at least 90 percent of the region. The Flyvbjerg page-9 image is 360 by 227 points (`:243`), about 66 percent of the roughly 514 by 239 point frame (`:429` wrongly says 92 percent), and about 63 percent of W2's padded region (`:492`). As written, the rule yields `pdf-vector-crop`, yet E3 and W2 expect `pdf-embedded`. Choose one truthful outcome: either keep the rule and change E3 and W2 to the provenance it actually yields, or change the rule with a stated reason that still sends the other evaluation cases (the EPIC heatmap at 24 percent among them) to their stated outcomes. Recompute every coverage percentage the document quotes from the poppler figures, and show the arithmetic in E3.
+2. **Each Wn outcome is satisfiable by its own Files and dependencies.** W6's outcome (`:516`) requires no `setViewportSize` or legacy substring selectors anywhere in `src`, but W6 depends only on W3 (`:518`), does not claim `src/figure-vlm.ts` (`:517`), and the migration keeps that module until W10 (`:442`, `:446`, `:538-542`); the live hits are `src/figure-vlm.ts:426`, `:775` and `:1151`. Restrict W6's check to the code W6 adds (`src/figure-locator/` and the files it claims), and move the repo-wide absence check to W10.
+3. **Outcome commands actually run.** `grep -n setViewportSize src` exits 2 (`Is a directory`), so empty output proves nothing. Use recursive forms (`grep -rn ... src/figure-locator`) and state the expected exit status (1 for no match), here and in every other Wn outcome that greps a directory.
+
+**Self-audit before returning.** For every Wn card, check (a) its outcome command runs as written and passes after only its own Files change on top of its dependencies, (b) every dependency appears earlier in the list, (c) every percentage or coordinate the document asserts matches the poppler output it cites. Quote the audit as a table in the envelope's `notes`.
+
+All other deliverables, constraints and acceptance criteria stand. Worker effort is lowered to medium for this narrow fix, per Autometta's effort rule.
