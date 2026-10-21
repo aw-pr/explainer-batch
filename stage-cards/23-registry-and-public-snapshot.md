@@ -84,7 +84,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 4. **Card 22 and wave 1 still hold (verifier):** `for f in tests/contract/0*.test.ts tests/contract/1[0-5]-*.test.ts tests/contract/22-*.test.ts; do TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test "$f" || exit 1; done` exits 0 (card 13 reads `src/model-config.ts`). Contract test 01 creates and removes its own sentinel files under `tests/`; that is expected and not a scope breach. Baseline: green once card 22 has landed.
 5. **Snapshot is current (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register scripts/update-model-snapshot.ts --fleet ../mcp-hub/config/models.json --out "$TMPDIR/snap.json" && cmp "$TMPDIR/snap.json" config/models.snapshot.json` exits 0, unless the fleet file changed after the worker ran (the verifier then reports it rather than failing). Baseline: not applicable before the run.
 6. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/23-registry-and-public-snapshot.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-7. **Clean tree (verifier):** `git diff --check dev...HEAD` passes and `git diff --name-only dev...HEAD` lists only deliverables. Baseline: not applicable before the run.
+7. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 

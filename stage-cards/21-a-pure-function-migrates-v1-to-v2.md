@@ -86,7 +86,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 4. **Unit suite (verifier):** `npm test` exits 0 and its output lists the tests from `tests/unit/migrate-v1.test.ts`. Baseline: green once card 20 has landed, without that file.
 5. **Drift gate (verifier):** `npm run contract:check` prints `contract: generated files up to date`. Baseline: green once card 20 has landed.
 6. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/21-a-pure-function-migrates-v1-to-v2.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-7. **Clean tree (verifier):** `git diff --check dev...HEAD` passes and `git diff --name-only dev...HEAD` lists only deliverables. Baseline: not applicable before the run.
+7. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 

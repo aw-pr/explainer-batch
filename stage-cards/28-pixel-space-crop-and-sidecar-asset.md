@@ -78,7 +78,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 6. **Unit suite (verifier):** `npm test` exits 0. Baseline on `dev`: green.
 7. **Types (verifier):** `npx tsc --noEmit` exits 0. Baseline on `dev`: green.
 8. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/28-pixel-space-crop-and-sidecar-asset.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-9. **Clean tree (verifier):** `git diff --check dev...HEAD` passes, `git diff --name-only dev...HEAD` lists only deliverables (this is also the evidence that `src/figure-vlm.ts` is unchanged), and `git status --porcelain` prints nothing, so no uncommitted or untracked change is left behind. Baseline: not applicable before the run.
+9. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract` (this is also the evidence that `src/figure-vlm.ts` is unchanged). Baseline: not applicable before the run.
 
 ## Contract test
 

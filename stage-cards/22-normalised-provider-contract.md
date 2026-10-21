@@ -86,7 +86,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 3. **Unit suite (verifier):** `npm test` exits 0 and runs `tests/unit/llm-contract.test.ts`. Baseline on `dev`: green (1 test).
 4. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/22-normalised-provider-contract.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
 5. **Design fidelity and untested rules (verifier, reading):** every type in Deliverable 1 matches the design's signature field for field, apart from the two deviations in decision 2; `ERROR_CODES` is a readonly array and `JsonObject` and `ErrorCode` are exported; `checkResult` carries `providerCode` and `httpStatus`, treats a non-string `message` as invalid and gives every synthesised error a non-empty message; `resultDigest` is independent of key insertion order. Baseline: not applicable before the run.
-6. **Clean tree (verifier):** `git diff --check dev...HEAD` passes and `git diff --name-only dev...HEAD` lists only deliverables. Baseline: not applicable before the run.
+6. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 

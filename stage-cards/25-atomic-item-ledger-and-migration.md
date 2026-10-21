@@ -84,7 +84,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 4. **Earlier contracts still hold (verifier):** `for f in tests/contract/0*.test.ts tests/contract/1[0-5]-*.test.ts tests/contract/22-*.test.ts; do TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test "$f" || exit 1; done` exits 0 (several wave-1 tests drive `src/state.ts` through `EXPLAINER_STATE_FILE`). Contract test 01 creates and removes its own sentinel files under `tests/`; that is expected and not a scope breach. Baseline: green once card 22 has landed.
 5. **Rules beyond the oracle (verifier, reading):** a crash after the temp file is written but before the rename leaves the old state readable and the uniquely named temp file ignored; `lane_model` alone and a lane request alone each archive a batch; the script refuses an already-v2 file untouched; the conflicting-prefix and pending-`codexbatch_` rules of decision 4 hold. Baseline: not applicable before the run.
 6. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/25-atomic-item-ledger-and-migration.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-7. **Clean tree (verifier):** `git diff --check dev...HEAD` passes and `git diff --name-only dev...HEAD` lists only deliverables. Baseline: not applicable before the run.
+7. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 

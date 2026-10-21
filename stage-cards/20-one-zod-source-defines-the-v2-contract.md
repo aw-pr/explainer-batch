@@ -84,7 +84,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 5. **Drift gate (verifier):** `npm run contract:check` prints `contract: generated files up to date` and exits 0. Baseline on `dev`: missing script.
 6. **Wave 1 still holds (verifier):** every `tests/contract/0*.test.ts` and `tests/contract/1[0-5]-*.test.ts` passes under the command in criterion 1. Baseline on `dev`: green.
 7. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/20-one-zod-source-defines-the-v2-contract.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-8. **Clean tree (verifier):** `git diff --check dev...HEAD` passes, `git diff --name-only dev...HEAD` lists only deliverables, and `git status --porcelain` prints nothing. Baseline: not applicable before the run.
+8. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 
@@ -121,3 +121,7 @@ Any edit to the frozen contract block fails the stage. The worker runs criteria 
 - **Claude (worker):** runs unsandboxed; still make no network calls and do not set `WEBSITE_REPO` to the real promo-flow checkout.
 - **Codex (verifier):** workspace-write with no network is enough; the test writes only under the OS temp dir and restores the one generated file it perturbs. If `node_modules` is missing in the run worktree, clone it from the main checkout (`cp -cR ../explainer-batch/node_modules node_modules`, an APFS clone, never a symlink). Run commands with stdin from `/dev/null`.
 - **Both roles:** do not create `.env.local` in the run worktree.
+
+## Attempt 2 re-brief (2026-10-21)
+
+Attempt 1's verifier passed criteria 1 to 7 and failed only criterion 8, because the card asked `git status --porcelain` to print nothing while the dispatch leaves the worker's output uncommitted. That was a card defect, not a worker one; criterion 8 now reads as the other wave-2 cards do. The attempt-1 tree is preserved: confirm criteria 1 to 7 still hold on it, change nothing that does not need changing, and return.

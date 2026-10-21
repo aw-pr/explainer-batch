@@ -89,7 +89,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 4. **Earlier cards still hold (verifier):** `for f in tests/contract/2[23]-*.test.ts; do TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test "$f" || exit 1; done` exits 0. Baseline: green once cards 22 and 23 have landed.
 5. **No secret path, and rules beyond the oracle (verifier, reading):** no code path in `src/routes.ts` or `src/run-plan.ts` places a credential value in a returned plan, decision, warning or error message, or reads one outside `credential()`. Also by reading, since the oracle does not exercise them: `CONFLICTING_MODEL_OVERRIDE` for a legacy synthesis knob that disagrees with `MODEL_<PROVIDER>_SYNTHESIS`; a malformed Codex login met during a preference walk is an error, not a skip; an unknown `VISION_ROUTE` is `INVALID_ROUTE_PREFERENCE`; `childEnvironment` refuses API bindings; an invalid `MAX_REPAIR_ATTEMPTS` is rejected. Baseline: not applicable before the run.
 6. **Frozen block intact (verifier):** `bash ../autometta/scripts/check-contract-test-gate.sh print tests/contract/24-credential-bindings-and-run-plan.test.ts` prints the digest recorded below. Baseline: green once the test is committed.
-7. **Clean tree (verifier):** `git diff --check dev...HEAD` passes and `git diff --name-only dev...HEAD` lists only deliverables. Baseline: not applicable before the run.
+7. **Clean tree (verifier):** `git diff --check` passes, and `git status --porcelain --untracked-files=all` lists only deliverables and this card's run state, with nothing under `tests/contract`. Baseline: not applicable before the run.
 
 ## Contract test
 
