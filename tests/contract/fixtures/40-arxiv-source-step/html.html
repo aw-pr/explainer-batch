@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Epic: Efficient Position-Independent Caching for Serving Large Language Models</title>
+</head>
+<body>
+<!-- Trimmed from https://arxiv.org/html/2410.15332v3 (fetched 2026-10-21): the ten figure elements, verbatim, in document order; all prose removed. -->
+<article class="ltx_document">
+<figure id="S1.F1" class="ltx_figure"><img src="2410.15332v3/fig-intro-positioning.png" id="S1.F1.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/225;" width="476" height="225" alt="Refer to caption">
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 1: </span>Left: Design space of position-independent context caching. Right: The x-axis shows the computation overhead or TTFT, while the y-axis shows accuracy. Different shades of the same color indicate variants of the same algorithm.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S2.F2" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-background-compiling-analogy.svg" id="S2.F2.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/381;" width="476" height="381"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 2: </span>An analogy between position-independent code and position-independent cache.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S3.F3" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-overview-system.svg" id="S3.F3.g1" class="ltx_graphics ltx_centering ltx_img_square" style="aspect-ratio:476/412;" width="476" height="412"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 3: </span>The architecture of <span id="S3.F3.3" class="ltx_text ltx_font_smallcaps">Epic</span> serving system.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S4.F4" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-algo.svg" id="S4.F4.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/201;" width="476" height="201"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 4: </span>Comparison of PIC Algorithms. The area above the dashed line corresponds to the compile step, while the area below corresponds to the link step. <span id="S4.F4.6" class="ltx_text ltx_font_typewriter">KVLink</span> recomputes a subset of tokens, highlighted in dark colors. Four algorithms include <span id="S4.F4.7" class="ltx_text ltx_font_italic">Naive</span>, <span id="S4.F4.8" class="ltx_text ltx_font_italic">Fully Recompute (FR)</span>, CacheBlend, and <span id="S4.F4.9" class="ltx_text ltx_font_italic">LegoLink</span>. The bottom right visualizes attention maps (layer 5, head 5 of Llama 3.1 8B) for four decoded tokens. The x-axis marks the position ID of the first token of each chunk. To highlight the differences between attention maps, we normalize the <math id="S4.F4.m2" class="ltx_Math" alttext="QK^{T}" display="inline" intent=":literal"><semantics><mrow><mi>Q</mi><mo lspace="0em" rspace="0em">​</mo><msup><mi>K</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">QK^{T}</annotation></semantics></math> results to the [0, 1] range using min-max scaling instead of Softmax.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S5.F5" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-eval-data-dist.svg" id="S5.F5.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/247;" width="476" height="247"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 5: </span>Prefill and decode length distribution.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S5.F6" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-eval-e2e.svg" id="S5.F6.g1" class="ltx_graphics ltx_centering ltx_img_portrait" style="aspect-ratio:476/781;" width="476" height="781"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 6: </span>Accuracy vs. TTFT. Each point indicates the average <span id="S5.F6.5" class="ltx_text ltx_font_italic">TTFT</span> and accuracy for running synchronous workloads of one dataset (row) on one model (column) using one specific algorithm (each legend label). The <math id="S5.F6.m3" class="ltx_Math" alttext="k" display="inline" intent=":literal"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math> in <span id="S5.F6.6" class="ltx_text ltx_font_italic">LegoLink</span>-k denotes the number of recomputed initial tokens for each chunk, while the <math id="S5.F6.m4" class="ltx_Math" alttext="r" display="inline" intent=":literal"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math> in CacheBlend-r represents the ratio of all recomputed tokens. The black star represents <span id="S5.F6.7" class="ltx_text ltx_font_italic">LegoLink</span>-0, a zero-linking algorithm.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S5.F7" class="ltx_figure"><img src="2410.15332v3/fig-eval-zero.png" id="S5.F7.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/72;" width="476" height="72" alt="Refer to caption">
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 7: </span>Attention map of <span id="S5.F7.3" class="ltx_text ltx_font_italic">LegoLink</span>-0 using the example in Figure <a href="#S4.F4" title="Figure 4 ‣ 4 Algorithm Design ‣ Epic: Efficient Position-Independent Caching for Serving Large Language Models" class="ltx_ref"><span class="ltx_text ltx_ref_tag">4</span></a>.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S5.F8" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-eval-latency-thpt.svg" id="S5.F8.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:476/264;" width="476" height="264"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 8: </span>Latency and throughput comparison of <span id="S5.F8.4" class="ltx_text ltx_font_italic">LegoLink</span>-16 and CacheBlend-15 under asynchronous workloads with varying request rates and context cache ratios (CCR). Each data point represents the average and standard deviation from five experiments. <span id="S5.F8.5" class="ltx_text ltx_font_italic">LegoLink</span>-16 is shown using solid lines, while CacheBlend-15 is represented with dashed lines. Two algorithms with the same CCR are shown in the same color.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="S5.F9" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-eval-long-context.svg" id="S5.F9.g1" class="ltx_graphics ltx_centering ltx_img_landscape" style="aspect-ratio:333/217;" width="333" height="217"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 9: </span>TTFT vs. context length of <span id="S5.F9.6" class="ltx_text ltx_font_italic">FR</span>, CacheBlend-15, and <span id="S5.F9.7" class="ltx_text ltx_font_italic">LegoLink</span>-16, using a fixed chunk size of 512 tokens. For <span id="S5.F9.8" class="ltx_text ltx_font_italic">FR</span>, we do not compile context cache to display its full quadratic time complexity trend, as it would otherwise run out of memory earlier than CacheBlend-15 and <span id="S5.F9.9" class="ltx_text ltx_font_italic">LegoLink</span>-16.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+<figure id="A1.F10" class="ltx_figure"><object type="image/svg+xml" data="2410.15332v3/fig-eval-breakdown.svg" id="A1.F10.g1" class="ltx_graphics ltx_centering ltx_img_portrait" style="aspect-ratio:476/754;" width="476" height="754"></object>
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 10: </span>TTFT breakdown of CacheBlend-15.</figcaption>
+</figure>
+<p class="ltx_p">Body text removed.</p>
+</article>
+</body>
+</html>
