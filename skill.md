@@ -55,7 +55,7 @@ The first character of your response must be `{` and the last must be `}`. No pr
 
   "charts":   [ <0–4 chart objects, omit if none> ],
 
-  "image":    <NEVER emit; attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a sidecar)>,
+  "figure_request": { "label": "Figure 3", "why": "<one plain sentence: what the figure shows and why a reader should see it>" } or null,
 
   "sections":      [ <2–5 section objects> ],
   "end_takeaway":  <object or omit>,
@@ -183,7 +183,7 @@ the URL wrapped in an anchor:
 
 ## Working with figures in the paper
 
-When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read them for context, but emit nothing to the `image` field. A downstream figure pipeline attaches the image automatically: a vision model picks the paper's best figure, and a per-paper sidecar can optionally pin a specific figure instead. The same pipeline may additionally recreate that figure as native chart data (a `recreated_figure` block) when the underlying numbers are recoverable; that block is also not something you author, and it does not change the `charts` rules below.
+When the paper contains figures (results charts, conceptual diagrams, architecture sketches, stage models), read every figure and name the one the explainer should show in `figure_request.label`. Use the paper's own numbering and noun (`Figure 3`, `Table 2`, `Figure 4b`). Prefer the paper's key results figure, the one carrying its headline finding. Only when it has none, choose its central architecture, pipeline or framework diagram. Write `why` as one plain sentence saying what the figure shows and why a reader should see it. Set `figure_request` to null when no figure would help. The pipeline finds and attaches the named figure. Figures are never a source of chart values. The same pipeline may additionally recreate that figure as native chart data (a `recreated_figure` block) when the underlying numbers are recoverable; that block is also not something you author, and it does not change the `charts` rules below.
 
 ### When does a chart earn its place?
 
@@ -215,7 +215,7 @@ If any check fails, do not emit that chart. Find a different cut of the paper th
 
 For data that passes every check, build the Chart.js chart in `charts` from the stated values alone. If several stated results each add a distinct story, include one chart for each, within the URL limit above. Put the most important chart first; it renders after the first prose section, below the opening text.
 
-**Do not emit an `image` field.** Conceptual figures (visual abstracts, architecture diagrams, framework figures) are attached downstream by the figure pipeline: a vision model auto-picks the paper's best figure, and a per-paper sidecar (`<paper>.focus.md`) can optionally override that pick to pin a specific figure. Your job is to author the prose, pills, charts, and structure; the image is supplied externally, by whichever of those paths applies, or omitted entirely.
+**Do not emit an `image` field or any image bytes; name the figure in `figure_request` and the pipeline locates and attaches it.** A per-paper sidecar (`<paper>.focus.md`) can pin a specific figure, in which case the instruction names it.
 
 Prose sections may refer to figures by number so the reader can find them in the original paper. Do not invent figure content: if a figure's values or labels are unclear, say so or leave the detail out.
 
@@ -265,7 +265,7 @@ Apply these rules in ranked order:
 - [ ] Every pill `description` is a lowercase continuation phrase completing its `number`, not a standalone capitalised sentence.
 - [ ] Every chart value is stated in the text or a table of the paper (never read off a figure), and each caption ends with a bracketed tag naming that table or page. The most important chart is first.
 - [ ] Every chart passes all seven checks in "When does a chart earn its place?" above: not a share-of-whole, not an ordinal ranking, not a single number or proportion, at least 6 points in a series, not a uniform-value checklist, not a value grid a `table` would serve better, and every numeric axis carries a real unit with `title.display: true`.
-- [ ] No `image` field is emitted. The image block is attached externally by the figure pipeline (VLM auto-pick, optionally pinned via a per-paper sidecar); the model does not author it.
+- [ ] `figure_request` names one figure by the paper's own label, or is null.
 - [ ] `sections` has 2–5 entries, each with a `label` and at least one of `paragraphs`, `list`, or `table`.
 - [ ] `references` follows the single-entry rule above: one entry, anchor with `target="_blank"` and `rel="noopener noreferrer"`, no cited-work bibliography.
 - [ ] All text meets the hard floor in rule 11 of "Writing the prose".

@@ -52,6 +52,7 @@ export interface ImageOverride {
   alt_text?: string;
   /** Optional 1-based page hint that short-circuits caption search in figure-extract. */
   pageHint?: number;
+  forceRegionCrop?: boolean;
 }
 
 interface FocusDirectives {
@@ -75,6 +76,7 @@ export function parseFocusDirectives(raw: string): FocusDirectives {
   let caption: string | undefined;
   let altText: string | undefined;
   let pageHint: number | undefined;
+  let forceRegionCrop: boolean | undefined;
   let recreateRaw: string | undefined;
   let recreateX: string | undefined;
   let recreateY: string | undefined;
@@ -85,6 +87,7 @@ export function parseFocusDirectives(raw: string): FocusDirectives {
   const captionDirective = /^\s*image[_-]caption\s*:\s*(.+?)\s*$/i;
   const altDirective = /^\s*image[_-]alt\s*:\s*(.+?)\s*$/i;
   const pageHintDirective = /^\s*image[_-]page[_-]hint\s*:\s*(.+?)\s*$/i;
+  const rasterDirective = /^\s*image[_-]raster\s*:\s*(.*?)\s*$/i;
   const recreateDirective = /^\s*recreate\s*:\s*(.+?)\s*$/i;
   const recreateXDirective = /^\s*recreate[_-]x\s*:\s*(.+?)\s*$/i;
   const recreateYDirective = /^\s*recreate[_-]y\s*:\s*(.+?)\s*$/i;
@@ -108,6 +111,8 @@ export function parseFocusDirectives(raw: string): FocusDirectives {
       sawImageKey = true;
       continue;
     }
+    m = line.match(rasterDirective);
+    if (m) { forceRegionCrop = /^(true|yes|1|on)$/i.test(m[1]); sawImageKey = true; continue; }
     m = line.match(recreateDirective);
     if (m) { recreateRaw = m[1]; continue; }
     m = line.match(recreateXDirective);
@@ -126,7 +131,7 @@ export function parseFocusDirectives(raw: string): FocusDirectives {
 
   const focusHint = remaining.join('\n').trim() || undefined;
   const imageOverride = sawImageKey
-    ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint }
+    ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint, ...(forceRegionCrop !== undefined && { forceRegionCrop }) }
     : undefined;
 
   // recreate: yes|no|Figure N. Any recreate_x/recreate_y/data directive
