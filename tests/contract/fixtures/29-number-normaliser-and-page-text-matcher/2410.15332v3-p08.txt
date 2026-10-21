@@ -1,0 +1,96 @@
+                                                                                E PIC: Efficient Position-Independent Caching for Serving Large Language Models
+
+                            /HJR/LQN&&5                /HJR/LQN&&5                                                           &DFKH%OHQG&&5 
+                            /HJR/LQN&&5                /HJR/LQN&&5                                                           &DFKH%OHQG&&5                            6        FR
+                            /HJR/LQN&&5 
+                            /HJR/LQN&&5 
+                                                                                     &DFKH%OHQG&&5 
+                                                                                     &DFKH%OHQG&&5 
+                                                                                                                                                                                         &DFKH%OHQG&&5 
+                                                                                                                                                                                         &DFKH%OHQG&&5                            5        CacheBlend-15
+                                                                                                                                                          ×                                                                                                 4        LegoLink-16
+                                                                                                                                                                                                                                                       TTFT (s)   3
+                                                                                                                                               
+                                                                                                                                                                                                                                                                  2
+
+                                                                                                          7KURXJKSXWWRNHQV
+                                                                                                                                               
+                                                                                                                                                                                                                                                                  1
+77)7V                                                                                                                                                                                                                                          0
+                                                                                                                                                                                                                                                                      0   10000 20000 30000 40000 50000
+                                                                                                                                                                                                                                                                   Context length (# tokens)
+                                                                                                                                                               
+                                               5HTXHVWUDWHUHTV                                                                                      5HTXHVWUDWHUHTV                         Figure 9. TTFT vs. context length of FR, CacheBlend-15, and
+                                                                                                                                                                                                                                              LegoLink-16, using a fixed chunk size of 512 tokens. For FR, we
+  Figure 8. Latency and throughput comparison of LegoLink-16 and                                                                                                                                                                              do not compile context cache to display its full quadratic time
+  CacheBlend-15 under asynchronous workloads with varying re-                                                                                                                                                                                 complexity trend, as it would otherwise run out of memory earlier
+  quest rates and context cache ratios (CCR). Each data point rep-                                                                                                                                                                            than CacheBlend-15 and LegoLink-16.
+  resents the average and standard deviation from five experiments.
+  LegoLink-16 is shown using solid lines, while CacheBlend-15 is
+  represented with dashed lines. Two algorithms with the same CCR                                                                                                                                                                             observe three key trends. First, LegoLink-16 achieves up to
+  are shown in the same color.                                                                                                                                                                                                                an 8× reduction in TTFT compared to CacheBlend-15. Sec-
+                                                                                                                                                                                                                                              ond, as the Context Cache Ratio (CCR) increases, LegoLink-
+                                                                                                                                                                                                                                              16 remains stable TTFT, whereas CacheBlend-15 fluctu-
+                                                                                                                                                                                                                                              ates around 0.5 seconds. This stability likely results from
+   accuracy remarkably well. Second, the “attention sink” phe-
+                                                                                                                                                                                                                                              LegoLink-16 generating fewer intermediate results; higher
+   nomenon disappears in the middle (Figure 7), reinforcing
+                                                                                                                                                                                                                                              CCR reduces available memory for intermediate computa-
+   the importance of mitigating chunk-initial tokens’ influence
+                                                                                                                                                                                                                                              tion, but LegoLink-16 incurs less recomputation overhead
+   on subsequent attention computations. On the other hand,
+                                                                                                                                                                                                                                              than CacheBlend-15. Third, TTFT plateaus as request rate
+   the previously raised concern in CacheBlend regarding lim-
+                                                                                                                                                                                                                                              increases, rather than growing exponentially. This plateau
+   ited cross-attention across chunks proves less impactful in
+                                                                                                                                                                                                                                              reflects vLLM’s scheduling policy, which limits the number
+   practice. Query and decoded tokens can still attend to all ear-
+                                                                                                                                                                                                                                              of concurrent running requests based on available memory.
+   lier chunks, enabling effective aggregation of cross-chunk
+                                                                                                                                                                                                                                              If we included the TTFT of all waiting (queued) requests,
+   information.
+                                                                                                                                                                                                                                              the average TTFT would approach infinity.
+  Discussion of lengthy outputs in sparsity algorithms.
+                                                                                                                                                                                                                                              Regarding throughput versus request rates (right of Fig-
+  LegoLink variants occasionally show reduced accuracy on
+                                                                                                                                                                                                                                              ure 8), we observe two notable facts. First, LegoLink-
+  cases such as (MultiNews, Llama 3.1) and (Needle, Yi).
+                                                                                                                                                                                                                                              16 achieves a throughput that is up to 7× higher than
+  However, this drop stems not from incorrect answers but
+                                                                                                                                                                                                                                              CacheBlend-15, as it recomputes fewer tokens, allowing
+  from unnecessarily lengthy outputs. For the example in Fig-
+                                                                                                                                                                                                                                              more requests (about 7×) to be processed simultaneously.
+  ure 4, LegoLink-0 correctly begins with “Chrysan Company”
+                                                                                                                                                                                                                                              Second, as CCR increases, LegoLink-16’s throughput con-
+  but continues with unrelated content such as “and that Derek
+                                                                                                                                                                                                                                              tinues to improve until the CCR reaches a threshold (approx-
+  is living in ...,” which lowers F1 or ROUGE-L scores. We
+                                                                                                                                                                                                                                              imately 30%), beyond which further increases in CCR lead
+  observe similar behaviors in other sparsity-based algorithms
+                                                                                                                                                                                                                                              to a reverse effect because requests start to severely interfere
+  such as StreamingLLM (Xiao et al., 2024), H2O (Zhang
+                                                                                                                                                                                                                                              with each other. In contrast, CacheBlend-15’s throughput
+  et al., 2023), and Quest (Tang et al., 2024). Such behavior
+                                                                                                                                                                                                                                              remains constant as it becomes incapable of handling addi-
+  undermines the primary goals of sparsity—reducing latency
+                                                                                                                                                                                                                                              tional requests.
+  and resource usage. We leave a more detailed investigation
+  of this behavior to future work.
+                                                                                                                                                                                                                                              5.6. E PIC’s Performance on Long Context
+   5.5. Latency and Throughput of E PIC                                                                                                                                                                                                       We send requests of varying context lengths with a fixed
+                                                                                                                                                                                                                                              chunk size (512 tokens) synchronously to E PIC, yield-
+  We employ the artificial asynchronous workloads on
+                                                                                                                                                                                                                                              ing two observations from the results (Figure 9). First,
+  LegoLink-16 (16 is the block size of vLLM and a mod-
+                                                                                                                                                                                                                                              as context length increases, the TTFT of both FR and
+  erate number of tokens to recompute) and CacheBlend-15,
+                                                                                                                                                                                                                                              CacheBlend-15 grows quadratically, while LegoLink-16 ex-
+  presenting results in Figure 8. Notably, the numbers in this
+                                                                                                                                                                                                                                              hibits nearly linear growth. This difference arises because
+  section should be interpreted cautiously when considering
+                                                                                                                                                                                                                                              FR and CacheBlend-15 have time and resource complexities
+  real-world scenarios.
+                                                                                                                                                                                                                                              of O(N 2 ), while LegoLink-16 operates with a complexity
+   Regarding TTFT versus request rates (left of Figure 8), we                                                                                                                                                                                 of O(kN ), where k represents the number of recomputed
+
+                                                                                                                                                                                                                                          8
