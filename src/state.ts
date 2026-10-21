@@ -57,6 +57,7 @@ export interface RequestState {
     url?: string;
     filename?: string;
     filePath?: string;
+    cachedPdfPath?: string;
   };
   output: string | null;
   result: 'pending' | 'succeeded' | 'errored';

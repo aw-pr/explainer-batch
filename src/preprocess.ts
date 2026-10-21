@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
 import type { FigureCandidate, RecreateDirective } from './state';
@@ -144,6 +145,7 @@ export interface InputSource {
   url?: string;
   filename?: string;
   filePath?: string;
+  cachedPdfPath?: string;
 }
 
 function readPdfFocus(filename: string): FocusDirectives {
@@ -514,10 +516,34 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
   }
 }
 
+async function cachePdfUrl(url: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+      throw new Error('response does not start with %PDF-');
+    }
+    const cacheDir = path.resolve(process.env.PDF_CACHE_DIR || path.join(INPUT_DIR, '_cache', 'pdf'));
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const cachedPath = path.join(cacheDir, `${hash}.pdf`);
+    fs.mkdirSync(cacheDir, { recursive: true });
+    try {
+      fs.writeFileSync(cachedPath, bytes, { flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    return cachedPath;
+  } catch (error) {
+    console.warn(`  ⚠ PDF download failed: ${url}: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+}
+
 /**
  * Scans input/ for PDFs and optionally input/urls.txt for remote URLs.
  * Reads local PDFs into base64 for inline batch embedding.
- * HTML web URLs are fetched and stripped to text; PDF URLs pass through as document blocks.
+ * HTML web URLs are fetched and stripped to text; PDF URLs are cached locally and sent as URL document blocks.
  */
 export async function preprocessInputs(): Promise<InputItem[]> {
   const items: InputItem[] = [];
@@ -576,7 +602,10 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       let detectedSurname: string | undefined;
       let detectedPublished: string | undefined;
       let detectedReference: string | undefined;
-      if (!isPdfUrl(url)) {
+      let cachedPdfPath: string | undefined;
+      if (isPdfUrl(url)) {
+        cachedPdfPath = await cachePdfUrl(url);
+      } else {
         process.stdout.write(`  Fetching ${url} …`);
         const fetched = await fetchHtmlContent(url);
         htmlContent = fetched.text;
@@ -590,7 +619,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       items.push({
         customId,
         input: url,
-        source: { kind: 'url', url },
+        source: { kind: 'url', url, cachedPdfPath },
         isUrl: true,
         htmlContent,
         focusHint,

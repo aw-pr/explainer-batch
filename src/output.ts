@@ -155,11 +155,19 @@ function stripSchemaNulls(value: unknown): void {
 
 /**
  * Reverses preprocess.ts's customId derivation to find the source PDF.
- * Returns null for URL-sourced explainers or when no matching PDF exists
+ * Uses the newest recorded cache path for URL-sourced explainers.
+ * Returns null when no matching PDF exists
  * (e.g. the input file was removed after the batch was submitted).
  */
-function resolveSourcePdf(customId: string): string | null {
-  if (customId.startsWith('explainer-url-')) return null;
+export function resolveSourcePdf(customId: string): string | null {
+  if (customId.startsWith('explainer-url-')) {
+    const state = readState();
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const cachedPath = state.batches[i].requests[customId]?.source?.cachedPdfPath;
+      if (cachedPath !== undefined) return fs.existsSync(cachedPath) ? cachedPath : null;
+    }
+    return null;
+  }
   const target = customId.replace(/^explainer-/, '');
   if (!fs.existsSync(INPUT_DIR)) return null;
 

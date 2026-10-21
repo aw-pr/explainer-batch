@@ -154,7 +154,9 @@ and no `PROVIDER` env var the default is `claude`.
 - **Local PDFs**: drop any `.pdf` into `input/`. OpenAI uploads are cached in
   `state.json` by filename + content hash; unchanged files are reused.
 - **Remote URLs**: `input/urls.txt`, one HTTP(S) link per line (`#` comments
-  ignored).
+  ignored). PDF URLs are downloaded at preprocess time into `PDF_CACHE_DIR`
+  (default `<input dir>/_cache/pdf/`), stored by content hash and still sent to
+  the provider as URL document blocks. Failed downloads warn and remain queued.
 - **Per-paper focus hint (optional)**: steer emphasis for one paper without
   changing the global prompt:
   - PDF: sidecar `input/<basename>.focus.md` (body = emphasis block).
@@ -202,6 +204,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
 | `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
+| `PDF_CACHE_DIR` | Local cache for PDF URLs downloaded at preprocess time | `<input dir>/_cache/pdf/` |
 | `EXPLAINER_OUTPUT_DIR` | Where JSON is written | `<repo>/output` |
 | `EXPLAINER_OBSIDIAN_DIR` | Extra always-on mirror for each saved JSON (independent of the output dir and website staging) | `~/obsidian/explainers` (set empty to disable) |
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
