@@ -196,8 +196,8 @@ test('image: Figure N still pins and normalises the label', () => {
 });
 
 test('an unknown image_* key is warned about and kept out of the focus hint', () => {
-  const { value: d, warnings } = captureWarnings(() => preprocess.parseFocusDirectives('image_raster: true\nStress the cost findings.'));
-  assert.ok(warnings.some(w => w.includes('image_raster')), 'an unknown image_* key must produce a warning naming it');
+  const { value: d, warnings } = captureWarnings(() => preprocess.parseFocusDirectives('image_size: large\nStress the cost findings.'));
+  assert.ok(warnings.some(w => w.includes('image_size')), 'an unknown image_* key must produce a warning naming it');
   assert.equal(d.focusHint, 'Stress the cost findings.', 'an unknown image_* directive must not reach the synthesis model');
 });
 
