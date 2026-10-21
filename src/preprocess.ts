@@ -5,6 +5,8 @@ import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
 import type { FigureCandidate, RecreateDirective } from './state';
 import { isPdfUrl } from './figure-vlm';
+import { formatLabel } from './figure-locator/label';
+import { decodeHtmlEntities, isWrapperClass, labelFromHints, resolveSources, RawSource } from './figure-locator/dom-figures';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
@@ -209,55 +211,106 @@ function parseSourceFigureLabel(figcaption: string): string | undefined {
   return m ? `Figure ${m[2]}` : undefined;
 }
 
+/** Word-bounded attribute read, so `src` never matches inside `data-src` or `srcset`. */
+function tagAttr(tag: string, name: string): string | undefined {
+  const m = new RegExp(`[\\s"'/]${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i').exec(tag);
+  return m ? m[1] ?? m[2] ?? m[3] : undefined;
+}
+
+function imgRawSources(imgTag: string): RawSource[] {
+  const src = ['src', 'data-src', 'data-original'].map(name => tagAttr(imgTag, name)).find(v => v && !/^data:/i.test(v));
+  const srcset = tagAttr(imgTag, 'srcset');
+  return [...(src ? [{ url: src }] : []), ...(srcset ? [{ srcset }] : [])];
+}
+
+/** Each `<img>` (src, then its largest srcset entry), then each `<picture><source srcset>`, then each `<object data>`. */
+function figureRawSources(block: string): RawSource[] {
+  const raw: RawSource[] = [];
+  for (const img of block.match(/<img\b[^>]*>/gi) ?? []) raw.push(...imgRawSources(img));
+  for (const picture of block.match(/<picture\b[^>]*>[\s\S]*?<\/picture>/gi) ?? []) {
+    for (const source of picture.match(/<source\b[^>]*>/gi) ?? []) {
+      const srcset = tagAttr(source, 'srcset');
+      if (srcset) raw.push({ srcset });
+    }
+  }
+  for (const object of block.match(/<object\b[^>]*>/gi) ?? []) {
+    const data = tagAttr(object, 'data');
+    if (data) raw.push({ url: data });
+  }
+  return raw;
+}
+
+function snapshotLabel(openTag: string, figcaption: string | undefined, captionOpenTag: string | undefined): string | undefined {
+  const decoded = (name: string) => {
+    const value = tagAttr(openTag, name);
+    return value === undefined ? undefined : decodeHtmlEntities(value);
+  };
+  const key = labelFromHints({
+    captionText: figcaption,
+    figureStyle: tagAttr(openTag, 'style'),
+    captionStyle: captionOpenTag ? tagAttr(captionOpenTag, 'style') : undefined,
+    ariaLabel: decoded('aria-label'),
+    id: decoded('id'),
+    dataLabel: decoded('data-label'),
+  });
+  return key ? formatLabel(key) : undefined;
+}
+
 /**
- * Regex-based DOM figure-candidate scan (Node has no DOM). Primary pass reads
- * real `<figure>…</figure>` elements; secondary pass catches a bare `<img>`
- * sitting in a `[class*="figure"]` wrapper (mirrors the live selector in
- * figure-vlm.ts's markFigureCandidates), for pages that don't use `<figure>`.
+ * Regex-based DOM figure-candidate scan (Node has no DOM). Every `<figure>`
+ * with an asset is a candidate; only on a page with no `<figure>` does a bare
+ * `<img>` in a whole-token `chart`/`figure`/`graph`/`plot` class wrapper count.
+ * `imgSrc`, `figcaption`, `alt` and `sourceFigure` keep the values the legacy
+ * snapshot path reads; `label` and `sources` carry the richer extraction.
  * Runs on the FULL raw HTML, before the strip+truncate below, so a late
  * figure is never lost to the size cap.
  */
 export function parseFigureCandidates(raw: string, pageUrl: string): FigureCandidate[] {
   const candidates: FigureCandidate[] = [];
-  const seenSrc = new Set<string>();
+  const seen = new Set<string>();
+  const record = (candidate: FigureCandidate): void => {
+    const key = candidate.imgSrc || candidate.sources?.[0];
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    candidates.push(candidate);
+  };
 
-  const figureRe = /<figure\b[^>]*>([\s\S]*?)<\/figure>/gi;
+  const captionRe = /<figcaption\b([^>]*)>([\s\S]*?)<\/figcaption>/i;
+  const figureRe = /<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi;
   let m: RegExpExecArray | null;
   while ((m = figureRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
-    const block = m[1];
+    const block = m[2];
     const imgMatch = block.match(/<img\b[^>]*>/i);
-    if (!imgMatch) continue;
-    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
-    if (!imgSrc || seenSrc.has(imgSrc)) continue;
-
-    const alt = extractTagAttr(imgMatch[0], 'alt');
-    const capMatch = block.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
-    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const imgSrc = (imgMatch && resolveImgSrc(imgMatch[0], pageUrl)) || '';
+    const sources = resolveSources(figureRawSources(block), pageUrl);
+    const alt = imgMatch ? extractTagAttr(imgMatch[0], 'alt') : undefined;
+    const capMatch = block.match(captionRe);
+    const figcaption = capMatch ? stripHtml(capMatch[2]) || undefined : undefined;
     const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
-
-    seenSrc.add(imgSrc);
-    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+    const label = snapshotLabel(m[0], figcaption, capMatch ? capMatch[0] : undefined);
+    record({ imgSrc, figcaption, alt, sourceFigure, ...(label && { label }), sources });
   }
+  if (/<figure\b/i.test(raw)) return candidates;
 
-  // Secondary pass: bare <img> inside a [class*="figure"] wrapper that isn't a
-  // real <figure> element. Scans a bounded window after the wrapper's opening
-  // tag rather than trying to balance nested tags with regex.
+  // Wrapper pass, for pages with no <figure>: scans a bounded window after the
+  // wrapper's opening tag rather than trying to balance nested tags with regex.
   const WRAPPER_WINDOW = 2000;
-  const wrapperRe = /<(?:div|span|section)\b[^>]*class\s*=\s*["'][^"']*figure[^"']*["'][^>]*>/gi;
+  const wrapperRe = /<(?:div|span|section)\b[^>]*>/gi;
   while ((m = wrapperRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
+    const className = tagAttr(m[0], 'class');
+    if (!className || !isWrapperClass(className)) continue;
     const windowText = raw.slice(m.index, m.index + WRAPPER_WINDOW);
     const imgMatch = windowText.match(/<img\b[^>]*>/i);
     if (!imgMatch) continue;
-    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
-    if (!imgSrc || seenSrc.has(imgSrc)) continue;
+    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl) ?? '';
+    const sources = resolveSources(imgRawSources(imgMatch[0]), pageUrl);
 
     const alt = extractTagAttr(imgMatch[0], 'alt');
-    const capMatch = windowText.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
-    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const capMatch = windowText.match(captionRe);
+    const figcaption = capMatch ? stripHtml(capMatch[2]) || undefined : undefined;
     const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
-
-    seenSrc.add(imgSrc);
-    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+    const label = snapshotLabel(m[0], figcaption, capMatch ? capMatch[0] : undefined);
+    record({ imgSrc, figcaption, alt, sourceFigure, ...(label && { label }), sources });
   }
 
   return candidates;

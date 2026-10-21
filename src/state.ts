@@ -21,6 +21,10 @@ export interface FigureCandidate {
   alt?: string;
   /** Parsed "Figure N" label from the figcaption. */
   sourceFigure?: string;
+  /** formatLabel string (`Figure 5`, `Table 1`, `Figure 2b`) from the caption text, `--figure-label`, aria-label, LaTeXML id or data-label. */
+  label?: string;
+  /** Every asset URL, resolved, entity-decoded and unwrapped from `/_next/image`, in source order. */
+  sources?: string[];
 }
 
 /**
