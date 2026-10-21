@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { LlmContractError } from './llm-contract';
 import type { ProviderName } from './providers';
 
 // Overridable so parallel runs can each use an isolated state file (avoids the
@@ -107,8 +108,9 @@ function empty(): State {
 
 export function readState(): State {
   if (!fs.existsSync(STATE_FILE)) return empty();
+  let parsed: unknown;
   try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as State;
+    parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   } catch (error) {
     // Never silently discard a state file that fails to parse: it holds batch
     // ids and Files API ids that cannot be recovered any other way.
@@ -122,6 +124,13 @@ export function readState(): State {
     );
     return empty();
   }
+  // A migrated file must never read as v1: the next write would replace it.
+  if (typeof parsed === 'object' && parsed !== null && 'version' in parsed) {
+    throw new LlmContractError('STATE_VERSION_UNSUPPORTED',
+      `${STATE_FILE} carries state version ${JSON.stringify((parsed as { version: unknown }).version)}; `
+      + 'this runtime reads only the unversioned v1 state and will not overwrite it.');
+  }
+  return parsed as State;
 }
 
 export function writeState(state: State): void {
