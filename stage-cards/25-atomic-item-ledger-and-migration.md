@@ -4,16 +4,16 @@
 
 - **Authored:** 2026-10-21
 - **Orchestrator:** Claude Opus 5.5 <claude-opus-5-5@local>
-- **Worker:** Claude Opus 5.5 <claude-opus-5-5@local>
+- **Worker:** Claude Sonnet 5.5 <claude-sonnet-5-5@local>
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/25-atomic-item-ledger-and-migration
 - **Worker effort:** medium
-- **Verifier effort:** high
+- **Verifier effort:** medium
 - **Verifier panel:** false
 - **Gate:** stage-completed: 22-normalised-provider-contract
 - **Path claims:** src/state.ts, src/state-v2.ts, src/state-migration.ts, scripts/migrate-state-v2.ts, tests/unit/state-v2.test.ts
-- **Pairing rationale:** Judgement work where mistakes lose paid results: lock ownership and reclaim, atomic writes and the migration's quarantine rules. Claude Opus 5.5 at high effort writes it; the frontier tier is not needed because the lock format, the conversion table and the refusal rules are written below and pinned by the oracle. The verifier is GPT-6.1 Sol from the other family at high effort, which can re-run the multi-process tests in its sandbox. It follows card 24's GPT-6.1 Sol worker, so worker families alternate; it claims no file card 23 or 24 claims.
+- **Pairing rationale:** Judgement work where mistakes lose paid results: lock ownership and reclaim, atomic writes and the migration's quarantine rules. Claude Opus 5.5 at high effort writes it; the frontier tier is not needed because the lock format, the conversion table and the refusal rules are written below and pinned by the oracle. The verifier is GPT-6.1 Sol from the other family at high effort, which can re-run the multi-process tests in its sandbox. It follows card 24's GPT-6.1 Sol worker, so worker families alternate; it claims no file card 23 or 24 claims. Attempt 2 (2026-10-21) is a repair, not a rerun: attempt 1 passed criteria 1, 2, 3, 4, 6 and 7 and failed one disposition in criterion 5, so Sonnet 5.5 at medium restores the preserved tree and patches one branch of `classify()`, and GPT-6.1 Sol verifies at medium, still cross-family.
 - **Open decisions:** none
 
 ## Surfacing concern
@@ -130,3 +130,16 @@ The attempt-1 tree is preserved at `840715d` on `wip/25-atomic-item-ledger-and-m
 **The fix.** A `codexbatch_` record whose `provider` field is absent is a local OpenAI `subscription-cli` batch, not conflicting evidence: the prefix is written only by the codex-auth path (`src/batch.ts:503`), which always sets `provider: 'openai'`, so the v1 default of Claude does not apply to it. Only an explicit `provider: 'claude'` on a `codexbatch_` id is conflicting evidence. Its pending items become `outcome_unknown` with `needs_source_recovery: true`, as for any `codexbatch_` batch. `src/state-migration.ts:82-85` currently archives the absent-provider case; change it, and change the assertions at `tests/unit/state-v2.test.ts:194` and `:216` that encode the old disposition, adding one for the absent-provider case. Leave every other disposition as it is.
 
 Re-run criteria 1 to 7 and return.
+
+## Re-brief (attempt 2, 2026-10-21)
+
+Attempt 1 passed criteria 1, 2, 3, 4, 6 and 7 and every other reading check of criterion 5 (temp-before-rename ordering, both lane signals, the already-v2 refusal, explicit contradictory prefixes, provider-present pending `codexbatch_` items). It was verifier-FAILED on one disposition: a `codexbatch_` batch with **no** `provider` field is archived as conflicting evidence (`src/state-migration.ts`, the `codexbatch_` branch of `classify()`: `if (provider !== 'openai') return conflicting(...)`, reason "codexbatch_ id with provider unset (v1 default claude)"). Decision 4 names only an explicit contradiction (`codexbatch_` with provider Claude) as conflicting evidence; a `codexbatch_` id with the provider unset becomes a local OpenAI `subscription-cli` batch, its pending items `outcome_unknown` with `needs_source_recovery: true`. The verifier's reproduction: id `codexbatch_pending_without_provider`, no provider, one pending explainer, gave `executable=null` and `legacy.migration_status=conflicting_evidence`. `tests/unit/state-v2.test.ts:194` and `:216` encode the wrong disposition.
+
+Its work is preserved at `840715d8` on `wip/25-atomic-item-ledger-and-migration-attempt-1`. Do not rebuild it:
+
+1. After the run worktree setup, restore the deliverables: `git checkout 840715d8 -- scripts/migrate-state-v2.ts src/state-migration.ts src/state-v2.ts src/state.ts tests/unit/state-v2.test.ts`. Never restore anything under `state/` or the frozen contract test.
+2. Fix the `codexbatch_` branch only: conflicting evidence when the provider is explicitly `claude`; otherwise (provider `openai` or unset) a local OpenAI `subscription-cli` batch. Leave every other branch of `classify()` as it is. Correct the two unit tests to expect the card's disposition for the unset case, and keep a test that `codexbatch_` with provider `claude` is still archived as conflicting.
+3. Reproduce the verifier's case before and after the fix (an in-memory migration of `codexbatch_pending_without_provider`, no provider, one pending explainer: after the fix the batch is executable, local, OpenAI, `subscription-cli`, and the request is `outcome_unknown` with `needs_source_recovery: true`). Say both results in the envelope notes.
+4. Then run criteria 1, 2, 3, 4, 6 and 7 once each. Return the envelope.
+
+**Verifier (attempt 2, repair scope):** criteria 1, 2, 3, 4, 6 and 7 as written. Criterion 5 is the `codexbatch_` disposition only: rerun the reproduction above, and check provider `claude` still archives as conflicting and provider `openai` still migrates; attempt 1's other criterion 5 reading checks stand unless `git diff 840715d8 -- src/ scripts/` touches anything outside the `codexbatch_` branch of `classify()`, in which case run the full criterion 5. Read that diff first and say in the envelope what it changed.
