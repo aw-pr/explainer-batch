@@ -84,9 +84,10 @@ export function getModelConfig(provider: ProviderName): ModelConfig {
   };
 }
 
-/** Claude model ids are prefixed `claude-`; all other ids belong to OpenAI. */
-export function modelBelongsToProvider(model: string, provider: ProviderName): boolean {
-  return (model.startsWith('claude-') ? 'claude' : 'openai') === provider;
+/** Prefix rule: `claude-` ids are Claude, `gemini-` ids are Gemini, all other ids belong to OpenAI. */
+export function modelBelongsToProvider(model: string, provider: string): boolean {
+  const owner = model.startsWith('claude-') ? 'claude' : model.startsWith('gemini-') ? 'gemini' : 'openai';
+  return owner === provider;
 }
 
 function assertVisionModel(provider: ProviderName, model: string, envKnob: string): string {
