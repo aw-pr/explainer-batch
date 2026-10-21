@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { randomUUID } from 'node:crypto';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { recreateFigureData } from './figure-data';
@@ -405,7 +406,7 @@ export function canonicaliseExplainerJson(json: ExplainerJson): ExplainerJson {
   return json;
 }
 
-function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
+export function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
   canonicaliseExplainerJson(json);
   const candidates = json.charts ?? [];
 
@@ -507,7 +508,7 @@ function firstYear(...candidates: Array<string | undefined>): string | undefined
  * real model-written eyebrow that already includes the surname is left alone,
  * preserving nuances like "et al.").
  */
-function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): void {
+export function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): void {
   if (provenance.detectedSurname) {
     const surname = provenance.detectedSurname;
     const surnameSlug = slugifySurname(surname);
@@ -532,6 +533,44 @@ function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): 
   if (provenance.detectedReference) {
     json.references = [provenance.detectedReference];
   }
+}
+
+export async function persistArtefact(
+  article: ExplainerJson,
+  { itemKey, kind }: { itemKey: string; kind: 'success' | 'review' },
+): Promise<{
+  jsonPath: string;
+  destinations: {
+    output: 'written';
+    staging: 'written' | 'skipped' | 'failed';
+    mirror: 'written' | 'skipped' | 'failed';
+  };
+}> {
+  const directory = kind === 'review' ? path.join(OUTPUT_DIR, 'review') : OUTPUT_DIR;
+  const filename = deriveFilename(itemKey, article);
+  const jsonPath = path.join(directory, filename);
+  const temporaryPath = path.join(directory, `.${filename}.${randomUUID()}.tmp`);
+  await fs.promises.mkdir(directory, { recursive: true });
+  try {
+    await fs.promises.writeFile(temporaryPath, JSON.stringify(article, null, 2), { encoding: 'utf8', flag: 'wx' });
+    await fs.promises.rename(temporaryPath, jsonPath);
+  } finally {
+    await fs.promises.rm(temporaryPath, { force: true });
+  }
+
+  const copy = async (destination: string | null): Promise<'written' | 'skipped' | 'failed'> => {
+    if (kind === 'review' || !destination) return 'skipped';
+    try {
+      await fs.promises.mkdir(destination, { recursive: true });
+      await fs.promises.copyFile(jsonPath, path.join(destination, filename));
+      return 'written';
+    } catch {
+      return 'failed';
+    }
+  };
+  const staging = await copy(WEBSITE_STAGING_DIR);
+  const mirror = await copy(OBSIDIAN_MIRROR_DIR);
+  return { jsonPath, destinations: { output: 'written', staging, mirror } };
 }
 
 export async function saveResult(customId: string, rawText: string, provenance?: RunProvenance): Promise<SaveResult> {

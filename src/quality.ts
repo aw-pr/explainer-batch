@@ -300,6 +300,11 @@ export function validateJsonOutput(json: unknown, options: ValidationOptions): J
   return { ok: issues.length === 0, issues };
 }
 
+export function isChartIssue(issue: string): boolean {
+  return /^(?:charts?|recreated_figure)\b/.test(issue)
+    || /^style \([^)]+\) at (?:charts?|recreated_figure)\b/.test(issue);
+}
+
 export function buildRepairInstruction(issues: string[], expectedDate: string): string {
   return [
     'You are repairing a JSON explainer article.',
