@@ -8,7 +8,7 @@
 - **Verifier:** GPT-6.1 Sol <gpt-6-1-sol@local>
 - **Base branch:** dev
 - **Run branch:** autometta/25-atomic-item-ledger-and-migration
-- **Worker effort:** high
+- **Worker effort:** medium
 - **Verifier effort:** high
 - **Verifier panel:** false
 - **Gate:** stage-completed: 22-normalised-provider-contract
@@ -120,3 +120,13 @@ Any edit to the frozen contract block fails the stage. The worker runs criteria 
 - **Claude (worker):** runs unsandboxed; still make no network calls and never touch the repo's own `state.json`. If `node_modules` is missing in the run worktree, clone it from the main checkout (`cp -cR ../explainer-batch/node_modules node_modules`, an APFS clone, never a symlink).
 - **Codex (verifier):** workspace-write with no network is enough; the tests spawn `node` children and write only under the OS temp dir. Run commands with stdin from `/dev/null`. On macOS `$TMPDIR` is under `/var`, which some tools report as `/private/var`; the test resolves its temp dir with `realpath`.
 - **Both roles:** do not create `.env.local` in the run worktree.
+
+## Attempt 2 re-brief (2026-10-21)
+
+Attempt 1's verifier passed criteria 1 to 4, 6 and 7 and failed criterion 5 on one disposition. Its report is `state/verifiers/25-atomic-item-ledger-and-migration.json`. Worker effort drops to medium for this narrow fix.
+
+The attempt-1 tree is preserved at `840715d` on `wip/25-atomic-item-ledger-and-migration-attempt-1`. **Start from it, do not rebuild:** from current `dev`, run `git checkout 840715d863309f79d33d12a3a6c75e92fc7a5a98 -- src/state.ts src/state-v2.ts src/state-migration.ts scripts/migrate-state-v2.ts tests/unit/state-v2.test.ts`, then fix only the following.
+
+**The fix.** A `codexbatch_` record whose `provider` field is absent is a local OpenAI `subscription-cli` batch, not conflicting evidence: the prefix is written only by the codex-auth path (`src/batch.ts:503`), which always sets `provider: 'openai'`, so the v1 default of Claude does not apply to it. Only an explicit `provider: 'claude'` on a `codexbatch_` id is conflicting evidence. Its pending items become `outcome_unknown` with `needs_source_recovery: true`, as for any `codexbatch_` batch. `src/state-migration.ts:82-85` currently archives the absent-provider case; change it, and change the assertions at `tests/unit/state-v2.test.ts:194` and `:216` that encode the old disposition, adding one for the absent-provider case. Leave every other disposition as it is.
+
+Re-run criteria 1 to 7 and return.
