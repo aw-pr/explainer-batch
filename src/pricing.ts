@@ -1,44 +1,8 @@
+import { costCall } from './cost-ledger';
+import type { PricingStatus } from './cost-ledger';
+import { loadModelRegistry } from './model-registry';
+import type { ModelRegistry } from './model-registry';
 import type { ProviderName } from './providers';
-
-/**
- * Standard (non-batch) prices in USD per million tokens.
- * Mirrors the pricing block of mcp-hub's config/models.json (verified there
- * 2026-09-27; Sonnet 5.5 2026-10-06). Promotional rates are not applied: the
- * list price is used. Batch is 50% off (see BATCH_DISCOUNT).
- */
-const STANDARD_PRICES: Record<ProviderName, Record<string, { input: number; output: number }>> = {
-  claude: {
-    'claude-fable-5-1': { input: 10.0, output: 50.0 },
-    'claude-fable-5': { input: 10.0, output: 50.0 },
-    'claude-opus-5-5': { input: 4.0, output: 20.0 },
-    'claude-opus-5': { input: 5.0, output: 25.0 },
-    'claude-opus-4-8': { input: 5.0, output: 25.0 },
-    'claude-opus-4-7': { input: 5.0, output: 25.0 },
-    'claude-opus-4-6': { input: 5.0, output: 25.0 },
-    'claude-sonnet-4-6': { input: 3.0, output: 15.0 },
-    'claude-sonnet-5-5': { input: 2.0, output: 10.0 },
-    // The launch $2/$10 became the standard rate; the 2026-09-01 rise was cancelled.
-    'claude-sonnet-5': { input: 2.0, output: 10.0 },
-    'claude-haiku-4-5': { input: 1.0, output: 5.0 },
-    'claude-haiku-4-5-20251001': { input: 1.0, output: 5.0 },
-    'claude-sonnet-4-5': { input: 3.0, output: 15.0 },
-    'claude-opus-4-5': { input: 5.0, output: 25.0 },
-    'claude-opus-4-1': { input: 15.0, output: 75.0 },
-  },
-  openai: {
-    'gpt-6-astra': { input: 10.0, output: 50.0 },
-    'gpt-5.6-sol': { input: 5.0, output: 30.0 },
-    'gpt-5.6-terra': { input: 2.0, output: 12.0 },
-    'gpt-5.6-luna': { input: 0.2, output: 1.2 },
-    'gpt-5.5': { input: 5.0, output: 30.0 },
-    'gpt-5.4': { input: 2.5, output: 15.0 },
-    'gpt-5.4-mini': { input: 0.75, output: 4.5 },
-    'gpt-5.4-nano': { input: 0.2, output: 1.25 },
-    'gpt-5-mini': { input: 0.25, output: 2.0 },
-    'gpt-5.3-codex': { input: 4.0, output: 12.0 },
-    'gpt-5.3-codex-mini': { input: 1.2, output: 3.6 },
-  },
-};
 
 export const BATCH_DISCOUNT = 0.5;
 
@@ -50,7 +14,10 @@ export interface CostBreakdown {
   standard_cost_usd: number;
   batch_cost_usd: number;
   saving_usd: number;
+  pricing_status: PricingStatus;
 }
+
+let registry: ModelRegistry | undefined;
 
 export function calcCost(
   provider: ProviderName,
@@ -59,27 +26,19 @@ export function calcCost(
   outputTokens: number,
   isBatch = true
 ): CostBreakdown {
-  const price = STANDARD_PRICES[provider][model];
-
-  if (!price) {
-    return {
-      provider,
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      standard_cost_usd: 0,
-      batch_cost_usd: 0,
-      saving_usd: 0,
-    };
-  }
-
-  const standardCost =
-    (inputTokens / 1_000_000) * price.input +
-    (outputTokens / 1_000_000) * price.output;
-
-  const discount = isBatch ? BATCH_DISCOUNT : 0;
-  const batchCost = standardCost * (1 - discount);
-  const saving = standardCost - batchCost;
+  registry ??= loadModelRegistry();
+  const entry = costCall(registry, {
+    callId: 'legacy-calc-cost',
+    attemptId: 'legacy-calc-cost',
+    stage: 'synthesis',
+    provider,
+    route: isBatch ? 'batch-api' : 'sync-api',
+    model,
+    usage: { in: inputTokens, out: outputTokens, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0, source: 'reported' },
+    at: new Date(),
+  });
+  const standardCost = entry.api_equivalent_usd ?? 0;
+  const chargedCost = entry.estimated_charge_usd ?? 0;
 
   return {
     provider,
@@ -87,8 +46,9 @@ export function calcCost(
     input_tokens: inputTokens,
     output_tokens: outputTokens,
     standard_cost_usd: round4(standardCost),
-    batch_cost_usd: round4(batchCost),
-    saving_usd: round4(saving),
+    batch_cost_usd: round4(chargedCost),
+    saving_usd: round4(standardCost - chargedCost),
+    pricing_status: entry.pricing_status,
   };
 }
 
