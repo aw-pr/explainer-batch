@@ -20,62 +20,53 @@ time / ms
         20                                   20          51.96%           20         52.11%
         10                                   10                           10                             overhead, as detailed in Section 4.
             0 0       10     20         30    0 0      10     20     30   0 0        20        40
-            8                                 8                           8                              B. Implementation Details
+            8                                 8                           8
             6                                 6                           6
 MultiNews         Runtime overhead
-                       20.05%                       Runtime overhead            Runtime overhead         We implement KVCache9 based on vLLM’s original mem-
+                       20.05%                       Runtime overhead            Runtime overhead
             4                                 4          17.68%           4          16.37%
-time / ms                                                                                                ory management and prefix caching subsystem with the
+time / ms
             2                                 2                           2
-            0 0                               0 0                         0 0                            following changes. First, we add a cache-ID-based indexing
+            0 0                               0 0                         0 0
                       10     20         30             10     20     30              20        40
-                                                                                                         mechanism using the sequence group ID as the cache ID.
+
         30                                   30                           30
-                                                                                                         Second, since the original vLLM manages historical KV
-SAMSum  20        Runtime overhead           20                           20                             cache residing in HBM only, we extend it to include DRAM
+
+SAMSum  20        Runtime overhead           20                           20
                        49.49%                       Runtime overhead            Runtime overhead
 time / ms
         10                                   10
                                                          42.31%
                                                                           10
                                                                                      44.11%
-                                                                                                         and local filesystem, akin to Mooncake (Qin et al., 2025).
-            0 0                               0 0                         0 0                            Third, we modify the scheduler to retain block tables and
+
+            0 0                               0 0                         0 0
                       10     20         30             10     20     30              20        40
-                                                                                                         memory for PIC compile requests. Fourth, we also imple-
-                                                                                                         ment helper APIs that allow users to manage the lifecycle
+
+
         40        Runtime overhead           40                           40
-MuSiQue                63.56%                       Runtime overhead            Runtime overhead         of KV cache, such as expire cache(cache id).
+MuSiQue                63.56%                       Runtime overhead            Runtime overhead
 time / ms
         20                                   20
                                                          58.79%
                                                                           20
                                                                                      58.39%
-                                                                                                         We implement KVCompile as a standalone module that
-            0 0       10     20         30    0 0      10     20     30   0 0        20        40        handles CC APIs that are similar to those in Kimi (kim)
-        20                                   20                           20                             and Gemini (gem, a). KVCompile forwards a request to
-                                                                                                         Regular Prefill with maximum generation token set
+
+            0 0       10     20         30    0 0      10     20     30   0 0        20        40
+        20                                   20                           20
+
 2WikiMQA          Runtime overhead
         15                                   15                           15
                        40.67%                       Runtime overhead            Runtime overhead
 time / ms
-        10                                   10          35.97%           10         35.68%              to 0.
+        10                                   10          35.97%           10         35.68%
             5                                 5                           5
             0 0                               0 0                         0 0
-                                                                                                         We implement KVLink as a parallel module of the
+
                       10     20         30             10     20     30              20        40
-                       Layer ID                         Layer ID                    Layer ID             Regular Prefill. First, we adapt the model archi-
-                                                                                                         tecture to support masked attention across tokens scattered
-                  Figure 10. TTFT breakdown of CacheBlend-15.                                            in different positions. Second, we modify the attention
-                                                                                                         backends to handle data placement, movement, and the
-                                                                                                         computational steps required by PIC algorithms, to ensure
- A. Runtime Overhead of CacheBlend
-                                                                                                         efficient recomputation.
- We evaluate the runtime overhead of CacheBlend-15, us-                                                     9
-                                                                                                              As building a highly efficient KVCache is not the core focus
- ing the synchronous workloads described in Section 5.                                                   of this paper, we build a minimal working system.
+                       Layer ID                         Layer ID                    Layer ID
 
-
+                  Figure 10. TTFT breakdown of CacheBlend-15.
 
 
                                                                                                     12

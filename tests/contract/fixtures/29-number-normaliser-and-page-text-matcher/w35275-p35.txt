@@ -19,17 +19,8 @@
              OpenAI Codex         549.8        47.9           31.0      80.0      11.5          —
                                   (86.2)       (4.8)          (3.1)    (10.3)     (0.5)
 
-Notes: This table reports event-study coefficients (1% winsorized, weeks 21–30 bin, normalized by pre-period
-mean) measuring the effect of adoption of various Generative AI coding tools on outcomes spanning the production
-hierarchy. Lines Chg = weekly total lines changed, Dist Files = distinct files, Commits = weekly commits, PRs
-= weekly PRs created, Dist Repos = distinct repositories contributed to, Releases = weekly repo release count.
-Releases are not reported for async tools because agent-authored commits are attributed to the developer’s
-repositories, making it difficult to isolate the agent’s contribution to releases.
 
 
-a strictly decreasing pattern for sync agents, since they enter at multiple layers (Section 4):
-if they are more effective at higher layers, the effect size can in principle increase rather
-than decrease across layers.
     Finally, for async agents, we do not report an async release effect because async agents
 do not have the capability to release a repository directly, so this outcome is zero by
 construction. Monotonicity holds across the remaining outcomes but is not perfect: the
@@ -37,12 +28,6 @@ effect on pull requests is 71.8%, substantially larger than the 33.6% effect on 
 52.4% on files. This pattern is consistent with async agents being particularly effective at
 the PR layer: they create pull requests autonomously, directly raising productivity at that
 layer rather than merely passing upstream gains through it.
-    Figure 8 presents the corresponding event studies for the sync effect across all outcomes;
-the analogous per-tool event studies across all outcomes are reported in Figures OA-4–
-OA-10 in the Appendix. Several features are worth noting. First, pre-trends are flat for all
-outcomes, supporting the parallel trends assumption. Second, the effects on lines of code,
-files, and commits are stable from roughly week 5 onward, consistent with the patterns
-in the main commit-level event studies. Third, the result for releases is the least visually
 
 
                                                         33

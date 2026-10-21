@@ -23,7 +23,7 @@ Corrections to the design entry, made here because the design landed unverified:
 
 - **En dash.** The grammar treats an en dash as a minus, but `pdftotext` prints ranges with one (`Weeks 21–30` on Demirer page 35). An en dash, hyphen or U+2212 is a minus only when the character before it is not a digit.
 - **Short labels.** The label rule matches a token of four or more letters, or the whole name when the name is under four letters. Flyvbjerg's `Oil and gas` has no four-letter token and is longer than four letters, so Table D2 could not pass at tier A as the design claims. Rule used here: any word of four or more letters in the name, or, when the name has none, the whole name as a word-bounded, case-insensitive phrase (`IT`, `Oil and gas`).
-- **Fixtures.** The design's `p08-tokens.txt` and `p12-tokens.txt` are token lists, but the `usable` test (stage 31) needs page text. The fixtures here are full per-page `pdftotext -layout` output with control characters removed, committed under this card's contract fixture directory, and stage 31 reads the same files. The design's `tests/unit/chart-gate-match.test.ts` and `tests/unit/fixtures/chart-gate/` copies are not made: the frozen contract test is the unit test.
+- **Fixtures.** The design's `p08-tokens.txt` and `p12-tokens.txt` are token lists, but the `usable` test (stage 31) needs page text. The fixtures here are excerpts of per-page `pdftotext -layout` output with control characters removed: each keeps the cited table or figure region as printed, one paragraph of the surrounding prose (the two-column distractors the matcher must survive) and the page number, and cuts the rest so the public mirror carries no more of the papers than the assertions need. They are committed under this card's contract fixture directory, and stage 31 reads the same files. The design's `tests/unit/chart-gate-match.test.ts` and `tests/unit/fixtures/chart-gate/` copies are not made: the frozen contract test is the unit test.
 - **Running heads.** The rule that values found only in a page's first and last three lines fail (`:389-390`) is left to stage W4, which owns page-level verdicts; it is out of scope here.
 - **Percent sources.** The design also takes `percent` from a `%` in a column header or caption line above a token (`:277-278`, `:292`). That is left out: `percent` is the token's own suffix, and the percent axis comes from the chart (`y.unit`, `y.label`, series name). A header-only percent table therefore needs exact values, which Demirer Table 5 and EPIC Figure 10 have.
 - **Page numbers.** The design's "unless the chart's `x.values` are years" (`:386-388`) is applied to year-like tokens only; a bare integer alone on its line is always a page number.
@@ -38,7 +38,7 @@ Cold read: a read-only Codex session (GPT-6.1 Sol, the other family) read this c
 
 - docs/design/chart-value-gate.md (`## Gate inputs` to `## Reject list`, lines 176 to 390, and `## Test fixtures`, lines 663 to 783)
 - tests/contract/29-number-normaliser-and-page-text-matcher.test.ts (frozen)
-- tests/contract/fixtures/29-number-normaliser-and-page-text-matcher/ (four page texts: Demirer page 35, Flyvbjerg page 27, EPIC pages 8 and 12)
+- tests/contract/fixtures/29-number-normaliser-and-page-text-matcher/ (four page-text excerpts: Demirer page 35, Flyvbjerg page 27, EPIC pages 8 and 12)
 
 Do not read anything else unless you need to; keep your context lean.
 

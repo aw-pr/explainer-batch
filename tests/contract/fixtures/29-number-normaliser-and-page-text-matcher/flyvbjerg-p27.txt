@@ -32,37 +32,24 @@ Nuclear decommissioning     4.504       1.193       [3.12,7.45]
 Energy transmission         5.463       1.152       [2.54,17.21]       roads). For these three types, the results are inconclusive, as
 Solar power                 7.836       1.02        [5.44,12.59]       both the Pareto and the lognormal have AD p values above
                                                                        0.05. However, following the precautionary principle proposed
-                                                                       by Taleb (2020), which assumes the presence of tail risk when a
-Table D3. Bootstrapped Median Alpha Values by Sector with 95%          test fails to reject a Pareto distribution, we chose to include the
-Conﬁdence Interval, Ranked from Lowest to Highest Alpha Value,         three in the subsequent analysis. In the table, some p values
-N = 11,011                                                             from the AD test for the lognormal have been rounded down to
-Sector                       Alpha        Cutoffs        95% CI        0 since they were very small (p value < 2.2e-16).
+
+Table D3. Bootstrapped Median Alpha Values by Sector with 95%
+Conﬁdence Interval, Ranked from Lowest to Highest Alpha Value,
+N = 11,011
+Sector                       Alpha        Cutoffs        95% CI
 
 IT                            0.91        12.53          [0.74,1.15]
-Olympics                      1.18         1.016         [0.94,1.54]   Bootstrap Analysis
+Olympics                      1.18         1.016         [0.94,1.54]
 Defense                       1.24         1.6           [0.92,1.83]
 Nuclear power                 1.54         1.114         [1.38,1.73]
-                                                                       We used a nonparametric bootstrap with 500 iterations to estimate
-Buildings                     1.73         1.7           [1.38,2.22]   the median shape parameter (alpha) and the 95% conﬁdence inter-
-Dams                          1.76         2.199         [1.44,2.19]   val of the parameter. A bootstrap is preferable to a Maximum
-Aerospace                     2.27         1.011         [1.93,2.69]   Likelihood Estimator when sample sizes are small, as is the case
-Transport infrastructure      2.58         3.01          [1.92,3.55]   for some project types for the upper tail. Table D2 lists the
-Mining                        2.58         1.002         [2.38,2.81]   results of the bootstrap analysis. The alpha values and conﬁdence
-Water infrastructure          2.62         1.866         [1.37,5.54]   intervals are graphically visualized in Figure 1 in the main text.
+
+Buildings                     1.73         1.7           [1.38,2.22]
+Dams                          1.76         2.199         [1.44,2.19]
+Aerospace                     2.27         1.011         [1.93,2.69]
+Transport infrastructure      2.58         3.01          [1.92,3.55]
+Mining                        2.58         1.002         [2.38,2.81]
+Water infrastructure          2.62         1.866         [1.37,5.54]
 Oil and gas                   2.95         2.28          [1.72,5.38]
 Fossil thermal power          3.08         1.16          [2.45,3.96]
-Renewable power               4.44         1.154         [3.09,6.48]   Further Robustness Checks
+Renewable power               4.44         1.154         [3.09,6.48]
 Energy transmission           5.13         1.024         [3.11,9.30]
-                                                                       We further checked the robustness of our key ﬁndings by aggre-
-                                                                       gating project types into their sector. Table D3 provides the
-the power-law distribution is deﬁned as:                               median alpha values and their 95% conﬁdence interval from
-                                     −(α−1)                          bootstrapping. We can rule out that our ﬁndings are a result of
-                                     x                                 the categorization scheme we used and the differences in
-                    Pr(X > x0 ) =
-                                     x0                                sample sizes. The key ﬁnding—that projects in the IT sector
-                                                                       are more risky than in any other sector (see Table D2)—is
-   As the deﬁnitions show, the distributions are mathemati-            robust in this additional check (see Table D3).
-cally equivalent, apart from the fact that the estimated                  Finally, we checked the robustness for potential confound-
-alpha (shape parameter) differs by 1.                                  ing variables, namely size (measured by estimated cost in
-   Further, Flyvbjerg et al. (2022) conducted three different ﬁts      2020 US$ prices), duration (measured by estimated duration
-for (1) overruns > 1, (2) overruns > 2, and (3) overruns where         in years), and year of going live. We checked the robustness
