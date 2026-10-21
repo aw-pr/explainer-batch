@@ -1,0 +1,675 @@
+{
+  "type": "object",
+  "properties": {
+    "hero": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Short article title, used for the page title, cards and the slug."
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "One-sentence hero headline stating the main finding."
+        },
+        "emphasis": {
+          "nullable": true,
+          "description": "A phrase copied exactly from the headline to highlight, or null for none.",
+          "type": "string",
+          "minLength": 1
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320,
+          "description": "One or two sentences expanding the headline."
+        }
+      },
+      "required": [
+        "title",
+        "headline",
+        "emphasis",
+        "subtitle"
+      ],
+      "description": "The article hero.",
+      "propertyOrdering": [
+        "title",
+        "headline",
+        "emphasis",
+        "subtitle"
+      ]
+    },
+    "top_block": {
+      "description": "The block under the hero: pills, or a takeaway.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "pills"
+              ],
+              "description": "Key-figure pills under the hero."
+            },
+            "pills": {
+              "minItems": 2,
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lead": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 24,
+                    "description": "The pill's short lead: a number with its unit, or a two or three word phrase."
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "description": "One sentence saying what the lead means."
+                  }
+                },
+                "required": [
+                  "lead",
+                  "text"
+                ],
+                "propertyOrdering": [
+                  "lead",
+                  "text"
+                ]
+              },
+              "description": "Two to six key figures or ideas from the paper."
+            }
+          },
+          "required": [
+            "kind",
+            "pills"
+          ],
+          "propertyOrdering": [
+            "kind",
+            "pills"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "takeaway"
+              ],
+              "description": "A single takeaway block under the hero."
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Short label for the takeaway, such as \"In short\"."
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The takeaway itself, one to three sentences."
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "body"
+          ],
+          "propertyOrdering": [
+            "kind",
+            "label",
+            "body"
+          ]
+        }
+      ]
+    },
+    "sections": {
+      "minItems": 2,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Section heading."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "The section prose, one string per paragraph."
+          },
+          "list": {
+            "nullable": true,
+            "description": "An optional list block, or null.",
+            "type": "object",
+            "properties": {
+              "ordered": {
+                "type": "boolean",
+                "description": "True for a sequence whose order matters, false otherwise."
+              },
+              "intro": {
+                "nullable": true,
+                "description": "One sentence introducing the list, or null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "items": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "nullable": true,
+                      "description": "Short bold label for the item, or null.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "body": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The item text."
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "body"
+                  ],
+                  "propertyOrdering": [
+                    "label",
+                    "body"
+                  ]
+                },
+                "description": "The list items."
+              }
+            },
+            "required": [
+              "ordered",
+              "intro",
+              "items"
+            ],
+            "propertyOrdering": [
+              "ordered",
+              "intro",
+              "items"
+            ]
+          },
+          "table": {
+            "nullable": true,
+            "description": "An optional table block, or null.",
+            "type": "object",
+            "properties": {
+              "caption": {
+                "nullable": true,
+                "description": "What the table shows, without a source tag, or null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "columns": {
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Column headings, at least two."
+              },
+              "rows": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "Table rows, each a list of cell strings in column order."
+              },
+              "source": {
+                "nullable": true,
+                "description": "Where the table comes from in the paper, or null.",
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The table as printed in the paper (\"Table 2\"), or for a web page the section heading."
+                  },
+                  "page": {
+                    "nullable": true,
+                    "description": "The PDF page the table sits on, or null when unknown or not a PDF.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "ref",
+                  "page"
+                ],
+                "propertyOrdering": [
+                  "ref",
+                  "page"
+                ]
+              }
+            },
+            "required": [
+              "caption",
+              "columns",
+              "rows",
+              "source"
+            ],
+            "propertyOrdering": [
+              "caption",
+              "columns",
+              "rows",
+              "source"
+            ]
+          }
+        },
+        "required": [
+          "label",
+          "paragraphs",
+          "list",
+          "table"
+        ],
+        "propertyOrdering": [
+          "label",
+          "paragraphs",
+          "list",
+          "table"
+        ]
+      },
+      "description": "Two to five article sections."
+    },
+    "charts": {
+      "maxItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bar",
+              "stacked_bar",
+              "line",
+              "scatter"
+            ],
+            "description": "The chart type."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Chart title."
+          },
+          "caption": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One sentence saying what the chart shows, without a source tag."
+          },
+          "x": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Axis label."
+              },
+              "unit": {
+                "nullable": true,
+                "description": "Axis unit; required when the axis is numeric, otherwise null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "category",
+                  "linear",
+                  "log"
+                ],
+                "description": "category for labels, linear or log for numbers."
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "description": "The x positions, aligned by index with each non-scatter series; may be empty for scatter."
+              }
+            },
+            "required": [
+              "label",
+              "unit",
+              "type",
+              "values"
+            ],
+            "description": "The x axis.",
+            "propertyOrdering": [
+              "label",
+              "unit",
+              "type",
+              "values"
+            ]
+          },
+          "y": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Axis label."
+              },
+              "unit": {
+                "nullable": true,
+                "description": "Axis unit, such as \"%\" or \"ms\".",
+                "type": "string",
+                "minLength": 1
+              },
+              "scale": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "log"
+                ],
+                "description": "The y scale."
+              }
+            },
+            "required": [
+              "label",
+              "unit",
+              "scale"
+            ],
+            "description": "The y axis.",
+            "propertyOrdering": [
+              "label",
+              "unit",
+              "scale"
+            ]
+          },
+          "series": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Series name, shown in the legend."
+                },
+                "values": {
+                  "nullable": true,
+                  "description": "One value per x.values entry, null for a gap; null for a scatter series.",
+                  "type": "array",
+                  "items": {
+                    "nullable": true,
+                    "type": "number"
+                  }
+                },
+                "points": {
+                  "nullable": true,
+                  "description": "The points of a scatter series; null otherwise.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "propertyOrdering": [
+                      "x",
+                      "y"
+                    ]
+                  }
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "table",
+                        "text"
+                      ],
+                      "description": "table: the values come from a printed table; text: from a sentence in the paper."
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "For table, the table as printed (\"Table 2\"); for text, a verbatim fragment of at most 160 characters containing the values."
+                    },
+                    "page": {
+                      "nullable": true,
+                      "description": "The PDF page of the source, or null.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ref",
+                    "page"
+                  ],
+                  "description": "Where the series values are stated in the paper.",
+                  "propertyOrdering": [
+                    "kind",
+                    "ref",
+                    "page"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "values",
+                "points",
+                "source"
+              ],
+              "propertyOrdering": [
+                "name",
+                "values",
+                "points",
+                "source"
+              ]
+            },
+            "description": "The data series, at least one."
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "caption",
+          "x",
+          "y",
+          "series"
+        ],
+        "propertyOrdering": [
+          "kind",
+          "title",
+          "caption",
+          "x",
+          "y",
+          "series"
+        ]
+      },
+      "description": "At most one chart, built only from values the paper states."
+    },
+    "figure_request": {
+      "nullable": true,
+      "description": "The paper figure to show as the lead image, or null.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The figure as labelled in the paper, such as \"Figure 3\"."
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "Why this figure best illustrates the article."
+        }
+      },
+      "required": [
+        "label",
+        "why"
+      ],
+      "propertyOrdering": [
+        "label",
+        "why"
+      ]
+    },
+    "end_takeaway": {
+      "nullable": true,
+      "description": "Closing takeaway: required with pills, null with a takeaway top block.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short label, such as \"Bottom line\"."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The closing takeaway, one to three sentences."
+        }
+      },
+      "required": [
+        "label",
+        "body"
+      ],
+      "propertyOrdering": [
+        "label",
+        "body"
+      ]
+    },
+    "citation": {
+      "nullable": true,
+      "description": "The paper's citation read from its front matter, or null when told the citation is known.",
+      "type": "object",
+      "properties": {
+        "authors": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Family name."
+              },
+              "given": {
+                "nullable": true,
+                "description": "Given names or initials, or null.",
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "family",
+              "given"
+            ],
+            "propertyOrdering": [
+              "family",
+              "given"
+            ]
+          },
+          "description": "The authors in the order the paper lists them."
+        },
+        "year": {
+          "nullable": true,
+          "description": "Publication year, or null when the paper does not state one.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The paper's full title."
+        },
+        "venue": {
+          "nullable": true,
+          "description": "Journal, conference or archive, or null.",
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "nullable": true,
+          "description": "A canonical http(s) URL for the paper, or null.",
+          "type": "string",
+          "pattern": "^https?:\\/\\/\\S+$"
+        }
+      },
+      "required": [
+        "authors",
+        "year",
+        "title",
+        "venue",
+        "url"
+      ],
+      "propertyOrdering": [
+        "authors",
+        "year",
+        "title",
+        "venue",
+        "url"
+      ]
+    }
+  },
+  "required": [
+    "hero",
+    "top_block",
+    "sections",
+    "charts",
+    "figure_request",
+    "end_takeaway",
+    "citation"
+  ],
+  "description": "A research explainer article.",
+  "propertyOrdering": [
+    "hero",
+    "top_block",
+    "sections",
+    "charts",
+    "figure_request",
+    "end_takeaway",
+    "citation"
+  ]
+}

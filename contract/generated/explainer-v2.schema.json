@@ -1,0 +1,747 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "date_created": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "The submit date."
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}_[a-z0-9][a-z0-9_-]*_explainer$",
+          "description": "The file name without extension."
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The model id, or unknown."
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "description": "claude, openai, or unknown."
+        },
+        "route": {
+          "type": "string",
+          "enum": [
+            "batch",
+            "sync",
+            "unknown"
+          ],
+          "description": "How the request was run."
+        },
+        "source": {
+          "description": "The input the article was written from; absent on a migrated artefact.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "pdf",
+                "url"
+              ]
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The URL, or the PDF basename."
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "additionalProperties": false
+        },
+        "contract_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "CONTRACT_REVISION at the time of writing."
+        },
+        "migrated_from": {
+          "description": "Present only on an artefact written by migrateV1().",
+          "type": "number",
+          "const": 1
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Validator messages that survived repair, including editorial bounds."
+            },
+            "dropped": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Items code removed: stripped tags, unknown keys, thin charts, an unused citation."
+            }
+          },
+          "required": [
+            "issues",
+            "dropped"
+          ],
+          "additionalProperties": false,
+          "description": "The review record."
+        }
+      },
+      "required": [
+        "date_created",
+        "slug",
+        "model",
+        "provider",
+        "route",
+        "contract_revision",
+        "quality"
+      ],
+      "additionalProperties": false
+    },
+    "hero": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short article title, used for the page title, cards and the slug."
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-sentence hero headline stating the main finding."
+        },
+        "emphasis": {
+          "description": "A phrase copied exactly from the headline to highlight, or null for none.",
+          "type": "string",
+          "minLength": 1
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One or two sentences expanding the headline."
+        },
+        "publication_date": {
+          "description": "When the paper was published, if known.",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}(?:-\\d{2})?$"
+        }
+      },
+      "required": [
+        "title",
+        "headline",
+        "subtitle"
+      ],
+      "additionalProperties": false,
+      "description": "The article hero."
+    },
+    "top_block": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pills",
+              "description": "Key-figure pills under the hero."
+            },
+            "pills": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lead": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The pill's short lead: a number with its unit, or a two or three word phrase."
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "One sentence saying what the lead means."
+                  }
+                },
+                "required": [
+                  "lead",
+                  "text"
+                ],
+                "additionalProperties": false
+              },
+              "description": "Two to six key figures or ideas from the paper."
+            }
+          },
+          "required": [
+            "kind",
+            "pills"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "takeaway",
+              "description": "A single takeaway block under the hero."
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Short label for the takeaway, such as \"In short\"."
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The takeaway itself, one to three sentences."
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "The block under the hero: pills, or a takeaway."
+    },
+    "sections": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Section heading."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "The section prose, one string per paragraph."
+          },
+          "list": {
+            "description": "An optional list block, or null.",
+            "type": "object",
+            "properties": {
+              "ordered": {
+                "type": "boolean",
+                "description": "True for a sequence whose order matters, false otherwise."
+              },
+              "intro": {
+                "description": "One sentence introducing the list, or null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "items": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "description": "Short bold label for the item, or null.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "body": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The item text."
+                    }
+                  },
+                  "required": [
+                    "body"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "The list items."
+              }
+            },
+            "required": [
+              "ordered",
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "table": {
+            "description": "An optional table block, or null.",
+            "type": "object",
+            "properties": {
+              "caption": {
+                "description": "What the table shows, without a source tag, or null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "columns": {
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Column headings, at least two."
+              },
+              "rows": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "Table rows, each a list of cell strings in column order."
+              },
+              "source": {
+                "description": "Where the table comes from in the paper, or null.",
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The table as printed in the paper (\"Table 2\"), or for a web page the section heading."
+                  },
+                  "page": {
+                    "description": "The PDF page the table sits on, or null when unknown or not a PDF.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "ref"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "label",
+          "paragraphs"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The article sections."
+    },
+    "charts": {
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bar",
+              "stacked_bar",
+              "line",
+              "scatter"
+            ],
+            "description": "The chart type."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Chart title."
+          },
+          "caption": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One sentence saying what the chart shows, without a source tag."
+          },
+          "x": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Axis label."
+              },
+              "unit": {
+                "description": "Axis unit; required when the axis is numeric, otherwise null.",
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "category",
+                  "linear",
+                  "log"
+                ],
+                "description": "category for labels, linear or log for numbers."
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "description": "The x positions, aligned by index with each non-scatter series; may be empty for scatter."
+              }
+            },
+            "required": [
+              "label",
+              "type",
+              "values"
+            ],
+            "additionalProperties": false,
+            "description": "The x axis."
+          },
+          "y": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Axis label."
+              },
+              "unit": {
+                "description": "Axis unit, such as \"%\" or \"ms\".",
+                "type": "string",
+                "minLength": 1
+              },
+              "scale": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "log"
+                ],
+                "description": "The y scale."
+              }
+            },
+            "required": [
+              "label",
+              "scale"
+            ],
+            "additionalProperties": false,
+            "description": "The y axis."
+          },
+          "series": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Series name, shown in the legend."
+                },
+                "values": {
+                  "description": "One value per x.values entry, null for a gap; null for a scatter series.",
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "points": {
+                  "description": "The points of a scatter series; null otherwise.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "table",
+                        "text",
+                        "value_labels",
+                        "supplied",
+                        "legacy"
+                      ],
+                      "description": "table: the values come from a printed table; text: from a sentence in the paper."
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "For table, the table as printed (\"Table 2\"); for text, a verbatim fragment of at most 160 characters containing the values."
+                    },
+                    "page": {
+                      "description": "The PDF page of the source, or null.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ref"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Where the series values are stated in the paper."
+                }
+              },
+              "required": [
+                "name",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The data series, at least one."
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "caption",
+          "x",
+          "y",
+          "series"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Charts; one when native, up to three when migrated."
+    },
+    "figure_request": {
+      "description": "The figure the model asked for, kept for reextract.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The figure as labelled in the paper, such as \"Figure 3\"."
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why this figure best illustrates the article."
+        }
+      },
+      "required": [
+        "label",
+        "why"
+      ],
+      "additionalProperties": false
+    },
+    "lead_figure": {
+      "description": "The lead image, resolved and stored as a sidecar asset.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The figure label, such as \"Figure 3\"."
+        },
+        "caption": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The figure caption."
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Alt text for the image."
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(?:\\/[A-Za-z0-9_][A-Za-z0-9._-]*)?$",
+          "description": "The image path relative to the artefact's directory."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Hash of the asset bytes."
+        },
+        "width": {
+          "description": "Pixel width of a raster asset.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "height": {
+          "description": "Pixel height of a raster asset.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "page": {
+          "description": "The PDF page the figure came from.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "arxiv-source",
+            "pdf-embedded",
+            "pdf-vector-crop",
+            "dom-asset",
+            "vlm-crop",
+            "legacy"
+          ],
+          "description": "How the figure was obtained."
+        }
+      },
+      "required": [
+        "label",
+        "caption",
+        "alt_text",
+        "asset",
+        "sha256",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "end_takeaway": {
+      "description": "Closing takeaway.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short label, such as \"Bottom line\"."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The closing takeaway, one to three sentences."
+        }
+      },
+      "required": [
+        "label",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "references": {
+      "minItems": 1,
+      "maxItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "authors": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Family name."
+                },
+                "given": {
+                  "description": "Given names or initials, or null.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "family"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The authors in the order the paper lists them."
+          },
+          "year": {
+            "description": "Publication year, or null when the paper does not state one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The paper's full title."
+          },
+          "venue": {
+            "description": "Journal, conference or archive, or null.",
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "description": "A canonical http(s) URL for the paper, or null.",
+            "type": "string",
+            "pattern": "^https?:\\/\\/\\S+$"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "model",
+              "legacy"
+            ],
+            "description": "detected by the harness, copied from the model's citation, or migrated."
+          }
+        },
+        "required": [
+          "authors",
+          "title",
+          "origin"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The paper's own reference, exactly one."
+    }
+  },
+  "required": [
+    "version",
+    "metadata",
+    "hero",
+    "top_block",
+    "sections",
+    "charts",
+    "references"
+  ],
+  "additionalProperties": false,
+  "description": "A stored v2 research explainer."
+}

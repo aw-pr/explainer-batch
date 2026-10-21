@@ -1,0 +1,142 @@
+{
+  "version": 2,
+  "metadata": {
+    "date_created": "2026-04-16",
+    "slug": "2026-04-16_alenezi_agentic-ai-architecture_explainer",
+    "model": "unknown",
+    "provider": "unknown",
+    "route": "unknown",
+    "contract_revision": 1,
+    "migrated_from": 1,
+    "quality": {
+      "issues": [],
+      "dropped": [
+        "metadata.title (derived)",
+        "metadata.eyebrow (derived)",
+        "hero.headline_html (span moved to hero.emphasis)",
+        "sections[].paragraphs (plain twin of paragraphs_html)",
+        "sections[2].list.style",
+        "top_block.pills[].accent_color",
+        "image.src (base64, moved to lead_figure.asset)"
+      ]
+    }
+  },
+  "hero": {
+    "title": "Agentic AI Architecture",
+    "headline": "AI agents are no longer just answering prompts, they're becoming goal-directed systems with their own control loops",
+    "emphasis": "they're becoming goal-directed systems with their own control loops",
+    "subtitle": "This paper maps the architectural shift from stateless LLM calls to autonomous agent systems with typed tools, hierarchical memory, multi-agent coordination, and governance baked in from the start.",
+    "publication_date": "2026-02"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "lead": "Reference Architecture",
+        "text": "a layered stack that separates LLM cognition from control flow, memory, tool execution, and cross-cutting governance"
+      },
+      {
+        "lead": "4 Multi-Agent Topologies",
+        "text": "orchestrator-worker, router-solver, hierarchical command, and swarm, each with mapped failure modes and mitigations"
+      },
+      {
+        "lead": "Hardening Checklist",
+        "text": "10-area enterprise checklist covering identity, policy enforcement, budgeted autonomy, observability, and reproducibility"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "label": "Why prompt-and-response hits a wall",
+      "paragraphs": [
+        "The first generation of generative AI integrations was architecturally simple: one prompt in, one answer out. That worked well enough for copywriting and basic Q&amp;A. It fell apart the moment you needed multi-step workflows, fresh data retrieval, record updates, or an audit trail that a regulator would accept. Engineers compensated with fragile scaffolding, manual prompt chains, external state managers, and ad-hoc retry logic, but these were workarounds for a <strong>missing architecture</strong>, not solutions.",
+        "Alenezi's paper reframes this gap as a control-theory problem. The LLM is not the application; it is a <strong>cognitive kernel</strong> that belongs inside a closed-loop control architecture. That loop must maintain persistent state across interactions, formulate and revise plans through typed tool interfaces, incorporate environmental feedback, and enforce governance constraints at runtime. Agency, in this framing, is an architectural capability. It arises from separating cognition from execution, state management, and policy enforcement."
+      ]
+    },
+    {
+      "label": "The reference architecture: five layers and a cross-cutting spine",
+      "paragraphs": [
+        "The paper's central contribution is a <strong>layered reference architecture</strong> for production-grade LLM agents. At the top sits the human actor (providing intent and constraints) and the agent interface (chat, UI, or API). Below that, the Agent Core houses the LLM reasoning component. Then three distinct layers separate out everything the model should not do on its own.",
+        "The <strong>Control Layer</strong> implements planner and policy logic, state machines, retry-and-backoff logic, and circuit breakers. The <strong>Memory Layer</strong> holds working context (ephemeral prompt state), episodic memory (summarised interaction traces), semantic knowledge (vector stores and knowledge graphs), and user preference profiles. The <strong>Tooling Layer</strong> provides a registry of typed, versioned, sandboxed tools plus retrieval-augmented generation connectors. Governance and observability run as a <strong>cross-cutting spine</strong>: RBAC, immutable audit logs, tracing, policy enforcement, and cost and rate limits apply at every layer.",
+        "The key architectural decision is that the LLM never touches a tool directly. Every side-effecting action passes through a <strong>policy enforcement gateway</strong> that checks authorization, compliance, and risk before any external interaction occurs. Tool invocations are strongly typed and versioned, with schemas recorded as execution metadata. This enables deterministic replay and longitudinal evaluation across model and tool upgrades."
+      ]
+    },
+    {
+      "label": "Four multi-agent topologies and their failure modes",
+      "paragraphs": [
+        "Single agents buckle under long interactions. Context pollution dilutes the prompt window, tool overload forces one agent to master contradictory function sets, and long-horizon planning simply fails. The paper's response is a taxonomy of <strong>four multi-agent topologies</strong>, each with distinct trade-offs."
+      ],
+      "list": {
+        "ordered": true,
+        "intro": "Each topology pairs a coordination philosophy with mapped failure modes and detection signals.",
+        "items": [
+          {
+            "label": "Orchestrator-Worker",
+            "body": "A manager agent decomposes the goal and delegates sub-tasks to specialist workers (researcher, coder, critic). Modular and testable, but the orchestrator is a single point of failure. Watch for silent worker failures (missing heartbeats) and capability mismatches (repeated tool errors)."
+          },
+          {
+            "label": "Router-Solver",
+            "body": "A classifier agent routes each incoming task to the best-matched solver pipeline. Keeps context clean and reduces cost by invoking only the tools a task actually needs. Vulnerable to misrouting (high solver rejection rates) and solver overload cascades (queue depth spikes)."
+          },
+          {
+            "label": "Hierarchical Command",
+            "body": "Multiple management layers coordinate mid-level managers who oversee worker teams. Scales to very complex projects but introduces command distortion (the telephone effect, where goal semantics degrade across layers) and delegation deadlock (circular sub-task dependencies)."
+          },
+          {
+            "label": "Swarm / Market-Like",
+            "body": "A decentralised pool of agents bid for tasks or dynamically assume control based on self-assessed capability. Yields emergent specialisation and organic load balancing, but risks herding behaviour (convergence on local optima) and strategic manipulation (Sybil collusion distorting bidding signals)."
+          }
+        ]
+      }
+    },
+    {
+      "label": "Production hardening: governance is not optional",
+      "paragraphs": [
+        "The paper's enterprise hardening checklist divides controls into ten areas. Six carry a <strong>MUST</strong> designation: identity and access (RBAC, least privilege, short-lived credentials), policy enforcement (central policy gate, policy-as-code), tooling and integrations (typed and versioned interfaces, schema validation, idempotency), observability and tracing (end-to-end structured traces with standardised metadata), budgeted autonomy (explicit caps on tokens, time, cost, and tool calls with fail-safe termination), and data governance (classification, encryption, lineage tracking).",
+        "Four carry <strong>SHOULD</strong>: memory management (tiered memory with PII filtering), CI/CD and evaluation (continuous eval pipelines with regression and safety benchmarks), security testing (prompt injection tests, adversarial red-teaming), and change management (signed prompts and policies with approval workflows).",
+        "The practical argument is direct. A single hallucination can cascade into an incorrect database write. A prompt injection can escalate into a privileged action. Every execution run must therefore produce a trace capturing model identifier, prompt version, tool versions, policy decisions, memory operations, principal identity, and resource budgets. Without that trace, Alenezi argues, agent systems simply <em>cannot be engineered reliably</em>."
+      ]
+    },
+    {
+      "label": "Where the industry is converging, and where it isn't",
+      "paragraphs": [
+        "The paper surveys five platforms (Salesforce Agentforce, Kore.ai, TrueFoundry, ZenML, LangChain/LangSmith) and finds striking convergence on a common core: centralised registries for agents and tools, API gateways managing authentication and rate-limiting, standardised schemas like OpenAPI and MCP for tool interoperability, and orchestration engines for hierarchical multi-agent workflows. <strong>Cross-cutting governance</strong> (RBAC, immutable audit logs, policy enforcement) is no longer experimental. It is a first-class architectural requirement across every platform examined.",
+        "The paper's analogy is web services. Just as SOAP and REST standards, API management layers, and service meshes turned fragile point-to-point integrations into composable distributed systems, agentic AI needs shared protocols, typed contracts, and layered governance to support composable autonomy at scale. The vision of a <strong>'service mesh for agents'</strong> with standard contracts for capability discovery, trust negotiation, and verifiable credential exchange is still aspirational. Three hard problems remain open: <strong>verifiability</strong> (how to formally certify that an agent's behaviour meets a specification), <strong>interoperability</strong> (how to compose agents safely across organisational boundaries), and <strong>safe autonomy</strong> (how to keep agents aligned under open-ended deployment). These are not tooling gaps. They are foundational research questions."
+      ]
+    }
+  ],
+  "charts": [],
+  "figure_request": {
+    "label": "Figure 1",
+    "why": "The visual abstract shows the three-phase evolution and the governed reference architecture in one view."
+  },
+  "lead_figure": {
+    "label": "Figure 1",
+    "caption": "Alenezi (2026), Figure 1. Visual abstract showing the three-phase evolution of AI execution (single-turn LLM, ReAct loop, multi-agent orchestration) alongside the governed reference architecture with its layered cognitive stack, hierarchical memory, and governance-by-construction.",
+    "alt_text": "Visual abstract diagram showing the evolution from passive single-turn LLMs through the ReAct reasoning-action loop to multi-agent orchestration, alongside a governed reference architecture with separated agent core, control layer, memory layer, tooling layer, and governance-by-construction.",
+    "asset": "2026-04-16_alenezi_agentic-ai-architecture_explainer/figure-1.jpg",
+    "sha256": "d3201ff0d6c9b85842af69deda17f329424e7946a66ffd8ad4c7bf95d5b3b602",
+    "width": 1600,
+    "height": 871,
+    "provenance": "legacy"
+  },
+  "end_takeaway": {
+    "label": "BOTTOM LINE",
+    "body": "Alenezi's paper argues that the shift from prompt-response to agentic AI is not primarily about smarter models. It is an architectural transition: separating cognition from control flow, memory, and tool execution, then wrapping the whole stack in governance that is built in rather than bolted on. The multi-agent topologies, enterprise hardening checklist, and platform convergence analysis together make the case that the next phase of AI will look less like a research breakthrough and more like the maturation of web services, driven by shared protocols, typed contracts, and layered accountability."
+  },
+  "references": [
+    {
+      "authors": [
+        {
+          "family": "Alenezi",
+          "given": "M."
+        }
+      ],
+      "year": 2026,
+      "title": "From Prompt-Response to Goal-Directed Systems: The Evolution of Agentic AI Software Architecture",
+      "venue": "arXiv preprint",
+      "url": "https://arxiv.org/abs/2602.10479",
+      "origin": "legacy"
+    }
+  ]
+}
