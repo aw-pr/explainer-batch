@@ -199,3 +199,7 @@ Attempt 2 (WIP preserved at `54bde9c` on `wip/19-design-chart-value-gate-attempt
 **Self-audit before returning.** For every Wn card, check (a) its outcome command passes after only its own Files change on top of its dependencies, on the input that exists at that point, (b) every dependency appears earlier in the list and every "parallel" claim holds, (c) every fixture's expected numbers (rows, columns, counts, tiers) follow from the rules as written, (d) every v2 field read exists in `docs/design/content-contract-v2.md`. Quote the audit as a table in the envelope's `notes`.
 
 All other deliverables, constraints and acceptance criteria stand. Pins and medium worker effort are unchanged.
+
+## Disposition 2026-10-21: landed by the operator without re-verification
+
+Attempt 3 (`5cfee23`) passed criteria 1 to 16. Criterion 17 failed only because W7's sweep outcome said 67 rows while its own specification adds the Flyvbjerg recreation as a 68th. The operator chose to land attempt 3 with that one count corrected rather than dispatch attempt 4, so the stage is marked `superseded`, not `completed`: no verifier passed the landed text.
