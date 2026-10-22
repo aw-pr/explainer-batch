@@ -200,6 +200,36 @@ test('neutral chart checks cover ordinal, share-of-whole, uniform and single-poi
   if (saved.status !== 'errored') assert.equal(saved.article.charts.length, 1);
 });
 
+test('thin-chart records retain original paths alongside invalid chart removals', async () => {
+  const wire = article();
+  const thin = structuredClone(wire.charts[0]);
+  thin.title = 'Five measured cases';
+  thin.x.values.pop();
+  thin.series[0].values.pop();
+  wire.charts = [null, thin];
+  const saved = await finalizeResult('mixed-chart-drops', receipt(wire), context({ persist: fakePersist }));
+  assert.equal(saved.status, 'succeeded');
+  if (saved.status === 'errored') return;
+  assert.deepEqual(saved.article.charts, []);
+  assert.deepEqual(saved.article.metadata.quality.dropped, [
+    'charts[0]: invalid chart removed',
+    'charts[1]: "Five measured cases" dropped, fewer than 6 points',
+  ]);
+});
+
+test('malformed chart series are dropped without preventing an article from saving', async () => {
+  for (const series of [null, 'invalid', [null], [{ values: 'invalid' }]]) {
+    const wire = article();
+    wire.charts[0].series = series;
+    const saved = await finalizeResult('malformed-chart-series', receipt(wire), context({ persist: fakePersist }));
+    assert.equal(saved.status, 'succeeded');
+    if (saved.status === 'errored') continue;
+    assert.deepEqual(saved.article.charts, []);
+    assert.deepEqual(saved.article.metadata.quality.issues, []);
+    assert.ok(saved.article.metadata.quality.dropped.some(message => message.startsWith('charts[0]:')));
+  }
+});
+
 test('invalid optional items are dropped; editorial content is kept; required failures are never persisted', async () => {
   const wire = article();
   wire.hero.emphasis = 'Absent phrase';

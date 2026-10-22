@@ -39,12 +39,6 @@ export interface InputItem {
   figureCandidates?: FigureCandidate[];
   /** Figure-recreation directive from focus directives (recreate:/recreate_x:/recreate_y:/data:) */
   recreate?: RecreateDirective;
-  /** First author's surname, detected deterministically (arXiv `/abs/` metadata). Used to stamp the byline when the model drops or placeholders it. */
-  detectedSurname?: string;
-  /** Publication date ("Published Month Year"), detected from arXiv `/abs/` metadata. Authoritative over the model's guess. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) built deterministically from arXiv `/abs/` metadata. Replaces the model's reference when present. */
-  detectedReference?: string;
   detectedCitation?: DetectedCitation;
   publishedOn?: string;
 }
@@ -399,35 +393,6 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-function formatCitationDate(raw?: string): string | undefined {
-  const m = raw?.match(/(\d{4})[/-](\d{1,2})/);
-  if (!m) return undefined;
-  const month = MONTHS[Number.parseInt(m[2], 10) - 1];
-  return month ? `Published ${month} ${m[1]}` : undefined;
-}
-
-function escRefText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/** "Acharya, Vivek" -> "Acharya, V."; leaves a bare surname untouched. */
-function formatAuthorApa(citation: string): string {
-  const parts = citation.split(',').map(s => s.trim());
-  const surname = parts[0] ?? citation.trim();
-  const given = parts.slice(1).join(' ').trim();
-  if (!given) return surname;
-  const initials = given.split(/\s+/).filter(Boolean).map(g => `${g[0].toUpperCase()}.`).join(' ');
-  return `${surname}, ${initials}`;
-}
-
-function formatAuthorsForRef(list: string[]): string {
-  const apa = list.map(formatAuthorApa).filter(Boolean);
-  if (apa.length === 0) return '';
-  if (apa.length > 6) return `${apa[0]}, et al.`;
-  if (apa.length === 1) return apa[0];
-  return `${apa.slice(0, -1).join(', ')}, & ${apa[apa.length - 1]}`;
-}
-
 /** Reads a `<meta name|property="…" content="…">` value by name, order-agnostic. */
 function metaByName(raw: string, name: string): string | undefined {
   const re = /<meta\b[^>]*>/gi;
@@ -467,38 +432,6 @@ function extractCitationMeta(raw: string): CitationMeta {
     doi: metaByName(raw, 'citation_doi'),
     journal: metaByName(raw, 'citation_journal_title'),
   };
-}
-
-/**
- * Canonical single-entry reference from citation metadata. Prefers a DOI link
- * (Nature and most journals), falls back to the arXiv abstract, then the source
- * URL. Deterministic so attribution is always present, correctly anchored, and
- * consistent, instead of whatever the model invents (fabricated URLs, missing
- * anchors, "Unattributed").
- */
-function buildReference(meta: CitationMeta, sourceUrl: string): string | undefined {
-  if (!meta.title || meta.authors.length === 0) return undefined;
-  const authors = escRefText(formatAuthorsForRef(meta.authors));
-  const year = meta.date?.match(/\d{4}/)?.[0];
-  const yearPart = year ? ` (${year})` : '';
-
-  let venue = '';
-  let link = sourceUrl;
-  if (meta.doi) {
-    if (meta.journal) venue = ` <em>${escRefText(meta.journal)}</em>.`;
-    link = `https://doi.org/${meta.doi.replace(/^doi:/i, '')}`;
-  } else {
-    const absUrl = arxivAbsUrl(sourceUrl);
-    if (absUrl) {
-      const idBase = (absUrl.split('/abs/')[1] ?? '').replace(/v\d+$/i, '');
-      venue = ` <em>arXiv preprint</em>${idBase ? ` arXiv:${escRefText(idBase)}` : ''}.`;
-      link = absUrl;
-    } else if (meta.journal) {
-      venue = ` <em>${escRefText(meta.journal)}</em>.`;
-    }
-  }
-  return `${authors}${yearPart}. ${escRefText(meta.title)}.${venue} ` +
-    `<a href="${escRefText(link)}" target="_blank" rel="noopener noreferrer">${escRefText(link)}</a>`;
 }
 
 export function buildCitation(meta: CitationMeta, sourceUrl: string): DetectedCitation | undefined {
@@ -563,12 +496,6 @@ async function fetchArxivAbsCitation(url: string): Promise<CitationMeta | null> 
 interface FetchedHtml {
   text?: string;
   candidates: FigureCandidate[];
-  /** First author's surname, from arXiv `/abs/` metadata or the page markup. */
-  detectedSurname?: string;
-  /** Publication date as "Published Month Year", from arXiv `/abs/` metadata. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) built from arXiv `/abs/` metadata. */
-  detectedReference?: string;
   detectedCitation?: DetectedCitation;
   publishedOn?: string;
 }
@@ -599,20 +526,19 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
     // Last resort for pages with no citation meta at all: body author markup.
     const authorList = meta.authors.length > 0 ? meta.authors : extractAuthorList(raw);
     const authors = joinAuthorNames(authorList);
-    const firstName = authorList[0];
-    const detectedSurname = firstName ? surnameOf(firstName) : undefined;
-    const detectedPublished = formatCitationDate(meta.date);
-    const detectedReference = buildReference({ ...meta, authors: authorList }, url);
     const detectedCitation = buildCitation({ ...meta, authors: authorList }, url);
     const publishedOn = publishedOnFrom(meta.date);
-    if (text && (authors || detectedPublished)) {
+    const publicationDate = publishedOn
+      ? `Published ${MONTHS[Number(publishedOn.slice(5)) - 1]} ${publishedOn.slice(0, 4)}`
+      : undefined;
+    if (text && (authors || publicationDate)) {
       const lines: string[] = [];
       if (authors) lines.push(`Detected paper author(s): ${authors}`);
-      if (detectedPublished) lines.push(`Detected publication date: ${detectedPublished}`);
+      if (publicationDate) lines.push(`Detected publication date: ${publicationDate}`);
       lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
       text = `${lines.join('\n')}\n\n${text}`;
     }
-    return { text, candidates, detectedSurname, detectedPublished, detectedReference, detectedCitation, publishedOn };
+    return { text, candidates, detectedCitation, publishedOn };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
@@ -702,9 +628,6 @@ export async function preprocessInputs(): Promise<InputItem[]> {
 
       let htmlContent: string | undefined;
       let figureCandidates: FigureCandidate[] | undefined;
-      let detectedSurname: string | undefined;
-      let detectedPublished: string | undefined;
-      let detectedReference: string | undefined;
       let detectedCitation: DetectedCitation | undefined;
       let publishedOn: string | undefined;
       let cachedPdfPath: string | undefined;
@@ -715,9 +638,6 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         const fetched = await fetchHtmlContent(url);
         htmlContent = fetched.text;
         figureCandidates = fetched.candidates.length > 0 ? fetched.candidates : undefined;
-        detectedSurname = fetched.detectedSurname;
-        detectedPublished = fetched.detectedPublished;
-        detectedReference = fetched.detectedReference;
         detectedCitation = fetched.detectedCitation;
         publishedOn = fetched.publishedOn;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
@@ -733,9 +653,6 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         imageOverride,
         recreate,
         figureCandidates,
-        detectedSurname,
-        detectedPublished,
-        detectedReference,
         detectedCitation,
         publishedOn,
       });

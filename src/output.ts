@@ -2,13 +2,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { randomUUID } from 'node:crypto';
-import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
-import type { ExplainerV2 } from '../contract/explainer-v2';
+import type { ExplainerJson } from './types/explainer-json';
+import type { Chart, ExplainerV2 } from '../contract/explainer-v2';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { recreateFigureData } from './figure-data';
 import { readState, type FigureCandidate, type RecreateDirective } from './state';
-import { htmlToPlain } from './text';
-import { validateJsonOutput } from './quality';
 import { loadDotEnv } from './env';
 
 // Fill-only .env load must run before the path consts below read process.env.
@@ -65,15 +63,6 @@ export const OBSIDIAN_MIRROR_DIR: string | null = (() => {
   return path.join(os.homedir(), 'obsidian', 'explainers');
 })();
 
-export interface SaveResult {
-  jsonFile: string;
-  jsonPath: string;
-  /** null when WEBSITE_REPO is not configured (staging skipped). */
-  stagedJsonPath: string | null;
-  /** null when the Obsidian mirror is disabled (EXPLAINER_OBSIDIAN_DIR=""). */
-  mirroredJsonPath: string | null;
-}
-
 /**
  * Extracts a JSON object from raw model output.
  * Handles:
@@ -97,62 +86,6 @@ export function extractJson(raw: string): unknown {
 
   // Last resort — attempt to parse the whole string
   return JSON.parse(raw.trim());
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-/**
- * OpenAI's strict structured-output subset requires config_json to be a
- * string (a stringified Chart.js config); parse it back to an object here so
- * the saved artifact matches the website's `config_json: unknown | null`
- * contract regardless of which route produced it. Parse failures are left
- * as-is (still a string) so the validator/repair path can catch them.
- */
-function parseStringifiedConfigJson(chart: Record<string, unknown>): void {
-  if (typeof chart.config_json === 'string') {
-    try {
-      chart.config_json = JSON.parse(chart.config_json);
-    } catch {
-      // leave as-is; malformed config_json falls through to validation/repair
-    }
-  }
-}
-
-function normalizeChartEntry(chart: ExplainerChart | Record<string, unknown>): ExplainerChart {
-  const normalized = chart as ExplainerChart;
-  parseStringifiedConfigJson(normalized as unknown as Record<string, unknown>);
-  if (normalized.config_json && !normalized.config_raw) {
-    normalized.config_raw = JSON.stringify(normalized.config_json);
-  }
-  return normalized;
-}
-
-/**
- * Deletes explicit `null` values recursively so a schema-enforced route's
- * nullable-optional fields (e.g. `image: null`, `end_takeaway: null`,
- * `paragraphs_html: null`) come out looking like an absent field, matching
- * what non-enforced routes have always produced. `config_json` is left
- * untouched — a Chart.js config may legitimately contain nulls (and the type
- * itself allows `config_json: unknown | null` to signal "see config_raw
- * instead"), so recursion does not descend into it.
- */
-function stripSchemaNulls(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const entry of value) stripSchemaNulls(entry);
-    return;
-  }
-  if (!isRecord(value)) return;
-
-  for (const key of Object.keys(value)) {
-    if (key === 'config_json') continue;
-    if (value[key] === null) {
-      delete value[key];
-    } else {
-      stripSchemaNulls(value[key]);
-    }
-  }
 }
 
 /**
@@ -334,38 +267,6 @@ async function attachFigureImage(json: ExplainerJson, customId: string): Promise
   }
 }
 
-/**
- * Conform model output to the canonical schema. Opus consistently emits
- * `paragraphs_html` without `paragraphs`, and `end_takeaway.heading/body_html`
- * instead of `label/body`. We derive the missing fields rather than fail
- * validation or render blank blocks.
- */
-export function normalizeSchemaDrift(json: ExplainerJson): void {
-  if (Array.isArray(json.sections)) {
-    for (const section of json.sections) {
-      const s = section as unknown as Record<string, unknown>;
-      if (!Array.isArray(s.paragraphs) && Array.isArray(s.paragraphs_html)) {
-        s.paragraphs = (s.paragraphs_html as string[]).map(htmlToPlain);
-      }
-    }
-  }
-
-  const et = json.end_takeaway as unknown as Record<string, unknown> | undefined;
-  if (et) {
-    if (typeof et.label !== 'string' && typeof et.heading === 'string') {
-      et.label = et.heading;
-      delete et.heading;
-    }
-    if (typeof et.body !== 'string' && typeof et.body_html === 'string') {
-      et.body = htmlToPlain(et.body_html as string);
-    }
-    // Opus sometimes emits paragraphs_html on end_takeaway instead of body_html
-    if (typeof et.body !== 'string' && Array.isArray(et.paragraphs_html)) {
-      et.body = (et.paragraphs_html as string[]).map(htmlToPlain).join(' ');
-    }
-  }
-}
-
 // A chart whose richest data series has fewer than this many points carries
 // almost no information (a 2-point line, a 3-bar comparison) and reads better as
 // pills/table/prose. We drop them in post so a thin chart never ships even when
@@ -377,165 +278,21 @@ const MIN_CHART_POINTS = (() => {
 
 export { MIN_CHART_POINTS };
 
-/** Longest `data` array across a chart's datasets (Chart.js config), or 0. */
-function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): number {
-  const cfg = (chart as Record<string, unknown>).config_json as
-    | { data?: { datasets?: Array<{ data?: unknown[] }> } }
-    | undefined;
-  const datasets = cfg?.data?.datasets;
-  if (!Array.isArray(datasets)) return 0;
-  let max = 0;
-  for (const d of datasets) {
-    if (Array.isArray(d?.data)) max = Math.max(max, d.data.length);
-  }
-  return max;
-}
-
-export function canonicaliseExplainerJson(json: ExplainerJson): ExplainerJson {
-  stripSchemaNulls(json);
-  normalizeSchemaDrift(json);
-  const legacyChart = isRecord(json.chart) ? normalizeChartEntry(json.chart) : undefined;
-  const charts = Array.isArray(json.charts)
-    ? json.charts
-        .filter((entry) => isRecord(entry))
-        .map((entry) => normalizeChartEntry(entry))
-    : [];
-
-  const candidates = charts.length > 0 ? charts : legacyChart ? [legacyChart] : [];
-
-  json.charts = candidates.length > 0 ? candidates : undefined;
-  json.chart = candidates[0] ?? undefined;
-
-  return json;
-}
-
-export function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
-  canonicaliseExplainerJson(json);
-  const candidates = json.charts ?? [];
-
-  // Drop information-poor charts (longest series < MIN_CHART_POINTS).
-  const kept = candidates.filter((c) => {
-    const len = chartLongestSeries(c);
+export function dropThinCharts(charts: Chart[]): { kept: Chart[]; dropped: string[] } {
+  const dropped: string[] = [];
+  const kept = charts.filter((chart, index) => {
+    const series = Array.isArray(chart?.series) ? chart.series : [];
+    const len = Math.max(0, ...series.map(series => {
+      const values = chart?.kind === 'scatter' ? series?.points : series?.values;
+      return Array.isArray(values) ? values.length : 0;
+    }));
     if (len < MIN_CHART_POINTS) {
-      console.warn(`  ⚠ chart "${(c as ExplainerChart).title ?? '(untitled)'}" dropped — longest series ${len} < ${MIN_CHART_POINTS} points.`);
+      dropped.push(`charts[${index}]: "${chart?.title ?? '(untitled)'}" dropped, fewer than ${MIN_CHART_POINTS} points`);
       return false;
     }
     return true;
   });
-  const normalizedCharts = kept.slice(0, 3);
-
-  json.charts = normalizedCharts.length > 0 ? normalizedCharts : undefined;
-  json.chart = normalizedCharts[0] ?? undefined;
-
-  return json;
-}
-
-/**
- * Derives the output filename from the JSON metadata,
- * falling back to the custom_id slug if unavailable.
- */
-function deriveFilename(customId: string, json: ExplainerJson | null): string {
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (json?.metadata?.filename_slug) {
-    // Model-supplied value goes into path.join: strip separators and dot
-    // sequences so it can only ever name a file inside OUTPUT_DIR.
-    const slug = json.metadata.filename_slug
-      .replace(/\.json$/, '')
-      .replace(/[/\\\0]/g, '-')
-      .replace(/\.{2,}/g, '.')
-      .replace(/^\.+/, '');
-    if (slug.length > 0) return `${slug}.json`;
-  }
-
-  // Fallback: use the custom_id slug
-  const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
-  return `${today}_${slug}_explainer.json`;
-}
-
-export interface RunProvenance {
-  /** Model ID that generated the result, e.g. "claude-fable-5". */
-  model?: string;
-  /** Dispatch route: batch API vs synchronous single request. */
-  runMode?: 'sync' | 'batch';
-  /** Date the request was submitted (YYYY-MM-DD); the date the saved explainer is validated against. */
-  expectedDate?: string;
-  /** First author's surname, detected deterministically upstream. Stamps the byline when the model drops or placeholders it. */
-  detectedSurname?: string;
-  /** Publication date ("Published Month Year") detected from source metadata. Authoritative over the model's guess. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) detected upstream. Replaces the model's reference when present, guaranteeing consistent attribution. */
-  detectedReference?: string;
-}
-
-const PLACEHOLDER_AUTHOR_RE = /\b(?:unknown|unattributed|anonymous|unspecified|n\/a)\b/gi;
-
-function slugifySurname(surname: string): string {
-  return surname
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '')
-    .slice(0, 40);
-}
-
-/**
- * Overwrite the author segment of a canonical filename slug
- * (`YYYY-MM-DD_authorsurname_short-title_explainer`) with the deterministically
- * detected surname. Only touches a slug that already matches the shape; a
- * malformed slug is left for deriveFilename to sanitise.
- */
-function stampSlugAuthor(slug: string, surnameSlug: string): string {
-  const m = slug.match(/^(\d{4}-\d{2}-\d{2})_([^_]+)_(.+)$/);
-  return m ? `${m[1]}_${surnameSlug}_${m[3]}` : slug;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function firstYear(...candidates: Array<string | undefined>): string | undefined {
-  for (const c of candidates) {
-    const m = c?.match(/\b(?:19|20|21)\d{2}\b/);
-    if (m) return m[0];
-  }
-  return undefined;
-}
-
-/**
- * Apply deterministically-detected byline/date over the model's output. The
- * detected values come from source metadata (arXiv `/abs/` citation tags), so
- * they beat a model that dropped the author or guessed the date. The title is
- * only touched to swap a placeholder token ("Unknown" etc.); the eyebrow has a
- * fixed format, so it is rebuilt whenever it does not already name the author (a
- * real model-written eyebrow that already includes the surname is left alone,
- * preserving nuances like "et al.").
- */
-export function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): void {
-  if (provenance.detectedSurname) {
-    const surname = provenance.detectedSurname;
-    const surnameSlug = slugifySurname(surname);
-    if (surnameSlug && json.metadata?.filename_slug) {
-      json.metadata.filename_slug = stampSlugAuthor(json.metadata.filename_slug, surnameSlug);
-    }
-    if (json.metadata?.title) json.metadata.title = json.metadata.title.replace(PLACEHOLDER_AUTHOR_RE, surname);
-    if (json.metadata) {
-      const eyebrow = (json.metadata.eyebrow ?? '').replace(PLACEHOLDER_AUTHOR_RE, surname);
-      const hasSurname = new RegExp(`\\b${escapeRegExp(surname)}\\b`, 'i').test(eyebrow);
-      if (hasSurname) {
-        json.metadata.eyebrow = eyebrow;
-      } else {
-        const year = firstYear(provenance.detectedPublished, json.metadata.title, json.hero?.publication_date);
-        json.metadata.eyebrow = `Research Explainer · ${surname}${year ? ` (${year})` : ''}`;
-      }
-    }
-  }
-  if (provenance.detectedPublished && json.hero) {
-    json.hero.publication_date = provenance.detectedPublished;
-  }
-  if (provenance.detectedReference) {
-    json.references = [provenance.detectedReference];
-  }
+  return { kept, dropped };
 }
 
 export async function persistArtefact(
@@ -582,70 +339,4 @@ export function saveRawOutput(customId: string, text: string): string {
   const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
   fs.writeFileSync(errFile, text, 'utf8');
   return path.basename(errFile);
-}
-
-export async function saveResult(customId: string, rawText: string, provenance?: RunProvenance): Promise<SaveResult> {
-  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-  let parsed: unknown;
-  try {
-    parsed = extractJson(rawText);
-  } catch {
-    // Non-parseable output — save the raw text as a .txt for inspection
-    throw new Error(`JSON parse failed; raw output saved to ${saveRawOutput(customId, rawText)}`);
-  }
-  const candidate = parsed as { metadata?: unknown } | null;
-  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate) || !candidate.metadata || typeof candidate.metadata !== 'object' || Array.isArray(candidate.metadata)) {
-    throw new Error(`Output has no metadata object; raw output saved to ${saveRawOutput(customId, rawText)}`);
-  }
-  const json = normalizeExplainerJson(parsed as ExplainerJson);
-
-  if (provenance) stampProvenanceByline(json, provenance);
-  if (provenance?.model) json.metadata.model = provenance.model;
-  if (provenance?.runMode) json.metadata.run_mode = provenance.runMode;
-
-  // A figure failure must not discard a valid explainer: warn and save it
-  // without an image instead of routing to the parse-error path.
-  try {
-    await attachFigureImage(json, customId);
-  } catch (err) {
-    console.warn(`  ⚠ ${customId}: figure attachment failed, saving without an image (${err instanceof Error ? err.message : String(err)})`);
-    if (json.image) delete json.image;
-  }
-
-  const { quality: _previousQuality, ...validatable } = json.metadata;
-  const dateCreated = typeof json.metadata.date_created === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(json.metadata.date_created) ? json.metadata.date_created : undefined;
-  const expectedDate = provenance?.expectedDate ?? dateCreated ?? new Date().toISOString().slice(0, 10);
-  const validation = validateJsonOutput({ ...json, metadata: validatable }, { expectedDate });
-  json.metadata.quality = { issues: validation.issues, needs_review: validation.issues.length > 0 };
-  if (json.metadata.quality.needs_review) {
-    console.warn(`  ⚠ ${customId}: saved with ${validation.issues.length} validation issue(s), flagged needs_review`);
-  }
-
-  const filename = deriveFilename(customId, json);
-  const outPath = path.join(OUTPUT_DIR, filename);
-  fs.writeFileSync(outPath, JSON.stringify(json, null, 2), 'utf8');
-
-  // Stage into the consuming website repo only when it is configured.
-  let stagedPath: string | null = null;
-  if (WEBSITE_STAGING_DIR) {
-    fs.mkdirSync(WEBSITE_STAGING_DIR, { recursive: true });
-    stagedPath = path.join(WEBSITE_STAGING_DIR, filename);
-    fs.copyFileSync(outPath, stagedPath);
-  }
-
-  // Mirror into the local knowledge base (Obsidian vault) unless disabled.
-  let mirroredPath: string | null = null;
-  if (OBSIDIAN_MIRROR_DIR) {
-    fs.mkdirSync(OBSIDIAN_MIRROR_DIR, { recursive: true });
-    mirroredPath = path.join(OBSIDIAN_MIRROR_DIR, filename);
-    fs.copyFileSync(outPath, mirroredPath);
-  }
-
-  return {
-    jsonFile: filename,
-    jsonPath: outPath,
-    stagedJsonPath: stagedPath,
-    mirroredJsonPath: mirroredPath,
-  };
 }

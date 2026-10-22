@@ -229,20 +229,14 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     imageOverride: req.imageOverride,
     figureCandidates: req.figureCandidates,
     recreate: req.recreate,
-    detectedSurname: req.detectedSurname,
-    detectedPublished: req.detectedPublished,
-    detectedReference: req.detectedReference,
     detectedCitation: req.detectedCitation,
     publishedOn: req.publishedOn,
   };
 }
 
-function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedSurname' | 'detectedPublished' | 'detectedReference' | 'detectedCitation' | 'publishedOn'> {
+function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedCitation' | 'publishedOn'> {
   return {
     expectedDate,
-    detectedSurname: item.detectedSurname,
-    detectedPublished: item.detectedPublished,
-    detectedReference: item.detectedReference,
     detectedCitation: item.detectedCitation,
     publishedOn: item.publishedOn,
   };

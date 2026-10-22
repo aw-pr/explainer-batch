@@ -11,41 +11,30 @@ type Obj = Record<string, unknown>;
 interface ProseField {
   path: string;
   text: string;
-  dashOnly?: boolean;
 }
 
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const isV2 = (j: Obj): boolean => j['version'] !== 1 && isObj(j['hero']) && 'title' in j['hero'];
 
 function collectProseFields(j: Obj): ProseField[] {
   const fields: ProseField[] = [];
-  const add = (path: string, value: unknown, dashOnly = false): void => {
-    if (typeof value === 'string' && value) fields.push({ path, text: value, dashOnly });
+  const add = (path: string, value: unknown): void => {
+    if (typeof value === 'string' && value) fields.push({ path, text: value });
   };
   const addAll = (path: string, values: unknown): void => {
     asArray(values).forEach((v, n) => add(`${path}[${n}]`, v));
   };
 
-  const meta = isObj(j['metadata']) ? j['metadata'] : {};
-  add('metadata.title', meta['title']);
-  add('metadata.eyebrow', meta['eyebrow']);
-
   const hero = isObj(j['hero']) ? j['hero'] : {};
-  if (isV2(j)) add('hero.title', hero['title']);
+  add('hero.title', hero['title']);
   add('hero.headline', hero['headline']);
-  add('hero.headline_html', hero['headline_html']);
   add('hero.subtitle', hero['subtitle']);
 
   const top = isObj(j['top_block']) ? j['top_block'] : {};
   asArray(top['pills']).forEach((pill, i) => {
     if (!isObj(pill)) return;
-    add(`top_block.pills[${i}].number`, pill['number'], true);
-    add(`top_block.pills[${i}].description`, pill['description']);
-    if (isV2(j)) {
-      add(`top_block.pills[${i}].lead`, pill['lead']);
-      add(`top_block.pills[${i}].text`, pill['text']);
-    }
+    add(`top_block.pills[${i}].lead`, pill['lead']);
+    add(`top_block.pills[${i}].text`, pill['text']);
   });
   add('top_block.label', top['label']);
   add('top_block.body', top['body']);
@@ -55,24 +44,19 @@ function collectProseFields(j: Obj): ProseField[] {
     const at = `sections[${i}]`;
     add(`${at}.label`, section['label']);
     addAll(`${at}.paragraphs`, section['paragraphs']);
-    addAll(`${at}.paragraphs_html`, section['paragraphs_html']);
     if (isObj(section['list'])) {
       const list = section['list'];
       add(`${at}.list.intro`, list['intro']);
-      add(`${at}.list.intro_html`, list['intro_html']);
       asArray(list['items']).forEach((item, n) => {
         if (!isObj(item)) return;
         add(`${at}.list.items[${n}].label`, item['label']);
         add(`${at}.list.items[${n}].body`, item['body']);
-        add(`${at}.list.items[${n}].body_html`, item['body_html']);
       });
     }
     if (isObj(section['table'])) {
       add(`${at}.table.caption`, section['table']['caption']);
-      if (isV2(j)) {
-        addAll(`${at}.table.columns`, section['table']['columns']);
-        asArray(section['table']['rows']).forEach((row, n) => addAll(`${at}.table.rows[${n}]`, row));
-      }
+      addAll(`${at}.table.columns`, section['table']['columns']);
+      asArray(section['table']['rows']).forEach((row, n) => addAll(`${at}.table.rows[${n}]`, row));
     }
   });
 
@@ -83,18 +67,6 @@ function collectProseFields(j: Obj): ProseField[] {
       add(`charts[${i}].title`, chart['title']);
       add(`charts[${i}].caption`, chart['caption']);
     });
-  } else if (isObj(j['chart'])) {
-    add('chart.title', j['chart']['title']);
-    add('chart.caption', j['chart']['caption']);
-  }
-
-  if (isObj(j['image'])) {
-    add('image.caption', j['image']['caption']);
-    add('image.alt_text', j['image']['alt_text']);
-  }
-  if (isObj(j['recreated_figure'])) {
-    add('recreated_figure.title', j['recreated_figure']['title']);
-    add('recreated_figure.caption', j['recreated_figure']['caption']);
   }
 
   const end = isObj(j['end_takeaway']) ? j['end_takeaway'] : {};
@@ -216,15 +188,12 @@ function bodyNumbers(j: Obj): Set<string> {
     if (!isObj(section)) return;
     take(section['label']);
     asArray(section['paragraphs']).forEach(take);
-    asArray(section['paragraphs_html']).forEach(take);
     if (isObj(section['list'])) {
       take(section['list']['intro']);
-      take(section['list']['intro_html']);
       asArray(section['list']['items']).forEach((item) => {
         if (!isObj(item)) return;
         take(item['label']);
         take(item['body']);
-        take(item['body_html']);
       });
     }
     if (isObj(section['table'])) {
@@ -243,9 +212,7 @@ function numberIssues(j: Obj): StyleIssue[] {
   claims.push(['hero.headline', hero['headline']]);
   const top = isObj(j['top_block']) ? j['top_block'] : {};
   asArray(top['pills']).forEach((pill, i) => {
-    if (isObj(pill)) claims.push(isV2(j)
-      ? [`top_block.pills[${i}].lead`, pill['lead']]
-      : [`top_block.pills[${i}].number`, pill['number']]);
+    if (isObj(pill)) claims.push([`top_block.pills[${i}].lead`, pill['lead']]);
   });
 
   const body = bodyNumbers(j);
@@ -267,7 +234,7 @@ export function lintStyle(json: unknown): StyleIssue[] {
   if (!isObj(json)) return [];
   const issues: StyleIssue[] = [];
 
-  for (const { path, text, dashOnly } of collectProseFields(json)) {
+  for (const { path, text } of collectProseFields(json)) {
     const dash = dashProblem(text);
     if (dash) {
       issues.push({
@@ -276,8 +243,6 @@ export function lintStyle(json: unknown): StyleIssue[] {
         message: `Contains ${dash}. Use a comma, parentheses or a rewrite instead.`,
       });
     }
-    if (dashOnly) continue;
-
     const spelling = spellingProblems(text);
     if (spelling.length > 0) {
       issues.push({

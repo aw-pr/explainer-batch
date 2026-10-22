@@ -86,9 +86,6 @@ export interface RequestState {
   recreate?: RecreateDirective;
   /** Submit date (YYYY-MM-DD) the quality date check compares against. */
   expectedDate?: string;
-  detectedSurname?: string;
-  detectedPublished?: string;
-  detectedReference?: string;
   detectedCitation?: DetectedCitation;
   publishedOn?: string;
 }

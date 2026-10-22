@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CONTRACT_REVISION, ExplainerV2, type Chart, type ModelOutputV2, modelOutputValidator } from '../contract/explainer-v2';
 import { sanitiseInline, toPlain } from '../contract/inline';
 import { checkResult, type ErrorCode, type NormalizedResult } from './llm-contract';
-import { extractJson, MIN_CHART_POINTS, persistArtefact } from './output';
+import { dropThinCharts, extractJson, persistArtefact } from './output';
 import { buildWireRepairInstruction, chartIssues, isChartIssue } from './quality';
 import { MAX_REPAIR_ATTEMPTS } from './repair';
 import { lintStyle } from './style-lint';
@@ -277,17 +277,17 @@ export async function finalizeResult(
     let issues = wireIssues(wire, ctx);
     if (isObject(wire)) {
       if (Array.isArray(wire.charts)) {
+        const thin = dropThinCharts(wire.charts as Chart[]);
         wire.charts = wire.charts.filter((chart, index) => {
           const at = `charts[${index}]`;
           const invalid = issues.some(issue => issue.startsWith(`${at}:`) || issue.startsWith(`${at}.`)
             || (isChartIssue(issue) && issue.includes(`${at}.`)));
-          const series = isObject(chart) && Array.isArray(chart.series) ? chart.series : [];
-          const longest = Math.max(0, ...series.map(s => isObject(s)
-            ? (isObject(chart) && chart.kind === 'scatter'
-              ? (Array.isArray(s.points) ? s.points.length : 0)
-              : (Array.isArray(s.values) ? s.values.length : 0)) : 0));
-          if (invalid || longest < MIN_CHART_POINTS) {
-            progress.dropped.push(`${at}: ${invalid ? 'invalid chart removed' : `fewer than ${MIN_CHART_POINTS} points`}`);
+          if (invalid) {
+            progress.dropped.push(`${at}: invalid chart removed`);
+            return false;
+          }
+          if (!thin.kept.includes(chart)) {
+            progress.dropped.push(...thin.dropped.filter(message => message.startsWith(`${at}:`)));
             return false;
           }
           return true;
