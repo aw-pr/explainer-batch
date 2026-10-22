@@ -5,7 +5,7 @@ import path from 'node:path';
 import { ExplainerV2, ModelOutputV2, modelOutputValidator } from '../../contract/explainer-v2';
 import { assertOpenAiStrict, claudePass, geminiPass, openaiPass } from '../../contract/dialects';
 import { sanitiseInline } from '../../contract/inline';
-import { checkContract } from '../../scripts/contract-build';
+import { checkContract, renderSkill, renderSkillBlock } from '../../scripts/contract-build';
 
 const FIXTURES = path.join(__dirname, 'fixtures', 'v2');
 const GENERATED = path.join(__dirname, '..', '..', 'contract', 'generated');
@@ -141,6 +141,31 @@ test('sanitiseInline is idempotent on malformed input', () => {
 
 test('contract:check finds the generated files up to date', () => {
   assert.deepEqual(checkContract(), []);
+});
+
+test('renderSkill replaces only the content between the markers and is idempotent', () => {
+  const before = 'prefix\t\r\n<!-- CONTRACT-V2-BEGIN -->';
+  const after = '<!-- CONTRACT-V2-END -->\r\nsuffix\t ';
+  const rendered = renderSkill(`${before}\nstale\n${after}`);
+  assert.equal(rendered, before + renderSkillBlock() + after);
+  assert.equal(renderSkill(rendered), rendered);
+});
+
+test('renderSkill rejects missing, duplicated and reversed markers', () => {
+  const begin = '<!-- CONTRACT-V2-BEGIN -->';
+  const end = '<!-- CONTRACT-V2-END -->';
+  for (const marker of [begin, end]) {
+    const other = marker === begin ? end : begin;
+    assert.throws(() => renderSkill(other), error => error instanceof Error && error.message.includes(marker));
+    assert.throws(() => renderSkill(`${begin}${marker}${end}`), error => error instanceof Error && error.message.includes(marker));
+  }
+  assert.throws(() => renderSkill(`${end}${begin}`), /CONTRACT-V2-BEGIN.*CONTRACT-V2-END/);
+});
+
+test('renderSkillBlock names every top-level wire property in schema order', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(GENERATED, 'model-output.openai.json'), 'utf8'));
+  const keys = [...renderSkillBlock().matchAll(/^  "([^"]+)": /gm)].map(match => match[1]);
+  assert.deepEqual(keys, Object.keys(schema.properties));
 });
 
 test('a table accepts an empty cell and rejects a tagged cell and an empty column heading', () => {

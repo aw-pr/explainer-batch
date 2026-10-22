@@ -16,7 +16,8 @@ function stripFrontmatter(content: string): string {
 }
 
 export function buildSystemPrompt(): string {
-  return stripFrontmatter(fs.readFileSync(SKILL_FILE, 'utf8')).trimEnd();
+  return stripFrontmatter(fs.readFileSync(SKILL_FILE, 'utf8')).trimEnd()
+    .replace(/^<!-- CONTRACT-V2-(?:BEGIN|END) -->\r?\n/gm, '');
 }
 
 export function buildUserInstruction(expectedDate: string, focusHint?: string, pinnedFigure?: string): string {
