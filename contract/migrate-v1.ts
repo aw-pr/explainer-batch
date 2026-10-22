@@ -53,8 +53,12 @@ function reference(value: unknown, slug: string, issues: string[]): Obj {
   const raw = text(value), content = plain(value);
   const anchor = raw.match(/<a\b[^>]*\bhref\s*=\s*(?:"(https?:\/\/[^"\s]+)"|'(https?:\/\/[^'\s]+)')/i);
   const url = anchor ? plain(anchor[1] ?? anchor[2]) : undefined;
-  const match = content.match(/^(.+?)\s*\((\d{4})\)\.\s+(.+?)\.\s*(.*)$/s);
-  const authors = match ? Array.from(match[1].matchAll(/(?:^|,\s*|&\s*)([^,&]+),\s*([^,]+?)(?=,\s*[^,]+,|,?\s*&|$)/g), m => ({ family: m[1].trim(), given: m[2].trim() })) : [];
+  const match = content.match(/^(.+?)\s*\((\d{4})(?:,[^)]*)?\)\.\s+(.+?)\.(?:\s+|$)(.*)$/s);
+  const authorSegment = match ? match[1].replace(/,?\s+et al\.?\s*$/i, '').trim() : '';
+  const authors: { family: string; given?: string }[] = Array.from(authorSegment.matchAll(/(?:^|,\s*|&\s*)([^,&]+),\s*([^,]+?)(?=,\s*[^,]+,|,?\s*&|$)/g), m => ({ family: m[1].trim(), given: m[2].trim() }));
+  if (authorSegment && authors.length === 0 && !authorSegment.includes(',')) {
+    authors.push({ family: authorSegment.replace(/\.$/, '') });
+  }
   if (!match || authors.length === 0) {
     issues.push('references[0]: partial APA parse');
     const family = slug.split('_')[1] || 'Unknown';

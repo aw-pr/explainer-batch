@@ -1,0 +1,62 @@
+{
+  "input": {
+    "version": 1,
+    "metadata": {
+      "title": "Agent Costs: Smith (2026)",
+      "eyebrow": "Research",
+      "date_created": "2026-05-01",
+      "filename_slug": "2026-05-01_smith_agent-costs_explainer"
+    },
+    "hero": {
+      "headline": "Agents reduce costs",
+      "headline_html": "Agents <span>reduce costs</span>",
+      "subtitle": "The results.",
+      "publication_date": "Published March 2026"
+    },
+    "top_block": {
+      "kind": "pills",
+      "pills": [
+        {
+          "number": "R&amp;D",
+          "description": "Research",
+          "accent_color": "red"
+        },
+        {
+          "number": "33%",
+          "description": "Savings",
+          "accent_color": "blue"
+        }
+      ]
+    },
+    "sections": [
+      {
+        "label": "Why",
+        "paragraphs": [
+          "Costs fell."
+        ],
+        "paragraphs_html": [
+          "Costs <strong>fell</strong>."
+        ]
+      },
+      {
+        "label": "How",
+        "paragraphs": [
+          "Measured over time."
+        ]
+      }
+    ],
+    "end_takeaway": {
+      "label": "Meaning",
+      "body": "Lower <em>costs</em>."
+    },
+    "references": [
+      "Cambridge Centre for Alternative Finance (2026). Global AI adoption. University of Cambridge."
+    ]
+  },
+  "ok": true,
+  "expected": {
+    "references.0.authors.0.family": "Cambridge Centre for Alternative Finance",
+    "references.0.year": 2026,
+    "references.0.title": "Global AI adoption"
+  }
+}
