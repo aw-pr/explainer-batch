@@ -79,9 +79,9 @@ Baseline on `dev` at `66652d9` (2026-10-22): 1 red (this test 8 of 8; re-frozen 
 ## Contract test
 
 - **Test file:** `tests/contract/47-requests-ask-for-the-v2-wire-shape.test.ts`
-- **Assertions digest:** `sha256:19c6856292723691499587b2053b23575a1f2997ab6fe045eb2197d00f5dc220`
+- **Assertions digest:** `sha256:ddc480b9f8bb90f45ce7922e8550555409e099247a4450c996ab21b60158d466`
 - **Oracle proof:**
-  - **Drafted** by a read-only GPT-6.1 Sol session from this card, with the re-freeze of contract 14; reviewed by the orchestrator, who removed the assertions that the v1 detected fields persist (card 49 deletes them; contract 06 guards them until card 48 re-freezes it), and narrowed the plain-text check to tags and entities so a literal `x < 3` in a title is allowed, as `toPlain` allows it.
+  - **Drafted** by a read-only GPT-6.1 Sol session from this card, with the re-freeze of contract 14; reviewed by the orchestrator, who removed the assertions that the v1 detected fields persist (card 49 deletes them; contract 06 guards them until card 48 re-freezes it), dropped the assertion that `src/schema/explainer-schema.ts` re-exports `structuredOutputEnabled` (card 49 deletes that file), and narrowed the plain-text check to tags and entities so a literal `x < 3` in a title is allowed, as `toPlain` allows it.
   - **Red on `dev` `66652d9`:** this test 8 of 8 fail (no `src/wire-schema.ts`, no citation sentence, `EXPLAINER_JSON_SCHEMA` in the request bodies, no `buildCitation` or `publishedOnFrom`). Re-frozen 14: 1 of 6 fails, the user instruction still asks for `Published Month Year`.
   - **Green on a throwaway reference** written by a GPT-6.1 Sol session in a detached worktree at `~/repos/eb-ref47` on `dev` (removed and pruned; nothing committed): this test 8 of 8, re-frozen 14 6 of 6, `tsc --noEmit` clean. The request-body tests capture real `submitBatch` bodies through the provider stubs. About 130 changed lines across seven files.
   - **Traps the reference met:** the source scan rejects `EXPLAINER_JSON_SCHEMA` in a comment too (deliverable 7 now says so); the inferred citation types make `given` a required key that may be `undefined`, while detection must omit it, so declare an explicit detected-citation interface.

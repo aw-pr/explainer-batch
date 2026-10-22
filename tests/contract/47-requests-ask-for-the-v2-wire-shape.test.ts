@@ -205,9 +205,6 @@ test('47: generated dialects and structured-output re-export', () => {
 
   assert.equal(typeof wire.structuredOutputEnabled, 'function',
     '47: structuredOutputEnabled export');
-  const legacy = require('../../src/schema/explainer-schema');
-  assert.strictEqual(legacy.structuredOutputEnabled, wire.structuredOutputEnabled,
-    '47: structuredOutputEnabled not re-exported');
 
   const before = process.env.STRUCTURED_OUTPUT;
   try {
