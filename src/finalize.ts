@@ -7,6 +7,17 @@ import { dropThinCharts, extractJson, persistArtefact } from './output';
 import { buildWireRepairInstruction, chartIssues, isChartIssue } from './quality';
 import { MAX_REPAIR_ATTEMPTS } from './repair';
 import { lintStyle } from './style-lint';
+import { assetFileName, imageSize, sniffImageType } from './figure-locator/asset';
+import { parseLabel } from './figure-locator/label';
+
+export interface FigureAsset {
+  label: string;
+  caption: string;
+  alt_text: string;
+  bytes: Buffer;
+  page?: number;
+  provenance: 'arxiv-source' | 'pdf-embedded' | 'pdf-vector-crop' | 'dom-asset' | 'vlm-crop';
+}
 
 export interface StampContext {
   expectedDate: string;
@@ -22,6 +33,7 @@ export interface FinalizeContext {
     put(key: string, value: unknown): void | Promise<void>;
   };
   repair?: (instruction: string, payload: string) => Promise<NormalizedResult>;
+  figure?: (wire: ModelOutputV2, itemKey: string) => Promise<FigureAsset | null>;
   persist?: typeof persistArtefact;
 }
 
@@ -204,9 +216,15 @@ interface Progress {
 
 interface FinalProgress extends Omit<Progress, 'wire' | 'dropped'> {
   article: ExplainerV2;
+  figureBytes?: string;
   issues: string[];
   artefactDigest: string;
   chartDigest: string;
+}
+
+interface FigureProgress {
+  asset: (Omit<FigureAsset, 'bytes'> & { bytes: string }) | null;
+  dropped?: string;
 }
 
 function parseWire(text: string): unknown {
@@ -311,15 +329,49 @@ export async function finalizeResult(
         issues, status: 'errored', code: 'INVALID_ARTICLE', message: structural.join('\n'),
       };
     }
-    const article = stampArtefact(wire as ModelOutputV2, receipt, context.stamp, { issues, dropped: progress.dropped });
+    let figure: FigureProgress | undefined;
+    if ((wire as ModelOutputV2).figure_request && context.figure) {
+      figure = await checkpoints.get(`${key}:figure`) as FigureProgress | undefined;
+      if (!figure) {
+        try {
+          const asset = await context.figure(copy(wire) as ModelOutputV2, itemKey);
+          if (!asset) {
+            figure = { asset: null, dropped: 'figure_request: no figure located' };
+          } else if (!sniffImageType(asset.bytes)) {
+            figure = { asset: null, dropped: 'figure_request: unrecognised image bytes' };
+          } else {
+            figure = { asset: { ...asset, bytes: asset.bytes.toString('base64') } };
+          }
+        } catch (error) {
+          figure = { asset: null, dropped: `figure_request: ${error instanceof Error ? error.message : String(error)}` };
+        }
+        await checkpoints.put(`${key}:figure`, copy(figure));
+      }
+      if (figure.dropped) progress.dropped.push(figure.dropped);
+    }
+    let article = stampArtefact(wire as ModelOutputV2, receipt, context.stamp, { issues, dropped: progress.dropped });
+    if (figure?.asset) {
+      const { bytes: encoded, ...metadata } = figure.asset;
+      const bytes = Buffer.from(encoded, 'base64');
+      const file = assetFileName(parseLabel(metadata.label), sniffImageType(bytes)!);
+      article = ExplainerV2.parse({
+        ...article,
+        lead_figure: {
+          ...metadata, asset: `${article.metadata.slug}/${file}`,
+          sha256: createHash('sha256').update(bytes).digest('hex'), ...imageSize(bytes),
+        },
+      });
+    }
     final = {
       article, issues, receipts: progress.receipts, repairAttempts: progress.repairAttempts,
+      figureBytes: figure?.asset?.bytes,
       artefactDigest: sha256(JSON.stringify(article, null, 2)), chartDigest: sha256(sortedJson(article.charts)),
     };
     await checkpoints.put(`${key}:final`, copy(final));
   }
   const saved = await (context.persist ?? persistArtefact)(copy(final.article), {
     itemKey, kind: final.issues.length === 0 ? 'success' : 'review',
+    figureBytes: final.figureBytes === undefined ? undefined : Buffer.from(final.figureBytes, 'base64'),
   });
   return {
     itemKey, status: final.issues.length === 0 ? 'succeeded' : 'needs_review',

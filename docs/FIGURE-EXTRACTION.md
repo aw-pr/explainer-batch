@@ -1,20 +1,47 @@
 # Figure extraction pipeline
 
 How the explainer pipeline turns a source document into a lead figure
-embedded in the JSON output. The deterministic caption/gap-finder
+stored beside the JSON output. The deterministic caption/gap-finder
 (`figure-extract.ts`) has been **retired** in favour of a vision model
 that looks at the rendered document the way a reader does.
+
+## V2 sidecar assets
+
+The finalise seam calls the figure hook after repair and resolution of
+surviving issues, only when `figure_request` is present. It checkpoints the
+result, including image bytes, so replay restores a lost sidecar without
+another extraction call. The request remains in the saved article for reextract.
+
+`persistArtefact` writes the image before the JSON at
+`output/<slug>/<file>`, or `output/review/<slug>/<file>` for review articles.
+Successful articles also copy the sidecar beside each JSON in website staging
+(`explainers-new/`) and the Obsidian mirror. Review copies are skipped;
+staging or mirror failures are reported independently, as for JSON copies.
+
+The filename comes from the printed label and the sniffed image type:
+`figure-3.jpg`, `figure-4b.png`, `table-2.jpg`, or `figure.<ext>` when the label
+has no number. `lead_figure` records the label, caption, alt text, relative
+`asset` path (`<slug>/<file>`), SHA-256 of the image bytes, pixel width and
+height when readable, optional page, and provenance (currently `vlm-crop`).
+SVG dimensions are omitted. The article digest covers JSON bytes only.
+
+A null result, extraction error or unrecognised image bytes leaves out
+`lead_figure` and records the reason in `metadata.quality.dropped`, preserving
+the item's success or review status. New save paths write no inline image data
+or `recreated_figure`. Recreation switches and directives do not run a
+recreation pass during saves; W8 will return recreation as a v2 `Chart`.
 
 ## Current model: vision-driven selection
 
 `src/figure-vlm.ts:extractFigureViaVlm` is the single entry point, called
-from `output.ts:attachFigureImage` after the JSON is parsed (and from the
+from `output.ts:locateLeadFigure` after wire repair (and from the
 `reextract` script). Callers pass the explainer's own context (hero
 headline, subtitle, section labels, chart titles) into the selection
-prompt as context. The prompt asks for the paper's key results figure, the
-one carrying its headline finding, and falls back to a conceptual figure
-(architecture, pipeline, schematic, visual abstract) only when the paper
-has no results figure.
+prompt as context. The operator's `.focus.md` image pin takes precedence over
+`figure_request.label`; otherwise that requested label pins the selection.
+The prompt asks for the paper's key results figure, the one carrying its
+headline finding, and falls back to a conceptual figure (architecture,
+pipeline, schematic, visual abstract) only when the paper has no results figure.
 
 ### PDF path: two-pass zoom-refine
 
@@ -99,8 +126,9 @@ unpainted-chart screenshots before a verification call is spent.
 Selections below `MIN_CONFIDENCE` (0.35) or `found: false` drop the
 image block.
 
-The model selects autonomously when no directive is present. A
-`<paper>.focus.md` sidecar is **optional**: `image: Figure N` pins a
+The extractor can select autonomously when called without a pin; new saves
+pin `figure_request.label` by default. A `<paper>.focus.md` sidecar is
+**optional**: `image: Figure N` pins a
 specific figure, `image_caption:` / `image_alt:` override the
 model-supplied text, and `image_page_hint:` biases the selection prompt
 towards a page without constraining it.
@@ -145,14 +173,18 @@ is cheaper than metered API spend.
 | `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF — the model cannot pick a page it never saw. |
 | `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, a blank/uncroppable crop, or a verification rejection (default 2). |
 | `FIGURE_VLM_DPI` | PDF crop render DPI, i.e. sharpness (default 300). |
-| `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the inlined base64 size (default 2200). |
+| `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the sidecar image size (default 2200). |
 | `FIGURE_VLM_JPEG_QUALITY` | JPEG quality 1-100; size vs fidelity (default 90). |
 | `FIGURE_VLM_REFINE_PX` | Width of the pass-2 single-page render (default 2200). |
 | `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight — verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
 | `FIGURE_VLM_VERIFY` | Set `0` to disable the crop verification pass (default on). |
 | `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). A model from the other provider is refused at start-up. |
 
-**Resolution vs size.** The crop is rendered at `FIGURE_VLM_DPI`, capped
+**Superseded base64 description (removed in W7).** The following describes
+legacy output and the pending reextract migration. V2 saves decode the VLM's
+data URL into a sidecar; their JSON does not grow with image size.
+
+The crop is rendered at `FIGURE_VLM_DPI`, capped
 to `FIGURE_VLM_MAX_PX` on its longest side, then JPEG-encoded at
 `FIGURE_VLM_JPEG_QUALITY`. Because the result is inlined as a base64
 `data:` URL inside the explainer JSON, a larger or sharper image inflates
@@ -173,6 +205,9 @@ Routes by provider/auth (`src/vision.ts`):
 - **OpenAI API**: Responses API with `input_image` (`OPENAI_API_KEY`).
 
 ## Figure-data recreation (experimental)
+
+This section describes the legacy tooling. The v2 save path does not run
+recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives.
 
 `FIGURE_RECREATE=1` (or a per-paper `recreate:` directive) adds a
 post-clip pass that tries to recover the **data** behind the picked

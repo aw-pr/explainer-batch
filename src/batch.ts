@@ -7,7 +7,7 @@ import {
   type BatchState, type RequestState,
 } from './state';
 import { buildSystemPrompt, buildUserInstruction } from './prompt';
-import { saveRawOutput, OUTPUT_DIR } from './output';
+import { saveRawOutput, OUTPUT_DIR, locateLeadFigure } from './output';
 import { finalizeResult, type FinalizeContext } from './finalize';
 import type { NormalizedResult, TokenUsage } from './llm-contract';
 import { exportHtmlForJsonFiles } from './html-export';
@@ -312,6 +312,7 @@ async function saveThroughSeam(
         : { kind: 'pdf', ref: path.basename(source.filename ?? source.filePath ?? req.input) },
     },
     checkpoints: { get: key => checkpoints.get(key), put: (key, value) => { checkpoints.set(key, value); } },
+    figure: wire => locateLeadFigure(wire, receipt.customId),
     repair: async (instruction, payload) => {
       const response = await repair(instruction, payload);
       return {

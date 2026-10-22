@@ -40,8 +40,13 @@ content across three files and it drifted; keep it single-source.)
 - **Output post-processing**: every save path in `src/batch.ts` calls
   `finalizeResult` in `src/finalize.ts`. The seam canonicalises v2 wire output,
   validates it, bounds prose repair at two attempts and drops invalid or thin
-  charts. It stamps provenance from the request and provider receipt, then
-  persists the article through `persistArtefact` in `src/output.ts`.
+  charts. After resolving surviving issues, it calls the figure hook for a
+  non-null `figure_request`, checkpoints its bytes, and stamps provenance and
+  `lead_figure` (relative asset path, hash, size and extraction metadata).
+  `persistArtefact` in `src/output.ts` writes the sidecar before the JSON and
+  copies both to each eligible destination; replay restores lost sidecars.
+  A missing figure records its reason in `quality.dropped`. Saves never run
+  recreation or store inline image bytes.
   Canonicalisation fixes belong in the seam. Generated provider dialects live
   in `contract/generated/` and are loaded by `src/wire-schema.ts`.
 

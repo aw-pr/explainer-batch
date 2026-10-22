@@ -55,6 +55,98 @@ const fakePersist: typeof persistArtefact = async () => ({
   destinations: { output: 'written', staging: 'skipped', mirror: 'skipped' },
 });
 
+const sidecarPng = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000020000000108020000007b40e8dd' +
+  '0000000d49444154789c63f8cfc000440008fe01ffc69e79f70000000049454e44ae426082', 'hex',
+);
+
+for (const [label, filename] of [
+  ['Figure 3', 'figure-3.png'], ['Figure 4b', 'figure-4b.png'],
+  ['Table 2', 'table-2.png'], ['Overview', 'figure.png'],
+]) {
+  test(`sidecar for ${label} is named ${filename} beside every JSON copy`, async () => {
+    const wire = article();
+    wire.hero.title = `Sidecar naming ${label}`;
+    wire.figure_request = { label, why: 'The figure shows the architecture.' };
+    const outcome = await finalizeResult(`naming-${label}`, receipt(wire), context({
+      figure: async () => ({ label, caption: 'Architecture.', alt_text: 'A policy gate.', bytes: sidecarPng, provenance: 'vlm-crop' }),
+    }));
+    assert.equal(outcome.status, 'succeeded');
+    if (outcome.status === 'errored') return;
+    const lead = outcome.article.lead_figure!;
+    assert.equal(lead.asset, `${outcome.article.metadata.slug}/${filename}`);
+    assert.equal(lead.width, 2);
+    assert.equal(lead.height, 1);
+    for (const directory of [path.join(temporary, 'output'), path.join(temporary, 'website/explainers-new'), path.join(temporary, 'mirror')]) {
+      assert.deepEqual(fs.readFileSync(path.join(directory, lead.asset)), sidecarPng);
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, `${outcome.article.metadata.slug}.json`), 'utf8')), outcome.article);
+    }
+  });
+}
+
+test('a failed figure hook is checkpointed and preserves the request and item status', async () => {
+  const wire = article();
+  wire.figure_request = { label: 'Figure 3', why: 'The figure shows the architecture.' };
+  let calls = 0;
+  const ctx = context({
+    persist: fakePersist,
+    figure: async () => { calls++; throw new Error('crop unavailable'); },
+  });
+  const first = await finalizeResult('failed-figure', receipt(wire), ctx);
+  const second = await finalizeResult('failed-figure', receipt(wire), ctx);
+  assert.equal(first.status, 'succeeded');
+  assert.equal(second.status, 'succeeded');
+  assert.equal(calls, 1);
+  if (first.status === 'errored') return;
+  assert.equal(first.article.lead_figure, undefined);
+  assert.deepEqual(first.article.figure_request, wire.figure_request);
+  assert.ok(first.article.metadata.quality.dropped.includes('figure_request: crop unavailable'));
+});
+
+test('SVG sidecar omits dimensions and a mirror sidecar failure prevents that JSON copy', async () => {
+  const wire = article();
+  wire.hero.title = 'SVG mirror failure';
+  wire.figure_request = { label: 'Figure 2', why: 'The figure shows the architecture.' };
+  const slug = stampArtefact(wire as any, receipt(wire), { expectedDate: date }, { issues: [], dropped: [] }).metadata.slug;
+  const mirrorBlocker = path.join(temporary, 'mirror', slug);
+  fs.mkdirSync(path.dirname(mirrorBlocker), { recursive: true });
+  fs.writeFileSync(mirrorBlocker, 'blocks the sidecar directory');
+  const bytes = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>');
+  const outcome = await finalizeResult('svg-sidecar', receipt(wire), context({
+    figure: async () => ({ label: 'Figure 2', caption: 'Architecture.', alt_text: 'A policy gate.', bytes, provenance: 'pdf-vector-crop' }),
+  }));
+  assert.equal(outcome.status, 'succeeded');
+  if (outcome.status === 'errored') return;
+  assert.deepEqual(outcome.destinations, { output: 'written', staging: 'written', mirror: 'failed' });
+  assert.equal(Object.hasOwn(outcome.article.lead_figure!, 'width'), false);
+  assert.equal(Object.hasOwn(outcome.article.lead_figure!, 'height'), false);
+  assert.equal(outcome.article.lead_figure!.asset, `${slug}/figure-2.svg`);
+  assert.deepEqual(fs.readFileSync(path.join(temporary, 'output', outcome.article.lead_figure!.asset)), bytes);
+  assert.equal(fs.existsSync(path.join(temporary, 'mirror', `${slug}.json`)), false);
+});
+
+test('retry after primary sidecar write failure reuses figure bytes before publishing JSON', async () => {
+  const wire = article();
+  wire.hero.title = 'Primary sidecar retry';
+  wire.figure_request = { label: 'Figure 2', why: 'The figure shows the architecture.' };
+  const slug = stampArtefact(wire as any, receipt(wire), { expectedDate: date }, { issues: [], dropped: [] }).metadata.slug;
+  const blocker = path.join(temporary, 'output', slug);
+  fs.mkdirSync(path.dirname(blocker), { recursive: true });
+  fs.writeFileSync(blocker, 'blocks the sidecar directory');
+  let calls = 0;
+  const ctx = context({ figure: async () => {
+    calls++;
+    return { label: 'Figure 2', caption: 'Architecture.', alt_text: 'A policy gate.', bytes: sidecarPng, provenance: 'vlm-crop' };
+  } });
+  await assert.rejects(finalizeResult('retry-sidecar', receipt(wire), ctx));
+  assert.equal(fs.existsSync(path.join(temporary, 'output', `${slug}.json`)), false);
+  fs.unlinkSync(blocker);
+  const outcome = await finalizeResult('retry-sidecar', receipt(wire), ctx);
+  assert.equal(outcome.status, 'succeeded');
+  assert.equal(calls, 1);
+  assert.deepEqual(fs.readFileSync(path.join(temporary, 'output', slug, 'figure-2.png')), sidecarPng);
+});
+
 function editorial(): Record<string, any> {
   const wire = article();
   wire.hero.subtitle = 'x'.repeat(321);

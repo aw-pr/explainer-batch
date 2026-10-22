@@ -2,11 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { randomUUID } from 'node:crypto';
-import type { ExplainerJson } from './types/explainer-json';
-import type { Chart, ExplainerV2 } from '../contract/explainer-v2';
-import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
-import { recreateFigureData } from './figure-data';
-import { readState, type FigureCandidate, type RecreateDirective } from './state';
+import type { Chart, ExplainerV2, ModelOutputV2 } from '../contract/explainer-v2';
+import type { FigureAsset } from './finalize';
+import { extractFigureViaVlm } from './figure-vlm';
+import { readState, type FigureCandidate } from './state';
 import { loadDotEnv } from './env';
 
 // Fill-only .env load must run before the path consts below read process.env.
@@ -128,27 +127,6 @@ function lookupImageOverride(customId: string): { source_figure?: string; captio
   return undefined;
 }
 
-function lookupRecreate(customId: string): RecreateDirective | undefined {
-  try {
-    const state = readState();
-    for (let i = state.batches.length - 1; i >= 0; i--) {
-      const req = state.batches[i].requests[customId];
-      if (req?.recreate) return req.recreate;
-    }
-  } catch { /* ignore */ }
-  return undefined;
-}
-
-/**
- * Whether the figure-recreation pass should run for this paper. A sidecar
- * directive always wins (including an explicit `recreate: no`); otherwise the
- * FIGURE_RECREATE=1 env switch enables it globally.
- */
-function recreationRequested(directive?: RecreateDirective): boolean {
-  if (directive) return directive.enabled;
-  return process.env.FIGURE_RECREATE === '1';
-}
-
 /**
  * Recovers the original source URL for a URL-sourced explainer from state, so
  * the vision figure extractor can re-render the live page. Returns null for
@@ -185,86 +163,35 @@ function resolveFigureCandidates(customId: string): FigureCandidate[] | undefine
 }
 
 /**
- * Vision-driven figure attachment. The deterministic caption/gap-finder has
- * been retired: a vision model now looks at the rendered document (PDF pages
- * or a live web page) and picks the single most useful figure, returning a
- * bounding box we crop from the source render.
- *
- * A `.focus.md` image override is no longer required — when present it pins a
- * specific figure and supplies caption/alt overrides; when absent the model
- * selects autonomously. Always async (the vision call is remote); never throws.
+ * The operator's image pin wins over the model's figure request. Return bytes
+ * to the seam so extraction never changes the stored article directly.
  */
-async function attachFigureImage(json: ExplainerJson, customId: string): Promise<void> {
+export async function locateLeadFigure(wire: ModelOutputV2, customId: string): Promise<FigureAsset | null> {
+  if (!wire.figure_request) return null;
   const override = lookupImageOverride(customId);
-  const directive = lookupRecreate(customId);
-  const recreate = recreationRequested(directive);
   const pdfPath = resolveSourcePdf(customId);
   const url = pdfPath ? null : resolveSourceUrl(customId);
-
-  // Tier-0 recreation (user-supplied data sidecar) needs no crop or source
-  // document, so it runs even when figure extraction is impossible.
-  if (recreate && directive?.dataFile) {
-    const fig = await recreateFigureData({
-      directive,
-      inputDir: INPUT_DIR,
-      sourceFigure: directive.target ?? override?.source_figure,
-    });
-    if (fig) json.recreated_figure = fig;
-  }
-
-  if (json.image?.src) return; // already populated
-
-  if (!pdfPath && !url) {
-    if (json.image) delete json.image;
-    return;
-  }
-
+  if (!pdfPath && !url) return null;
   const snapshotCandidates = url ? resolveFigureCandidates(customId) : undefined;
-
-  // A recreation target pins the figure pick too (recreate and clip must be
-  // the same figure so the clip is the honest fallback), unless an explicit
-  // image: override already pins one.
-  const effOverride = recreate && directive?.target && !override?.source_figure
-    ? { ...(override ?? {}), source_figure: directive.target }
-    : override;
-  const wantCrop = recreate && !json.recreated_figure;
-
-  // Explainer context orients selection; the picker still asks for the
-  // paper's key results figure.
-  const result = await extractFigureViaVlm({ pdfPath, url, override: effOverride, context: contextFromExplainer(json), snapshotCandidates, keepCropPng: wantCrop });
-  if (!result) {
-    if (json.image) delete json.image;
-    return;
-  }
-
-  // Caption/alt sidecar overrides win over model-generated text. An existing
-  // caption/alt only survives when the model re-picked the SAME figure;
-  // carrying it onto a different figure would mislabel the image.
-  const existing = json.image;
-  const pickedFigure = effOverride?.source_figure ?? result.source_figure;
-  const samePick = Boolean(existing?.source_figure && pickedFigure && existing.source_figure === pickedFigure);
-  json.image = {
-    ...(existing ?? {}),
-    source_figure: pickedFigure,
-    caption: effOverride?.caption ?? (samePick ? existing?.caption : undefined) ?? result.caption ?? existing?.caption,
-    alt_text: effOverride?.alt_text ?? (samePick ? existing?.alt_text : undefined) ?? result.alt_text ?? existing?.alt_text,
-    src: result.src,
-  };
+  const result = await extractFigureViaVlm({
+    pdfPath, url, snapshotCandidates,
+    override: { ...override, source_figure: override?.source_figure ?? wire.figure_request.label },
+    context: {
+      headline: wire.hero.headline, subtitle: wire.hero.subtitle,
+      sectionLabels: wire.sections.map(section => section.label),
+      chartTitles: wire.charts.map(chart => chart.title),
+    },
+  });
+  if (!result) return null;
+  const data = /^data:image\/[^;,]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(result.src);
+  if (!data) throw new Error('unrecognised image bytes');
   console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);
-
-  // Tiers 1-2: extract the data behind the crop; on any honest failure the
-  // clip above simply stands.
-  if (wantCrop && result.cropPngBase64) {
-    const fig = await recreateFigureData({
-      cropPngBase64: result.cropPngBase64,
-      pdfPath,
-      page: result.page,
-      sourceFigure: pickedFigure,
-      directive,
-      inputDir: INPUT_DIR,
-    });
-    if (fig) json.recreated_figure = fig;
-  }
+  return {
+    label: override?.source_figure ?? result.source_figure,
+    caption: override?.caption ?? result.caption,
+    alt_text: override?.alt_text ?? result.alt_text,
+    bytes: Buffer.from(data[1], 'base64'), page: result.page, provenance: 'vlm-crop',
+  };
 }
 
 // A chart whose richest data series has fewer than this many points carries
@@ -297,7 +224,7 @@ export function dropThinCharts(charts: Chart[]): { kept: Chart[]; dropped: strin
 
 export async function persistArtefact(
   article: ExplainerV2,
-  { itemKey, kind }: { itemKey: string; kind: 'success' | 'review' },
+  { itemKey, kind, figureBytes }: { itemKey: string; kind: 'success' | 'review'; figureBytes?: Buffer },
 ): Promise<{
   jsonPath: string;
   destinations: {
@@ -310,8 +237,22 @@ export async function persistArtefact(
   const filename = `${article.metadata.slug}.json`;
   const jsonPath = path.join(directory, filename);
   const temporaryPath = path.join(directory, `.${filename}.${randomUUID()}.tmp`);
+  const writeSidecar = async (destination: string): Promise<void> => {
+    if (!article.lead_figure) return;
+    if (!figureBytes) throw new Error('Lead figure bytes are required to persist its sidecar');
+    const file = path.join(destination, article.lead_figure.asset);
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${randomUUID()}.tmp`);
+    try {
+      await fs.promises.writeFile(temporary, figureBytes, { flag: 'wx' });
+      await fs.promises.rename(temporary, file);
+    } finally {
+      await fs.promises.rm(temporary, { force: true });
+    }
+  };
   await fs.promises.mkdir(directory, { recursive: true });
   try {
+    await writeSidecar(directory);
     await fs.promises.writeFile(temporaryPath, JSON.stringify(article, null, 2), { encoding: 'utf8', flag: 'wx' });
     await fs.promises.rename(temporaryPath, jsonPath);
   } finally {
@@ -322,6 +263,7 @@ export async function persistArtefact(
     if (kind === 'review' || !destination) return 'skipped';
     try {
       await fs.promises.mkdir(destination, { recursive: true });
+      await writeSidecar(destination);
       await fs.promises.copyFile(jsonPath, path.join(destination, filename));
       return 'written';
     } catch {
