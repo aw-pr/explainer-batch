@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { randomUUID } from 'node:crypto';
 import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
+import type { ExplainerV2 } from '../contract/explainer-v2';
 import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
 import { recreateFigureData } from './figure-data';
 import { readState, type FigureCandidate, type RecreateDirective } from './state';
@@ -374,6 +375,8 @@ const MIN_CHART_POINTS = (() => {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 6;
 })();
 
+export { MIN_CHART_POINTS };
+
 /** Longest `data` array across a chart's datasets (Chart.js config), or 0. */
 function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): number {
   const cfg = (chart as Record<string, unknown>).config_json as
@@ -536,7 +539,7 @@ export function stampProvenanceByline(json: ExplainerJson, provenance: RunProven
 }
 
 export async function persistArtefact(
-  article: ExplainerJson,
+  article: ExplainerV2,
   { itemKey, kind }: { itemKey: string; kind: 'success' | 'review' },
 ): Promise<{
   jsonPath: string;
@@ -547,7 +550,7 @@ export async function persistArtefact(
   };
 }> {
   const directory = kind === 'review' ? path.join(OUTPUT_DIR, 'review') : OUTPUT_DIR;
-  const filename = deriveFilename(itemKey, article);
+  const filename = `${article.metadata.slug}.json`;
   const jsonPath = path.join(directory, filename);
   const temporaryPath = path.join(directory, `.${filename}.${randomUUID()}.tmp`);
   await fs.promises.mkdir(directory, { recursive: true });

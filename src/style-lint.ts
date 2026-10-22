@@ -16,6 +16,7 @@ interface ProseField {
 
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const isV2 = (j: Obj): boolean => j['version'] !== 1 && isObj(j['hero']) && 'title' in j['hero'];
 
 function collectProseFields(j: Obj): ProseField[] {
   const fields: ProseField[] = [];
@@ -31,6 +32,7 @@ function collectProseFields(j: Obj): ProseField[] {
   add('metadata.eyebrow', meta['eyebrow']);
 
   const hero = isObj(j['hero']) ? j['hero'] : {};
+  if (isV2(j)) add('hero.title', hero['title']);
   add('hero.headline', hero['headline']);
   add('hero.headline_html', hero['headline_html']);
   add('hero.subtitle', hero['subtitle']);
@@ -40,6 +42,10 @@ function collectProseFields(j: Obj): ProseField[] {
     if (!isObj(pill)) return;
     add(`top_block.pills[${i}].number`, pill['number'], true);
     add(`top_block.pills[${i}].description`, pill['description']);
+    if (isV2(j)) {
+      add(`top_block.pills[${i}].lead`, pill['lead']);
+      add(`top_block.pills[${i}].text`, pill['text']);
+    }
   });
   add('top_block.label', top['label']);
   add('top_block.body', top['body']);
@@ -61,7 +67,13 @@ function collectProseFields(j: Obj): ProseField[] {
         add(`${at}.list.items[${n}].body_html`, item['body_html']);
       });
     }
-    if (isObj(section['table'])) add(`${at}.table.caption`, section['table']['caption']);
+    if (isObj(section['table'])) {
+      add(`${at}.table.caption`, section['table']['caption']);
+      if (isV2(j)) {
+        addAll(`${at}.table.columns`, section['table']['columns']);
+        asArray(section['table']['rows']).forEach((row, n) => addAll(`${at}.table.rows[${n}]`, row));
+      }
+    }
   });
 
   const charts = asArray(j['charts']);
@@ -231,7 +243,9 @@ function numberIssues(j: Obj): StyleIssue[] {
   claims.push(['hero.headline', hero['headline']]);
   const top = isObj(j['top_block']) ? j['top_block'] : {};
   asArray(top['pills']).forEach((pill, i) => {
-    if (isObj(pill)) claims.push([`top_block.pills[${i}].number`, pill['number']]);
+    if (isObj(pill)) claims.push(isV2(j)
+      ? [`top_block.pills[${i}].lead`, pill['lead']]
+      : [`top_block.pills[${i}].number`, pill['number']]);
   });
 
   const body = bodyNumbers(j);
