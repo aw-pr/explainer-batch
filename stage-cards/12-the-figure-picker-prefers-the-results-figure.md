@@ -70,7 +70,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/12-the-figure-picker-prefers-the-results-figure.test.ts`
-- **Assertions digest:** `sha256:e8b9ad92ea68bdcc143db9939150da4afa39d49dcb0ed50c5946e965a68075c8`
+- **Assertions digest:** `sha256:00c7e7598444455c593f6a39322ddeffa359ff58855f08c25424514b723b8106`
 - **Oracle proof:** On `dev` (0cd17d7) all 4 tests fail for the card's reason: both selection prompts carry "ALREADY recreates" and "CONCEPTUAL", the instruction says "emit it as an `image` block", and the docs say "complementary conceptual figure". A throwaway reference in a detached scratch worktree (one neutral chart-titles line plus one "key results figure" line in `contextBlock`, the `image` sentence replaced with "Never emit `image`: the figure pipeline attaches it.", the two doc passages rewritten) passed all 4 with `tsc --noEmit` clean; the worktree was removed and pruned. The stub model id was then changed from a placeholder to `claude-sonnet-5-5` so card 13's provider check accepts it; the base result was re-run and is unchanged. Traps: "duplicate" is a forbidden word in the selection prompts, so do not use it in the new guidance; the URL test takes the snapshot path, and `PLAYWRIGHT_BROWSERS_PATH` points at an empty directory so no browser starts.
 
 ## Out of scope

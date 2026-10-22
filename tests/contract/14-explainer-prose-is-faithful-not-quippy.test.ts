@@ -88,7 +88,8 @@ test(`${CARD}: the rest of skill.md is still in place`, () => {
     assert.ok(text.includes(heading), `${CARD}: heading "${heading}" went missing`);
   }
   assert.match(text, /No semicolons/, `${CARD}: the no-semicolon headline rule went missing`);
-  assert.match(buildUserInstruction('2026-10-19'), /Published Month Year/, `${CARD}: user instruction lost its date rule`);
+  assert.doesNotMatch(buildUserInstruction('2026-10-19'), /Published Month Year|publication_date/, `${CARD}: user instruction still asks for a publication date`);
+  assert.match(buildUserInstruction('2026-10-19'), /`citation`/, `${CARD}: user instruction lacks its citation sentence`);
 });
 
 test(`${CARD}: every caption prompt carries the hard-floor rules`, () => {

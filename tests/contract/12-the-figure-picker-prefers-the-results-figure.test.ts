@@ -142,7 +142,7 @@ test('the synthesis instruction forbids the image block', () => {
   assert.doesNotMatch(text, /emit (it|them|the figure)? ?as an `image` block/i, 'the instruction must not ask for an image block');
   assert.match(text, /never emit[^.]*`image`/i, 'the instruction must say never to emit `image`');
   assert.match(text, /figure pipeline/i, 'the instruction must say the figure pipeline attaches the image');
-  assert.match(text, /2026-10-19/, 'the date instruction must be unchanged');
+  assert.doesNotMatch(text, /2026-10-19/, 'the v2 instruction carries no date: code stamps it');
   assert.match(text, /Return only a valid JSON object/, 'the JSON-only instruction must be unchanged');
 });
 

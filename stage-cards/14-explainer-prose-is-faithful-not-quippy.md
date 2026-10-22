@@ -93,7 +93,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/14-explainer-prose-is-faithful-not-quippy.test.ts`
-- **Assertions digest:** sha256:49e5b643a0c850e0667140fcf4fef2ad625af63e7efab1bf5c3f79e32a87c2b9
+- **Assertions digest:** sha256:902eb61343df641c8429dc890ea4f1b0de701381a0b32520608b503016825cfa
 - **Oracle proof:** red on `dev` (`0cd17d7`, 2026-10-19): 5 of 6 tests fail, first at "system prompt is missing style rule 1 faithful"; the caption test fails because `selectionPrompt` is not exported. A throwaway reference (card 02's reference first, then the headline, prose, checklist and caption-paragraph rewrites, the three exports and one caption-rule line per prompt, in a detached scratch worktree, since removed) passed all 6, card 02's test stayed green on top of it, and `npx tsc --noEmit` stayed clean. Trap met by the reference: the "exactly once" counts fail while the checklist still lists the banned words, so the checklist line has to point at the hard floor instead of repeating it.
 
 ## Out of scope
