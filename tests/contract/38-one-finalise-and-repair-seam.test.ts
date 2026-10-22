@@ -189,33 +189,16 @@ function sixSections(wire: Record<string, any>): Record<string, any> {
   return wire;
 }
 
-test('38: the seam and its bridges are exported, and the legacy names still work', () => {
+test('38: the seam and kept helpers are exported', () => {
   finalize();
   const output = require('../../src/output') as Record<string, any>;
   const quality = require('../../src/quality') as Record<string, any>;
   const repair = require('../../src/repair') as Record<string, any>;
-  assert.equal(typeof output.persistArtefact, 'function', 'src/output.ts exports persistArtefact');
-  assert.equal(typeof output.saveResult, 'function', 'saveResult stays as a bridge');
-  assert.equal(typeof output.canonicaliseExplainerJson, 'function');
-  assert.equal(typeof output.extractJson, 'function');
-  assert.equal(typeof quality.validateJsonOutput, 'function');
-  assert.equal(typeof quality.buildRepairInstruction, 'function');
-  assert.equal(typeof repair.repairUntilValid, 'function', 'repairUntilValid stays as a bridge');
-  assert.equal(repair.MAX_REPAIR_ATTEMPTS, 2);
-  assert.equal(typeof quality.isChartIssue, 'function', 'src/quality.ts exports isChartIssue');
-  for (const issue of [
-    `charts[0].datasets[0].data is an ordinal sequence ([1,2,3]) - bar height is encoding rank order.`,
-    'charts must not contain more than 4 entries.',
-    'charts[1].caption is empty.',
-    'chart must be an object when present.',
-    'style (dash) at charts[0].caption: no em dashes.',
-  ]) assert.equal(quality.isChartIssue(issue), true, issue);
-  for (const issue of [
-    'Missing hero.subtitle.',
-    'references[0] is empty.',
-    'style (dash) at sections[0].paragraphs[0]: no em dashes.',
-    'top_block.pills must contain between 2 and 6 pills.',
-  ]) assert.equal(quality.isChartIssue(issue), false, issue);
+  assert.equal(typeof output.persistArtefact, 'function', '38: persistArtefact');
+  assert.equal(typeof output.extractJson, 'function', '38: extractJson');
+  assert.equal(repair.MAX_REPAIR_ATTEMPTS, 2, '38: repair bound');
+  assert.equal(typeof quality.chartIssues, 'function', '38: chartIssues');
+  assert.equal(typeof quality.buildWireRepairInstruction, 'function', '38: buildWireRepairInstruction');
 });
 
 test('38: finalize.ts launches no hidden model calls and never calls saveResult', () => {

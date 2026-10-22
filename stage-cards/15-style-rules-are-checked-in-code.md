@@ -77,7 +77,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/15-style-rules-are-checked-in-code.test.ts`
-- **Assertions digest:** sha256:d9d36d0579fb01189178f3a05341c66c275cea80983eabc67fde8920642de4f7
+- **Assertions digest:** sha256:2c6dde2800af8ad6d42eaba7ee4fd6826da86bf37416777d1f7d8d368d6b1584
 - **Oracle proof:** red on `dev` (`0cd17d7`, 2026-10-19): all 28 tests fail, 27 at "src/style-lint.ts does not export lintStyle" (the test loads the module lazily, so a missing module reads as an assertion failure, not a crash) and the validation test at "\"em dash\" passed validation". A throwaway reference (a 93-line `src/style-lint.ts` with the rules above and a three-line hook in `validateJsonOutput`, in a detached scratch worktree on top of the card 02 and 14 references, since removed) passed all 28, kept the card 02 and 14 tests green, and `npx tsc --noEmit` stayed clean. Fixtures: `output/2026-06-17_demirer_writing-vs-shipping-code_explainer.json` (Opus) and `output/2026-07-31_flyvbjerg_it-cost-risk_explainer.terra.json` (GPT-5.6 Terra), chosen because the reference lint found nothing in them and both validate with no issues; `image.src` was stripped to keep them small. Traps met by the reference: a bare word list flags "judgment" and "artifact" in clean outputs, and a bare `ecosystem` ban trips on the technical sense, which is why both are excluded above.
 
 ## Out of scope

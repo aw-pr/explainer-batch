@@ -76,7 +76,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/03-chart-checks-run-on-structured-output.test.ts`
-- **Assertions digest:** `sha256:f0ac797b47d3af78197686b7f13307c024eab897c9ed8bee5739395bd7f88f19`
+- **Assertions digest:** `sha256:1e492f478f2656c5f04a911150c94be1ae114d6fdd5710efd6b05ef260abc982`
 - **Oracle proof:** On `dev` (0cd17d7) all 8 tests fail for the card's reason: `canonicaliseExplainerJson` is not exported, `src/repair.ts` does not exist, and `src/batch.ts` still calls `validateJsonOutput`. A throwaway reference in a detached scratch worktree (the split in `src/output.ts`, one validator line, a 30-line `src/repair.ts`, two wrapper bodies in `src/batch.ts`) passed all 8 with `tsc --noEmit` clean; the worktree was removed and pruned. The test pins every path in `process.env` before loading `src/`, because `src/output.ts` runs the fill-only `.env.local` loader at import time. Its fixture keeps an `image: null` to show nulls are stripped before validation. After the reference run, the fixture's one paragraph was changed to state the pill numbers (12% and 3x), so the clean document stays clean once card 15's number-not-in-body lint lands; red on `dev` was re-run and holds, and the change cannot affect the reference result because no current check reads paragraph text beyond non-emptiness.
 
 ## Out of scope

@@ -74,7 +74,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/09-repair-keeps-the-best-candidate.test.ts`
-- **Assertions digest:** `sha256:bfbbe70058d6f65aadc3905ddbf0e8f38fd43f900d79f340a47004508e2f5967`
+- **Assertions digest:** `sha256:8936590c7fb162278203dc305622e74deabc200833e4eaf1843f28040da46cab`
 - **Oracle proof:** On `dev` (0cd17d7) all 7 tests fail because `src/repair.ts` does not exist yet. Against a card 03 reference alone (today's loop moved into `src/repair.ts`), 6 of 7 fail: the summed-usage, unparseable-reply and worse-reply tests for this card's reasons (usage is the last call only, the broken reply is returned, the worse reply replaces the original), and the adopt, no-call and `text` tests because the field is still `html`. The two-attempt limit passes there and guards the attempt count. A throwaway reference in a detached scratch worktree (a 45-line `src/repair.ts` with a best-candidate loop and a usage sum, and a six-site rename in `src/batch.ts`) passed all 7, card 03's test still passed, and `tsc --noEmit` was clean, stacked on the card 03, 04, 07 and 08 references; the worktree was removed and pruned. After the reference run, the fixture's one paragraph was changed to state the pill numbers (12% and 3x), so the clean document stays clean once card 15's number-not-in-body lint lands; red on `dev` was re-run and holds, and the change cannot affect the reference result because no current check reads paragraph text beyond non-emptiness.
 
 ## Out of scope

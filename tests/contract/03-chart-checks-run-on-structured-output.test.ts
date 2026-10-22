@@ -18,122 +18,147 @@ Object.assign(process.env, {
   WEBSITE_REPO: '',
   FIGURE_RECREATE: '0',
 });
+delete process.env.MIN_CHART_POINTS;
 globalThis.fetch = (async () => {
   throw new Error('network access is forbidden in contract test 03');
 }) as typeof fetch;
 
-const output = require('../../src/output') as Record<string, any>;
-const quality = require('../../src/quality') as typeof import('../../src/quality');
-
+const quality = require('../../src/quality') as Record<string, any>;
+const seam = require('../../src/finalize') as Record<string, any>;
 const EXPECTED_DATE = '2026-10-19';
-const GOOD_DATA = [12.5, 30.1, 7.2, 44, 18, 26];
 
-function chartConfig(data: unknown[]) {
+function doc(values: number[] = [12.5, 30.1, 7.2, 44, 18, 26]): Record<string, any> {
   return {
-    type: 'bar',
-    data: { labels: data.map((_, i) => `L${i + 1}`), datasets: [{ label: 'Series', data }] },
-  };
-}
-
-function doc(configJson: unknown): Record<string, any> {
-  return {
-    version: 1,
-    metadata: {
-      title: 'Contract fixture: Smith (2026)',
-      eyebrow: 'Research Explainer · Smith (2026)',
-      date_created: EXPECTED_DATE,
-      filename_slug: `${EXPECTED_DATE}_smith_contract-fixture_explainer`,
+    hero: {
+      title: 'Structured chart checks',
+      headline: 'Measurements describe the tested cases',
+      emphasis: null,
+      subtitle: 'The paper compares measured latency.',
     },
-    hero: { headline: 'Headline', headline_html: 'Headline', subtitle: 'Subtitle', publication_date: 'Published October 2026' },
     top_block: {
       kind: 'pills',
       pills: [
-        { number: '12%', description: 'First finding', accent_color: '#111111' },
-        { number: '3x', description: 'Second finding', accent_color: '#222222' },
+        { lead: 'Evidence', text: 'Values come from a printed table.' },
+        { lead: 'Scope', text: 'The findings describe the tested cases.' },
       ],
     },
-    charts: [{ title: 'Chart', caption: 'Caption', config_json: configJson }],
-    image: null,
-    sections: [{ label: 'Intro', paragraphs: ['Adoption rose to 12% while the cost fell by 3x.'] }],
-    end_takeaway: { label: 'So what', body: 'The point.' },
-    references: ['<a href="https://example.org/paper" target="_blank" rel="noopener noreferrer">Smith 2026</a>'],
+    sections: [
+      {
+        label: 'Evidence',
+        paragraphs: ['The paper reports measured latency for the tested cases.'],
+        list: null, table: null,
+      },
+      {
+        label: 'Limits',
+        paragraphs: ['Further evaluation remains necessary.'],
+        list: null, table: null,
+      },
+    ],
+    charts: [{
+      kind: 'bar',
+      title: 'Measured latency',
+      caption: 'Latency varies across the measured cases.',
+      x: {
+        label: 'Case', unit: null, type: 'category',
+        values: values.map((_, i) => `L${i + 1}`),
+      },
+      y: { label: 'Latency', unit: 'ms', scale: 'linear' },
+      series: [{
+        name: 'Measured', values, points: null,
+        source: { kind: 'table', ref: 'Table 2', page: 4 },
+      }],
+    }],
+    figure_request: null,
+    end_takeaway: { label: 'Implication', body: 'Check the measured cases before generalising.' },
+    citation: {
+      authors: [{ family: 'Smith', given: null }],
+      year: 2026, title: 'Measured latency', venue: null,
+      url: 'https://example.org/paper',
+    },
   };
 }
 
-const ORDINAL_STRINGIFIED = () => doc(JSON.stringify(chartConfig([1, 2, 3, 4, 5])));
-const GOOD_STRINGIFIED = () => doc(JSON.stringify(chartConfig(GOOD_DATA)));
-
-function canonicalise(value: unknown): Record<string, any> {
-  assert.equal(typeof output.canonicaliseExplainerJson, 'function', 'src/output.ts must export canonicaliseExplainerJson');
-  return output.canonicaliseExplainerJson(value);
-}
-
-test('canonicaliseExplainerJson parses a stringified config_json into an object', () => {
-  const canon = canonicalise(ORDINAL_STRINGIFIED());
-  const cfg = canon.charts?.[0]?.config_json;
-  assert.equal(typeof cfg, 'object');
-  assert.deepEqual(cfg.data.datasets[0].data, [1, 2, 3, 4, 5]);
-});
-
-test('canonicaliseExplainerJson keeps charts under the six-point filter (dropping stays a save-time step)', () => {
-  const canon = canonicalise(ORDINAL_STRINGIFIED());
-  assert.equal(Array.isArray(canon.charts), true);
-  assert.equal(canon.charts.length, 1);
-});
-
-test('the ordinal check fires on a canonicalised stringified chart', () => {
-  const v = quality.validateJsonOutput(canonicalise(ORDINAL_STRINGIFIED()), { expectedDate: EXPECTED_DATE });
-  assert.equal(v.ok, false);
-  assert.ok(v.issues.some((i) => /ordinal sequence/.test(i)), `no ordinal issue in: ${v.issues.join(' | ')}`);
-});
-
-test('validateJsonOutput rejects a config_json that is still a string (malformed JSON)', () => {
-  const v = quality.validateJsonOutput(canonicalise(doc('{"type":"bar","data":')), { expectedDate: EXPECTED_DATE });
-  assert.equal(v.ok, false);
-  assert.ok(v.issues.some((i) => /charts\[0\]\.config_json/.test(i)), `no config_json issue in: ${v.issues.join(' | ')}`);
-});
-
-test('a clean stringified chart validates with no issues after canonicalisation', () => {
-  const v = quality.validateJsonOutput(canonicalise(GOOD_STRINGIFIED()), { expectedDate: EXPECTED_DATE });
-  assert.deepEqual(v.issues, []);
-  assert.equal(v.ok, true);
-});
-
-function loadRepair(): (opts: Record<string, unknown>) => Promise<Record<string, any>> {
-  const file = path.join(REPO_ROOT, 'src', 'repair.ts');
-  assert.equal(fs.existsSync(file), true, 'src/repair.ts must exist');
-  const mod = require('../../src/repair') as Record<string, any>;
-  assert.equal(typeof mod.repairUntilValid, 'function', 'src/repair.ts must export repairUntilValid');
-  return mod.repairUntilValid;
-}
-
-test('the shared repair loop sends a stringified ordinal chart to repair', async () => {
-  const repairUntilValid = loadRepair();
-  const calls: Array<{ system: string; text: string }> = [];
-  await repairUntilValid({
-    rawText: JSON.stringify(ORDINAL_STRINGIFIED()),
-    expectedDate: EXPECTED_DATE,
-    repair: async (system: string, text: string) => {
-      calls.push({ system, text });
-      return { text: JSON.stringify(GOOD_STRINGIFIED()), inputTokens: 10, outputTokens: 20 };
+function receipt(text: string): Record<string, any> {
+  return {
+    provider: 'openai', route: 'batch-api', stage: 'synthesis',
+    model: 'contract-model', customId: 'cid-03', attemptId: 'attempt-03',
+    finishReason: 'stop', text,
+    usage: {
+      in: 100, out: 50, cacheRead: 0, cacheWrite5m: 0,
+      cacheWrite1h: 0, source: 'reported',
     },
-  });
-  assert.ok(calls.length >= 1, 'repair was never called for an ordinal chart');
-  assert.match(calls[0].system, /ordinal sequence/);
-});
+  };
+}
 
-test('the shared repair loop does not call repair for a clean structured-output document', async () => {
-  const repairUntilValid = loadRepair();
-  let called = 0;
-  await repairUntilValid({
-    rawText: JSON.stringify(GOOD_STRINGIFIED()),
-    expectedDate: EXPECTED_DATE,
+async function run(key: string, wire: Record<string, any>) {
+  assert.equal(typeof seam.finalizeResult, 'function', '03: finalizeResult');
+  let repairs = 0;
+  const map = new Map<string, unknown>();
+  const outcome = await seam.finalizeResult(key, receipt(JSON.stringify(wire)), {
+    stamp: { expectedDate: EXPECTED_DATE },
+    checkpoints: {
+      get: (k: string) => map.get(k),
+      put: (k: string, value: unknown) => { map.set(k, value); },
+    },
     repair: async () => {
-      called += 1;
-      return { text: JSON.stringify(GOOD_STRINGIFIED()), inputTokens: 1, outputTokens: 1 };
+      repairs++;
+      throw new Error('03: chart-only or clean output must not invoke repair');
     },
   });
-  assert.equal(called, 0);
+  assert.equal(repairs, 0, '03: no chart repair');
+  assert.equal(outcome.status, 'succeeded', '03: saved successfully');
+  assert.ok(typeof outcome.jsonPath === 'string' && outcome.jsonPath.length > 0, '03: saved path');
+  const saved = JSON.parse(fs.readFileSync(outcome.jsonPath, 'utf8'));
+  assert.deepEqual(saved, outcome.article, '03: stored article');
+  return saved;
+}
+
+test('wire canonicalisation keeps a structured chart until finalisation', () => {
+  const wire = doc([1, 2, 3, 4, 5]);
+  assert.equal(typeof seam.canonicaliseWire, 'function', '03: canonicaliseWire');
+  const canonical = seam.canonicaliseWire(wire, { citationKnown: false });
+  assert.equal(canonical.wire.charts.length, 1, '03: canonicalisation retains thin chart');
+  assert.deepEqual(canonical.wire.charts[0].series[0].values, [1, 2, 3, 4, 5], '03: structured values');
+});
+
+test('chartIssues detects ordinal data in structured wire output', () => {
+  assert.equal(typeof quality.chartIssues, 'function', '03: chartIssues');
+  const issues = quality.chartIssues(doc([1, 2, 3, 4, 5, 6]).charts[0], 0);
+  assert.ok(issues.length > 0, '03: ordinal issue');
+  assert.match(issues.join('\n'), /charts\[0\].*ordinal sequence/, '03: ordinal chart path');
+});
+
+test('malformed structured chart data is rejected by wire validation', () => {
+  const wire = doc();
+  wire.charts[0].series[0].values = 'not an array';
+  assert.equal(typeof seam.wireIssues, 'function', '03: wireIssues');
+  const issues = seam.wireIssues(wire, { citationKnown: false });
+  assert.ok(issues.length > 0, '03: malformed chart issue');
+  assert.match(issues.join('\n'), /charts\[0\]\.series\[0\]\.values/, '03: malformed chart path');
+});
+
+test('clean structured chart data has no chart or wire issues', () => {
+  const wire = doc();
+  assert.equal(wire.charts.length, 1, '03: chart exercised');
+  assert.deepEqual(quality.chartIssues(wire.charts[0], 0), [], '03: clean chart');
+  assert.deepEqual(seam.wireIssues(wire, { citationKnown: false }), [], '03: clean wire');
+});
+
+test('the seam removes an ordinal chart without sending it to repair', async () => {
+  const saved = await run('03-ordinal', doc([1, 2, 3, 4, 5, 6]));
+  assert.deepEqual(saved.charts, [], '03: ordinal chart removed');
+  assert.ok(saved.metadata.quality.dropped.length > 0, '03: removal recorded');
+  assert.ok(
+    saved.metadata.quality.dropped.some((issue: string) => issue.includes('charts[0]')),
+    '03: removed chart path',
+  );
+});
+
+test('the seam retains a clean structured chart without repair', async () => {
+  const saved = await run('03-clean', doc());
+  assert.equal(saved.charts.length, 1, '03: chart retained');
+  assert.deepEqual(saved.charts[0].series[0].values, [12.5, 30.1, 7.2, 44, 18, 26], '03: values retained');
+  assert.deepEqual(saved.metadata.quality, { issues: [], dropped: [] }, '03: clean quality');
 });
 
 test('src/batch.ts validates only through the shared repair loop', () => {

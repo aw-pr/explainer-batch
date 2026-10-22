@@ -106,46 +106,55 @@ test('npm test exits non-zero when a unit test fails', () => {
 const FIXTURES = path.join(REPO_ROOT, 'tests', 'unit', 'fixtures');
 
 function fixtureJson(name: string): Record<string, any> {
-  const file = path.join(FIXTURES, name);
-  assert.equal(fs.existsSync(file), true, `missing fixture tests/unit/fixtures/${name}`);
+  const file = path.join(FIXTURES, 'v2', name);
+  assert.equal(fs.existsSync(file), true, `01: missing fixture tests/unit/fixtures/v2/${name}`);
   const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(typeof parsed, 'object');
-  assert.equal(Array.isArray(parsed), false);
+  assert.ok(parsed !== null && typeof parsed === 'object', '01: fixture object');
+  assert.equal(Array.isArray(parsed), false, '01: fixture is not an array');
+  assert.ok(parsed.hero && typeof parsed.hero.title === 'string' && parsed.hero.title.length > 0, '01: wire hero');
+  assert.equal(Object.hasOwn(parsed, 'metadata'), false, '01: metadata belongs to the stamp');
+  assert.equal(Object.hasOwn(parsed, 'version'), false, '01: version belongs to the stamp');
+  assert.ok(Array.isArray(parsed.charts) && parsed.charts.length > 0, '01: fixture charts');
   return parsed;
 }
 
-function firstDatasetData(doc: Record<string, any>): unknown {
-  const cfg = doc.charts?.[0]?.config_json;
-  assert.equal(typeof cfg, 'object', 'charts[0].config_json must be an object in this fixture');
-  return cfg?.data?.datasets?.[0]?.data;
+function firstChart(name: string): Record<string, any> {
+  const chart = fixtureJson(name).charts[0];
+  assert.ok(chart && typeof chart === 'object', '01: structured chart');
+  assert.ok(Array.isArray(chart.series) && chart.series.length > 0, '01: chart series');
+  return chart;
 }
 
-test('fixture: stringified config_json', () => {
-  const doc = fixtureJson('stringified-config-json.json');
-  assert.equal(doc.version, 1);
-  assert.equal(typeof doc.metadata, 'object');
-  const raw = doc.charts?.[0]?.config_json;
-  assert.equal(typeof raw, 'string', 'charts[0].config_json must be a JSON string');
-  const cfg = JSON.parse(raw);
-  assert.ok(Array.isArray(cfg?.data?.datasets?.[0]?.data) && cfg.data.datasets[0].data.length > 0);
+function assertChartIssues(chart: Record<string, any>, fragment: RegExp): void {
+  const { chartIssues } = require('../../src/quality') as Record<string, any>;
+  assert.equal(typeof chartIssues, 'function', '01: chartIssues export');
+  const issues = chartIssues(chart, 0);
+  assert.ok(Array.isArray(issues) && issues.length > 0, '01: chartIssues must reject fixture');
+  assert.match(issues.join('\n'), fragment, '01: expected chart issue');
+}
+
+test('fixture: v2 ordinal sequence [1,2,3,4,5]', () => {
+  const chart = firstChart('ordinal-sequence.json');
+  assert.deepEqual(chart.series[0].values, [1, 2, 3, 4, 5], '01: ordinal values');
+  assertChartIssues(chart, /ordinal sequence/);
 });
 
-test('fixture: ordinal sequence [1,2,3,4,5]', () => {
-  assert.deepEqual(firstDatasetData(fixtureJson('ordinal-sequence.json')), [1, 2, 3, 4, 5]);
+test('fixture: v2 uniform values [2,2,2,2]', () => {
+  const chart = firstChart('uniform-values.json');
+  assert.deepEqual(chart.series[0].values, [2, 2, 2, 2], '01: uniform values');
+  assertChartIssues(chart, /uniform values/);
 });
 
-test('fixture: uniform values [2,2,2,2]', () => {
-  assert.deepEqual(firstDatasetData(fixtureJson('uniform-values.json')), [2, 2, 2, 2]);
-});
-
-test('fixture: stacked bars on a logarithmic axis', () => {
+test('fixture: v2 stacked bars on a logarithmic axis', () => {
   const doc = fixtureJson('stacked-log.json');
-  const cfg = doc.charts?.[0]?.config_json;
-  assert.equal(typeof cfg, 'object');
-  const scales = cfg?.options?.scales ?? {};
-  const axes = Object.values(scales) as Array<Record<string, unknown>>;
-  assert.ok(axes.some((a) => a?.stacked === true), 'no stacked axis');
-  assert.ok(axes.some((a) => a?.type === 'logarithmic'), 'no logarithmic axis');
+  const chart = doc.charts[0];
+  assert.equal(chart.kind, 'stacked_bar', '01: stacked bars');
+  assert.equal(chart.y.scale, 'log', '01: logarithmic axis');
+  const { wireIssues } = require('../../src/finalize') as Record<string, any>;
+  assert.equal(typeof wireIssues, 'function', '01: wireIssues export');
+  const issues = wireIssues(doc, { citationKnown: false });
+  assert.ok(issues.length > 0, '01: stacked-log wire rejected');
+  assert.match(issues.join('\n'), /charts\[0\].*log/i, '01: stacked-log path');
 });
 
 test('fixture: truncated output does not parse', () => {
@@ -159,11 +168,10 @@ test('fixture: truncated output does not parse', () => {
   assert.throws(() => extractJson(text));
 });
 
-test('fixture: metadata-less JSON', () => {
-  const doc = fixtureJson('metadata-less.json');
-  assert.equal(doc.version, 1);
-  assert.equal('metadata' in doc, false);
-  assert.ok(Array.isArray(doc.sections) && doc.sections.length > 0);
+test('the obsolete metadata-less fixture is deleted', () => {
+  for (const relative of ['metadata-less.json', 'v2/metadata-less.json']) {
+    assert.equal(fs.existsSync(path.join(FIXTURES, relative)), false, `01: obsolete ${relative}`);
+  }
 });
 
 test('README documents npm test', () => {

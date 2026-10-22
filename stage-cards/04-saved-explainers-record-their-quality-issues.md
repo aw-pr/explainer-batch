@@ -79,7 +79,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/04-saved-explainers-record-their-quality-issues.test.ts`
-- **Assertions digest:** `sha256:fecad73fbefc70461668913476e0abc21beb30a287201e1e581edd6e0ddfbad5`
+- **Assertions digest:** `sha256:8a2fee64a3f8ef162484260db41e290eef9b2c9aead5b421af146c45bf5bc430`
 - **Oracle proof:** On `dev` (0cd17d7) 6 of 7 tests fail for the card's reason: saved files carry no `metadata.quality`, and metadata-less JSON rejects with `TypeError: Cannot set properties of undefined` and no `_error.txt`. The seventh (no `quality` in the model-facing schema) is a regression guard and passes on `dev`. A throwaway reference in a detached scratch worktree (a metadata guard, `expectedDate` on `RunProvenance`, a validate-and-record block after stamping and figure attachment, the optional type field, `expectedDate` at the six calls) passed all 7 with `tsc --noEmit` clean, stacked on the card 03 reference; the worktree was removed and pruned. The test pins `EXPLAINER_OUTPUT_DIR`, `EXPLAINER_OBSIDIAN_DIR=''`, `WEBSITE_REPO=''` and the state file before loading `src/`, because `src/output.ts` runs the fill-only `.env.local` loader at import time and would otherwise stage into a real website checkout and vault. After the reference run, the fixture's one paragraph was changed to state the pill numbers (12% and 3x), so the clean document stays clean once card 15's number-not-in-body lint lands; red on `dev` was re-run and holds, and the change cannot affect the reference result because no current check reads paragraph text beyond non-emptiness.
 
 ## Out of scope

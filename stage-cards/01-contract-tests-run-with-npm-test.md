@@ -73,7 +73,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/01-contract-tests-run-with-npm-test.test.ts`
-- **Assertions digest:** `sha256:6ea37b90dfb85559ee7315f128c32b72f92bd00a239c40cd4e5ce2dd67a8b9fb`
+- **Assertions digest:** `sha256:c7c5bab65102621cc1066b3aac2b482d74369827e703b96e1a34a9d9629dc56f`
 - **Oracle proof:** On `dev` (0cd17d7) all 10 tests fail for the card's reason: no `scripts.test`, `npm test` exits with "Missing script", no fixture files, no `npm test` in the README. A throwaway reference in a detached scratch worktree (the script line above, a one-test `harness.test.ts`, the six fixtures, one README line) passed all 10 on Node 26.5; the worktree was removed and pruned. Two traps the reference met, both fixed in the test before freezing: a nested `node --test` inherits `NODE_TEST_CONTEXT` from the outer runner and silently runs nothing, so the test strips it; and npm writes a log under the home directory, which a sandboxed seat cannot, so the test sets `npm_config_logs_max=0`.
 
 ## Out of scope
