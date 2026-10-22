@@ -139,6 +139,7 @@ test('the shared repair loop does not call repair for a clean structured-output 
 test('src/batch.ts validates only through the shared repair loop', () => {
   const batchSrc = fs.readFileSync(path.join(REPO_ROOT, 'src', 'batch.ts'), 'utf8');
   assert.doesNotMatch(batchSrc, /validateJsonOutput/, 'batch.ts still validates on its own');
-  assert.match(batchSrc, /repairUntilValid/, 'batch.ts does not use repairUntilValid');
+  assert.doesNotMatch(batchSrc, /repairUntilValid/, 'batch.ts still repairs outside the seam');
+  assert.match(batchSrc, /\bsaveThroughSeam\b/, 'batch.ts does not save and repair through the seam');
 });
 // AUTOMETTA-CONTRACT-END

@@ -69,7 +69,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/05-one-call-reads-the-whole-paper-by-default.test.ts`
-- **Assertions digest:** `sha256:9adb00cc2659ceb74ba5594cfbd13ac2739e327fb32552f9ec8dd210c5a0b431`
+- **Assertions digest:** `sha256:7962fcb1211ab81a3ff9cd84f8474fe37ab9cdd7adc161d2dee0a91e14d8a587`
 - **Oracle proof:** On `dev` (0cd17d7) the first failing assertion is "lane calls made with OPENAI_USE_LANES unset" (default sync run makes four lane calls); the batch-submit, three lane-failure and docs tests also fail for the card's reasons ("synthesis ran although a lane failed", "CLAUDE.md still names claude-sonnet-5 as a default"); "model defaults are unchanged" passes as the regression guard. A throwaway reference in a detached scratch worktree (default flipped to opt-in, one `missingLanes` helper used by the three paths, the two doc edits) passed all 7 tests with `tsc --noEmit` clean; the worktree was removed and pruned. Traps the reference met: none. The test pins every path and key in `process.env` before loading `src/`, because `src/output.ts` runs the fill-only `.env.local` loader at import time and would otherwise redirect output into the operator's vault.
 
 ## Out of scope

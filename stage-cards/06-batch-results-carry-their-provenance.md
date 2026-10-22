@@ -81,7 +81,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/06-batch-results-carry-their-provenance.test.ts`
-- **Assertions digest:** `sha256:581921f2e1c57df7118c74d273fcfee6d782091604d38e7e604a26ef7a2adbff`
+- **Assertions digest:** `sha256:bc43709b218e17546ce55ae278b04d199ead67f031a9990c5ba75d49df65bb91`
 - **Oracle proof:** On `dev` (0cd17d7) all 6 tests fail for the card's reason: Claude batch at "RequestState.detectedSurname not persisted at submit"; OpenAI batch, lane batch and codex local batch save `2026-10-19_unknown_*` instead of the stamped `2026-10-19_lovelace_*`; the identity test fails because the batch output never stamped; the call-site test finds 6 calls at `src/batch.ts:580, 644, 788, 917, 987, 1160`. A throwaway reference in a detached scratch worktree (three optional fields on `RequestState`, copied at the three request builders and in `requestToInputItem`, one `finalizeResult` in `src/batch.ts` replacing the six calls) passed all 6 tests with `tsc --noEmit` clean; the worktree was removed and pruned. Trap the reference met: a lane custom id containing the word `lane` in its base id confused the test's lane stub, fixed in the test before freezing (the test's ids avoid it). The test pins every path and key in `process.env` before loading `src/`, because `src/output.ts` runs the fill-only `.env.local` loader at import time, and uses customIds without the `explainer-url-` prefix so figure extraction finds no source and makes no call.
 
 ## Out of scope
