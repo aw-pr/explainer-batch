@@ -18,9 +18,9 @@
 
 ## Surfacing concern
 
-Design 16 (`docs/design/content-contract-v2.md`), wave-2 card W6, split into three by the operator's decision of 2026-10-22: W6a (this card) the v2 text finalisation in the seam; W6b the cutover of every route onto it, structured detection, the citation-aware user turn, the generated dialects and the deletion of the v1 schema; W6c the figure sidecar and `lead_figure`. The four cards W5, W6a, W6b and W6c land back to back with **no explainer-batch production run** from W5 landing until W6c lands.
+Design 16 (`docs/design/content-contract-v2.md`), wave-2 card W6, split into three by the operator's decision of 2026-10-22: W6a (this card) the v2 text finalisation in the seam; W6b the cutover of every route onto it, later split into card 47 (structured detection, the citation-aware user turn, the generated dialects), card 48 (the six completion sites) and card 49 (deleting the v1 path); W6c the figure sidecar and `lead_figure`. The cards land back to back with **no explainer-batch production run** from W5 landing until W6c lands.
 
-**Why this boundary.** Production does not use `src/finalize.ts` yet: `src/batch.ts` saves through its own `finalizeResult` (`src/batch.ts:246`) and `saveResult` (`src/output.ts:576`). This card converts the seam only and leaves the live v1 path (`saveResult`, `repairUntilValid`, `validateJsonOutput`, `buildRepairInstruction`, `normalizeSchemaDrift`) untouched, so frozen contracts 01, 03, 04, 05, 06, 09, 14 and 15, which pin the v1 path, pass unedited. W6b moves the six completion sites onto this seam and re-freezes them.
+**Why this boundary.** Production does not use `src/finalize.ts` yet: `src/batch.ts` saves through its own `finalizeResult` (`src/batch.ts:246`) and `saveResult` (`src/output.ts:576`). This card converts the seam only and leaves the live v1 path (`saveResult`, `repairUntilValid`, `validateJsonOutput`, `buildRepairInstruction`, `normalizeSchemaDrift`) untouched, so frozen contracts 01, 03, 04, 05, 06, 09, 14 and 15, which pin the v1 path, pass unedited. Card 48 moves the six completion sites onto this seam and card 49 deletes the v1 path, re-freezing those contracts.
 
 Settled by the orchestrator, from the design (`### Save order`, Q5, Q6, Q7, the `metadata` table under `## Schema v2`):
 
@@ -101,7 +101,7 @@ Baseline on `dev` at `0fc0996` (2026-10-22): 1 red (this test 15 of 15; re-froze
 
 ## Out of scope
 
-- `src/batch.ts`, `saveResult` and the six completion sites, structured detection, the user turn, the provider dialects and deleting `src/schema/explainer-schema.ts`: W6b.
+- Structured detection, the user turn and the provider dialects: card 47. `src/batch.ts` and the six completion sites: card 48. Deleting `saveResult` and `src/schema/explainer-schema.ts`: card 49.
 - `lead_figure`, the sidecar file and `recreated_figure`: W6c.
 - Any change to `contract/`.
 
