@@ -98,7 +98,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/38-one-finalise-and-repair-seam.test.ts`
-- **Assertions digest:** `sha256:4b286b3670d3ce77489d9ba6e5e2a4dcce8338d87fbe7903a37b3b226dcdd548`
+- **Assertions digest:** `sha256:916dd6d1be2e40242010f8981a583483d083558d534214a99ba75f55f7d9e667`
 - **Oracle proof:** On `dev` (`8bb4372`) all 13 tests fail because `src/finalize.ts` does not exist. A throwaway reference in a detached scratch worktree (a 190-line `src/finalize.ts`, `persistArtefact` and two exports added to `src/output.ts`, `isChartIssue` added to `src/quality.ts`, `src/repair.ts` untouched) passed 13 of 13, with `npx tsc --noEmit` and `npm test` (125) green and every wave-1 contract test passing; contracts 26 to 28 fail in any scratch worktree for want of the held PDFs beside a sibling checkout, and pass in a run worktree. Ten mutations of the reference were each caught: no chart reattachment, charts in the payload, three attempts, no date stamp, no repair checkpoint, no figure checkpoint, no review routing, chart issues sent to repair, keeping the latest reply instead of the best, and skipping `checkResult`. The worktree was removed and pruned.
 
 ## Out of scope

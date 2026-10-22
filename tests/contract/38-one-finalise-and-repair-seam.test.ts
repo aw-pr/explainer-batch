@@ -34,8 +34,6 @@ globalThis.fetch = (async () => {
 const EXPECTED_DATE = '2026-10-19';
 const GOOD_DATA = [12.5, 30.1, 7.2, 44, 18, 26];
 const ORDINAL_DATA = [1, 2, 3, 4, 5, 6];
-const ANCHORED_REF = '<a href="https://example.org/paper" target="_blank" rel="noopener noreferrer">Smith 2026</a>';
-const PROVENANCE = { model: 'gpt-5.6-terra', runMode: 'batch' as const, expectedDate: EXPECTED_DATE };
 
 function finalize(): (itemKey: string, result: unknown, ctx: Record<string, unknown>) => Promise<any> {
   const file = path.join(REPO_ROOT, 'src', 'finalize.ts');
@@ -47,29 +45,69 @@ function finalize(): (itemKey: string, result: unknown, ctx: Record<string, unkn
 
 function doc(slugTitle: string, data: number[] = GOOD_DATA): Record<string, any> {
   return {
-    version: 1,
-    metadata: {
-      title: 'Contract fixture: Smith (2026)',
-      eyebrow: 'Research Explainer · Smith (2026)',
-      date_created: EXPECTED_DATE,
-      filename_slug: `${EXPECTED_DATE}_smith_${slugTitle}_explainer`,
+    hero: {
+      title: slugTitle,
+      headline: 'Governed agents separate planning from execution',
+      emphasis: null,
+      subtitle: 'Subtitle',
     },
-    hero: { headline: 'Headline', headline_html: 'Headline', subtitle: 'Subtitle', publication_date: 'Published October 2026' },
     top_block: {
       kind: 'pills',
       pills: [
-        { number: '12%', description: 'First finding', accent_color: '#111111' },
-        { number: '3x', description: 'Second finding', accent_color: '#222222' },
+        { lead: 'Governance', text: 'Policy checks precede tool use.' },
+        { lead: 'Audit trail', text: 'Recorded decisions support inspection.' },
       ],
     },
     charts: [{
-      title: 'Chart',
-      caption: 'Caption',
-      config_json: JSON.stringify({ type: 'bar', data: { labels: data.map((_, i) => `L${i + 1}`), datasets: [{ label: 'S', data }] } }),
+      kind: 'bar',
+      title: 'Measured latency',
+      caption: 'Latency varies across the measured cases.',
+      x: {
+        label: 'Case', unit: null, type: 'category',
+        values: data.map((_, i) => `L${i + 1}`),
+      },
+      y: { label: 'Latency', unit: 'ms', scale: 'linear' },
+      series: [{
+        name: 'Measured',
+        values: [...data],
+        points: null,
+        source: { kind: 'table', ref: 'Table 2', page: 4 },
+      }],
     }],
-    sections: [{ label: 'Intro', paragraphs: ['Adoption rose to 12% while the cost fell by 3x.'] }],
-    end_takeaway: { label: 'So what', body: 'The point.' },
-    references: [ANCHORED_REF],
+    sections: [
+      {
+        label: 'Architecture',
+        paragraphs: ['The paper separates planning from execution.'],
+        list: null,
+        table: null,
+      },
+      {
+        label: 'Evidence',
+        paragraphs: [
+          'Table 2 states 12.5, 30.1, 7.2, 44, 18 and 26 ms for the measured cases.',
+        ],
+        list: null,
+        table: null,
+      },
+      {
+        label: 'Limits',
+        paragraphs: ['The reported measurements describe the tested cases.'],
+        list: null,
+        table: null,
+      },
+    ],
+    figure_request: {
+      label: 'Figure 1',
+      why: 'The diagram shows the separation of planning and execution.',
+    },
+    end_takeaway: { label: 'Implication', body: 'Policy gates constrain tool use.' },
+    citation: {
+      authors: [{ family: 'Smith', given: null }],
+      year: 2026,
+      title: 'Governed agent architectures',
+      venue: null,
+      url: 'https://example.org/paper',
+    },
   };
 }
 
@@ -96,7 +134,7 @@ function store() {
       return v === undefined ? undefined : JSON.parse(v);
     },
     put(key: string, value: unknown) {
-      assert.equal(typeof key, 'string');
+      assert.ok(typeof key === 'string' && key.length > 0, '38: checkpoint key');
       map.set(key, JSON.stringify(value));
     },
   };
@@ -105,21 +143,27 @@ function store() {
 function repairer(replies: Array<Record<string, any>>) {
   const calls: Array<{ instruction: string; payload: string }> = [];
   const fn = async (instruction: string, payload: string) => {
+    assert.ok(typeof instruction === 'string' && instruction.length > 0, '38: instruction');
+    assert.doesNotMatch(
+      instruction,
+      /date_created|filename_slug|slug|metadata|publication_date|references/i,
+      '38: wire instruction only',
+    );
+    assert.ok(typeof payload === 'string' && payload.length > 0, '38: payload');
     calls.push({ instruction, payload });
     const next = replies.shift();
-    assert.ok(next, 'repair called more often than the test allows');
+    assert.ok(next, '38: unexpected repair');
     return next;
   };
   return { fn, calls };
 }
 
 function ctx(over: Record<string, unknown> = {}): Record<string, unknown> {
-  return { provenance: PROVENANCE, checkpoints: store(), ...over };
+  return { stamp: { expectedDate: EXPECTED_DATE }, checkpoints: store(), ...over };
 }
 
 function chartData(article: any): unknown {
-  const cfg = article.charts?.[0]?.config_json;
-  return (typeof cfg === 'string' ? JSON.parse(cfg) : cfg)?.data?.datasets?.[0]?.data;
+  return article.charts[0].series[0].values;
 }
 
 function sha256File(file: string): string {
@@ -134,6 +178,15 @@ function listOutputs(): string[] {
     })
     : [];
   return [...walk(OUT_DIR), ...walk(STAGING_DIR), ...walk(MIRROR_DIR)].sort();
+}
+
+function sixSections(wire: Record<string, any>): Record<string, any> {
+  wire.sections.push(
+    { label: 'Controls', paragraphs: ['Policy gates constrain tool use.'], list: null, table: null },
+    { label: 'Operations', paragraphs: ['Operators inspect recorded decisions.'], list: null, table: null },
+    { label: 'Scope', paragraphs: ['Further evaluation remains necessary.'], list: null, table: null },
+  );
+  return wire;
 }
 
 test('38: the seam and its bridges are exported, and the legacy names still work', () => {
@@ -180,188 +233,296 @@ test('38: a clean receipt is saved, staged and mirrored as a success with no rep
   const repair = repairer([]);
   const input = receipt(JSON.stringify(doc('clean')));
   const outcome = await finalizeResult('item-clean', input, ctx({ repair: repair.fn }));
-  assert.equal(outcome.status, 'succeeded', JSON.stringify(outcome.issues));
-  assert.equal(outcome.itemKey, 'item-clean');
-  assert.equal(repair.calls.length, 0);
-  assert.equal(outcome.repairAttempts, 0);
+  assert.equal(outcome.status, 'succeeded', '38: clean success');
+  assert.equal(outcome.itemKey, 'item-clean', '38: item key');
+  assert.equal(repair.calls.length, 0, '38: no repair');
+  assert.equal(outcome.repairAttempts, 0, '38: no attempts');
   const file = `${EXPECTED_DATE}_smith_clean_explainer.json`;
-  assert.equal(outcome.jsonPath, path.join(OUT_DIR, file));
-  assert.deepEqual(outcome.destinations, { output: 'written', staging: 'written', mirror: 'written' });
-  assert.ok(fs.existsSync(path.join(STAGING_DIR, file)), 'a success is staged');
-  assert.ok(fs.existsSync(path.join(MIRROR_DIR, file)), 'a success is mirrored');
-  assert.equal(outcome.artefactDigest, sha256File(outcome.jsonPath), 'the digest is of the exact bytes saved');
+  assert.equal(outcome.jsonPath, path.join(OUT_DIR, file), '38: output path');
+  assert.deepEqual(outcome.destinations, {
+    output: 'written', staging: 'written', mirror: 'written',
+  }, '38: destinations');
+  assert.ok(fs.existsSync(path.join(STAGING_DIR, file)), '38: staged');
+  assert.ok(fs.existsSync(path.join(MIRROR_DIR, file)), '38: mirrored');
+  assert.equal(outcome.artefactDigest, sha256File(outcome.jsonPath), '38: exact saved digest');
   const saved = JSON.parse(fs.readFileSync(outcome.jsonPath, 'utf8'));
-  assert.deepEqual(saved, outcome.article);
-  assert.deepEqual(saved.metadata.quality, { issues: [], needs_review: false });
-  assert.equal(saved.metadata.model, 'gpt-5.6-terra');
-  assert.equal(saved.metadata.run_mode, 'batch');
-  assert.deepEqual(outcome.issues, []);
-  assert.equal(outcome.receipts.length, 1);
-  assert.equal(outcome.receipts[0].customId, 'cid-38');
-  assert.equal(outcome.receipts[0].usage.in, 1000);
-  assert.equal(typeof outcome.chartDigest, 'string');
-  assert.ok(outcome.chartDigest.length > 0);
+  assert.deepEqual(saved, outcome.article, '38: saved article');
+  assert.deepEqual(saved.metadata.quality, { issues: [], dropped: [] }, '38: clean quality');
+  assert.equal(saved.version, 2, '38: version');
+  assert.equal(saved.metadata.model, 'gpt-5.6-terra', '38: model');
+  assert.equal(saved.metadata.provider, 'openai', '38: provider');
+  assert.equal(saved.metadata.route, 'batch', '38: route');
+  assert.deepEqual(outcome.issues, [], '38: no issues');
+  assert.equal(outcome.receipts.length, 1, '38: synthesis receipt');
+  assert.equal(outcome.receipts[0].customId, 'cid-38', '38: receipt id');
+  assert.equal(outcome.receipts[0].usage.in, 1000, '38: usage');
+  assert.match(outcome.chartDigest, /^[0-9a-f]{64}$/, '38: chart digest');
+  assert.equal(sha256File(path.join(STAGING_DIR, file)), outcome.artefactDigest, '38: staged bytes');
+  assert.equal(sha256File(path.join(MIRROR_DIR, file)), outcome.artefactDigest, '38: mirrored bytes');
 });
 
 test('38: identical receipts from all six routes give the same canonical article', async () => {
   const finalizeResult = finalize();
   const text = JSON.stringify(doc('routes'));
   const routes = [
-    ['claude', 'batch-api', 'claude-opus-4-8'], ['claude', 'sync-api', 'claude-opus-4-8'], ['claude', 'subscription-cli', 'claude-opus-4-8'],
-    ['openai', 'batch-api', 'gpt-5.6-terra'], ['openai', 'sync-api', 'gpt-5.6-terra'], ['openai', 'subscription-cli', 'gpt-5.6-terra'],
+    ['claude', 'batch-api', 'claude-opus-4-8'],
+    ['claude', 'sync-api', 'claude-opus-4-8'],
+    ['claude', 'subscription-cli', 'claude-opus-4-8'],
+    ['openai', 'batch-api', 'gpt-5.6-terra'],
+    ['openai', 'sync-api', 'gpt-5.6-terra'],
+    ['openai', 'subscription-cli', 'gpt-5.6-terra'],
   ];
   const articles: any[] = [];
   for (const [provider, route, model] of routes) {
-    const runMode = route === 'batch-api' ? 'batch' : 'sync';
-    const outcome = await finalizeResult(`item-${provider}-${route}`, receipt(text, { provider, route, model, customId: `cid-${provider}-${route}` }),
-      ctx({ provenance: { ...PROVENANCE, model, runMode } }));
-    assert.equal(outcome.status, 'succeeded', `${provider} ${route}: ${JSON.stringify(outcome.issues)}`);
-    assert.equal(outcome.article.metadata.model, model);
-    assert.equal(outcome.article.metadata.run_mode, runMode);
-    const { model: _m, run_mode: _r, ...rest } = outcome.article.metadata;
+    const outcome = await finalizeResult(
+      `item-${provider}-${route}`,
+      receipt(text, { provider, route, model, customId: `cid-${provider}-${route}` }),
+      ctx(),
+    );
+    assert.equal(outcome.status, 'succeeded', '38: route success');
+    assert.equal(outcome.article.metadata.model, model, '38: route model');
+    assert.equal(outcome.article.metadata.provider, provider, '38: route provider');
+    assert.equal(outcome.article.metadata.route, route === 'batch-api' ? 'batch' : 'sync', '38: route stamp');
+    const { model: _m, provider: _p, route: _r, ...rest } = outcome.article.metadata;
     articles.push({ ...outcome.article, metadata: rest });
   }
-  for (const a of articles.slice(1)) assert.deepEqual(a, articles[0]);
+  assert.equal(articles.length, 6, '38: all routes');
+  for (const article of articles.slice(1)) {
+    assert.deepEqual(article, articles[0], '38: same article');
+  }
 });
 
 test('38: deterministic fixes are made in code first, so they cost no repair call', async () => {
   const finalizeResult = finalize();
   const repair = repairer([]);
   const stale = doc('codefirst');
-  stale.metadata.date_created = '2026-01-01';
-  stale.metadata.filename_slug = '2026-01-01_smith_codefirst_explainer';
-  stale.references = ['Smith 2026, no anchor'];
-  const outcome = await finalizeResult('item-codefirst', receipt(JSON.stringify(stale)),
-    ctx({ repair: repair.fn, provenance: { ...PROVENANCE, detectedReference: ANCHORED_REF } }));
-  assert.equal(repair.calls.length, 0, 'date, slug prefix and detected reference are stamped, not repaired');
-  assert.equal(outcome.status, 'succeeded', JSON.stringify(outcome.issues));
-  assert.equal(outcome.article.metadata.date_created, EXPECTED_DATE);
-  assert.equal(outcome.article.metadata.filename_slug, `${EXPECTED_DATE}_smith_codefirst_explainer`);
-  assert.deepEqual(outcome.article.references, [ANCHORED_REF]);
-  assert.equal(path.basename(outcome.jsonPath), `${EXPECTED_DATE}_smith_codefirst_explainer.json`);
+  stale.metadata = { date_created: '1900-01-01' };
+  stale.hero.headline = '<b>Governed agents</b> separate planning from execution';
+  stale.sections[0].paragraphs = ['<span>The paper separates planning</span> & execution.'];
+  const outcome = await finalizeResult(
+    'item-codefirst',
+    receipt(JSON.stringify(stale)),
+    ctx({ repair: repair.fn }),
+  );
+  assert.equal(repair.calls.length, 0, '38: deterministic fixes');
+  assert.equal(outcome.status, 'succeeded', '38: success');
+  assert.equal(outcome.article.metadata.date_created, EXPECTED_DATE, '38: context date');
+  assert.equal(
+    outcome.article.hero.headline,
+    'Governed agents separate planning from execution',
+    '38: plain sanitising',
+  );
+  assert.equal(
+    outcome.article.sections[0].paragraphs[0],
+    'The paper separates planning &amp; execution.',
+    '38: inline sanitising',
+  );
+  const drops = outcome.article.metadata.quality.dropped;
+  assert.ok(drops.length > 0, '38: recorded changes');
+  for (const fragment of ['metadata', 'hero.headline', 'sections[0].paragraphs[0]']) {
+    assert.ok(drops.some((message: string) => message.includes(fragment)), `38: drop ${fragment}`);
+  }
+  assert.equal(
+    path.basename(outcome.jsonPath),
+    `${EXPECTED_DATE}_smith_codefirst_explainer.json`,
+    '38: stamped filename',
+  );
 });
 
-test('38: chart issues never reach repair and chart data never changes; a chart-only issue goes to review', async () => {
+test('38: chart issues never reach repair; a failing chart is removed and succeeds', async () => {
   const finalizeResult = finalize();
   const repair = repairer([]);
-  const outcome = await finalizeResult('item-chartonly', receipt(JSON.stringify(doc('chartonly', ORDINAL_DATA))), ctx({ repair: repair.fn }));
-  assert.equal(repair.calls.length, 0, 'no repair call when only chart issues remain');
-  assert.equal(outcome.status, 'needs_review');
-  assert.ok(outcome.issues.some((i: string) => /ordinal sequence/.test(i)), JSON.stringify(outcome.issues));
+  const outcome = await finalizeResult(
+    'item-chartonly',
+    receipt(JSON.stringify(doc('chartonly', ORDINAL_DATA))),
+    ctx({ repair: repair.fn }),
+  );
+  assert.equal(repair.calls.length, 0, '38: no chart repair');
+  assert.equal(outcome.status, 'succeeded', '38: chart removal succeeds');
+  assert.deepEqual(outcome.article.charts, [], '38: invalid chart removed');
+  const drops = outcome.article.metadata.quality.dropped;
+  assert.ok(drops.length > 0, '38: dropped chart recorded');
+  assert.ok(drops.some((message: string) => message.includes('charts[0]')), '38: dropped chart path');
+  assert.deepEqual(outcome.article.metadata.quality.issues, [], '38: issue resolved');
   const file = `${EXPECTED_DATE}_smith_chartonly_explainer.json`;
-  assert.equal(outcome.jsonPath, path.join(REVIEW_DIR, file), 'a review artefact goes to output/review/');
-  assert.ok(!fs.existsSync(path.join(OUT_DIR, file)), 'and not to the normal output');
-  assert.ok(!fs.existsSync(path.join(STAGING_DIR, file)), 'a review artefact is never staged');
-  assert.ok(!fs.existsSync(path.join(MIRROR_DIR, file)), 'or mirrored');
-  assert.deepEqual(outcome.destinations, { output: 'written', staging: 'skipped', mirror: 'skipped' });
-  const saved = JSON.parse(fs.readFileSync(outcome.jsonPath, 'utf8'));
-  assert.equal(saved.metadata.quality.needs_review, true);
-  assert.deepEqual(saved.metadata.quality.issues, outcome.issues);
-  assert.equal(outcome.artefactDigest, sha256File(outcome.jsonPath));
+  assert.equal(outcome.jsonPath, path.join(OUT_DIR, file), '38: normal output');
+  assert.equal(fs.existsSync(path.join(REVIEW_DIR, file)), false, '38: no review copy');
+  assert.deepEqual(outcome.destinations, {
+    output: 'written', staging: 'written', mirror: 'written',
+  }, '38: successful destinations');
+  assert.equal(outcome.artefactDigest, sha256File(outcome.jsonPath), '38: saved digest');
 });
 
-test('38: prose repair sees no chart data, and a reply that alters chart numbers keeps the originals', async () => {
+test('38: prose repair sees empty charts and cannot alter or add chart data', async () => {
   const finalizeResult = finalize();
-  const broken = doc('protect', ORDINAL_DATA);
+  const baseline = await finalizeResult(
+    'item-protect-base',
+    receipt(JSON.stringify(doc('protect'))),
+    ctx(),
+  );
+  assert.equal(baseline.status, 'succeeded', '38: clean baseline');
+  assert.equal(baseline.article.charts.length, 1, '38: baseline chart');
+  const broken = doc('protect');
   delete broken.hero.subtitle;
 
-  const baseline = await finalizeResult('item-protect-base', receipt(JSON.stringify(broken)), ctx());
-  assert.equal(baseline.status, 'needs_review');
-
   const fixed = doc('protect', [100, 200, 300, 400, 500, 600]);
-  fixed.charts.push({ title: 'Invented', caption: 'New', config_json: JSON.stringify({ type: 'bar', data: { labels: ['a', 'b', 'c', 'd', 'e', 'f'], datasets: [{ label: 'X', data: [9, 8, 7, 6, 5, 4] }] } }) });
+  fixed.charts.push(JSON.parse(JSON.stringify(fixed.charts[0])));
   const repair = repairer([repairReply(JSON.stringify(fixed))]);
-  const outcome = await finalizeResult('item-protect', receipt(JSON.stringify(broken)), ctx({ repair: repair.fn }));
+  const outcome = await finalizeResult(
+    'item-protect',
+    receipt(JSON.stringify(broken)),
+    ctx({ repair: repair.fn }),
+  );
 
-  assert.equal(repair.calls.length, 1);
+  assert.equal(repair.calls.length, 1, '38: one prose repair');
   const { instruction, payload } = repair.calls[0];
-  assert.match(instruction, /hero\.subtitle/, 'the prose issue is in the instruction');
-  assert.doesNotMatch(instruction, /ordinal sequence/, 'the chart issue is not');
+  assert.match(instruction, /hero\.subtitle/, '38: prose issue');
+  assert.doesNotMatch(instruction, /charts\[|ordinal sequence/, '38: no chart issue');
   const sent = JSON.parse(payload);
-  for (const key of ['charts', 'chart', 'recreated_figure']) assert.equal(key in sent, false, `the repair payload carries no ${key}`);
-  assert.equal(sent.metadata.filename_slug, `${EXPECTED_DATE}_smith_protect_explainer`, 'the payload is the stamped candidate');
+  assert.deepEqual(sent.charts, [], '38: empty chart payload');
+  assert.equal(Object.hasOwn(sent, 'metadata'), false, '38: unstamped payload');
+  assert.equal(outcome.article.hero.subtitle, 'Subtitle', '38: prose adopted');
+  assert.equal(outcome.article.charts.length, 1, '38: added chart discarded');
+  assert.deepEqual(chartData(outcome.article), GOOD_DATA, '38: original chart values');
+  assert.deepEqual(outcome.article.charts, baseline.article.charts, '38: entire chart preserved');
+  assert.equal(outcome.chartDigest, baseline.chartDigest, '38: chart digest preserved');
+  assert.equal(outcome.status, 'succeeded', '38: repaired success');
+  assert.equal(outcome.receipts.length, 2, '38: both receipts');
+  assert.equal(outcome.receipts[1].stage, 'repair', '38: repair receipt');
 
-  assert.equal(outcome.article.hero.subtitle, 'Subtitle', 'the prose fix is kept');
-  assert.equal(outcome.article.charts.length, 1, 'a chart the repair added is discarded');
-  assert.deepEqual(chartData(outcome.article), ORDINAL_DATA, 'chart numbers are the originals');
-  assert.equal(outcome.chartDigest, baseline.chartDigest, 'the chart-data digest is unchanged by repair');
-  assert.equal(outcome.status, 'needs_review', 'the chart issue still stands');
-  assert.equal(outcome.receipts.length, 2);
-  assert.equal(outcome.receipts[1].stage, 'repair');
+  const ordinalBroken = doc('ordinal protect', ORDINAL_DATA);
+  delete ordinalBroken.hero.subtitle;
+  const ordinalReply = doc('ordinal protect');
+  const ordinalRepair = repairer([repairReply(JSON.stringify(ordinalReply))]);
+  const ordinal = await finalizeResult(
+    'item-ordinal-protect',
+    receipt(JSON.stringify(ordinalBroken)),
+    ctx({ repair: ordinalRepair.fn }),
+  );
+  assert.equal(ordinalRepair.calls.length, 1, '38: ordinal prose repair');
+  assert.deepEqual(JSON.parse(ordinalRepair.calls[0].payload).charts, [], '38: ordinal hidden');
+  assert.doesNotMatch(ordinalRepair.calls[0].instruction, /charts\[|ordinal sequence/, '38: ordinal issue hidden');
+  assert.equal(ordinal.status, 'succeeded', '38: ordinal removal succeeds');
+  assert.deepEqual(ordinal.article.charts, [], '38: reply cannot replace invalid original');
 });
 
 test('38: repair is bounded at two attempts and keeps the best candidate', async () => {
   const finalizeResult = finalize();
-  const broken = doc('bounded');
-  delete broken.hero.subtitle;
-  delete broken.hero.headline_html;
-  const half = doc('bounded');
-  delete half.hero.headline_html;
-  const worse = doc('bounded');
-  delete worse.hero.subtitle;
-  delete worse.hero.headline_html;
+  const broken = sixSections(doc('bounded'));
+  broken.hero.subtitle = 'x'.repeat(321);
+  const half = sixSections(doc('bounded'));
+  const worse = sixSections(doc('bounded'));
+  worse.hero.subtitle = 'x'.repeat(321);
   delete worse.hero.headline;
   const repair = repairer([
     repairReply(JSON.stringify(half)),
     repairReply(JSON.stringify(worse)),
     repairReply(JSON.stringify(doc('bounded'))),
   ]);
-  const outcome = await finalizeResult('item-bounded', receipt(JSON.stringify(broken)), ctx({ repair: repair.fn }));
-  assert.equal(repair.calls.length, 2, 'at most two repair calls');
-  assert.equal(outcome.repairAttempts, 2);
-  assert.equal(outcome.status, 'needs_review');
-  assert.equal(outcome.article.hero.subtitle, 'Subtitle', 'the better first reply is kept');
-  assert.ok(outcome.issues.some((i: string) => /headline_html/.test(i)), JSON.stringify(outcome.issues));
-  assert.ok(!outcome.issues.some((i: string) => /hero\.subtitle/.test(i)), JSON.stringify(outcome.issues));
-  assert.equal(outcome.article.hero.headline, 'Headline', 'a worse later reply does not replace the best');
-  assert.equal(outcome.receipts.length, 3, 'every receipt is kept, including the rejected one');
-  assert.equal(outcome.receipts[2].text, JSON.stringify(worse));
+  const outcome = await finalizeResult(
+    'item-bounded',
+    receipt(JSON.stringify(broken)),
+    ctx({ repair: repair.fn }),
+  );
+  assert.equal(repair.calls.length, 2, '38: at most two repairs');
+  assert.equal(outcome.repairAttempts, 2, '38: attempts recorded');
+  assert.equal(outcome.status, 'needs_review', '38: editorial review');
+  assert.equal(outcome.article.hero.subtitle, 'Subtitle', '38: better candidate retained');
+  assert.equal(
+    outcome.article.hero.headline,
+    'Governed agents separate planning from execution',
+    '38: worse candidate rejected',
+  );
+  assert.equal(outcome.article.sections.length, 6, '38: editorial sections retained');
+  assert.ok(outcome.issues.length > 0, '38: surviving issue');
+  assert.match(outcome.issues.join('\n'), /sections/, '38: sections issue');
+  assert.doesNotMatch(outcome.issues.join('\n'), /hero\.subtitle/, '38: subtitle fixed');
+  assert.deepEqual(outcome.article.metadata.quality.issues, outcome.issues, '38: quality issues');
+  assert.equal(outcome.receipts.length, 3, '38: all receipts retained');
+  assert.equal(outcome.receipts[2].text, JSON.stringify(worse), '38: rejected receipt retained');
+  const filename = `${outcome.article.metadata.slug}.json`;
+  assert.equal(outcome.jsonPath, path.join(REVIEW_DIR, filename), '38: review path');
+  assert.deepEqual(outcome.destinations, {
+    output: 'written', staging: 'skipped', mirror: 'skipped',
+  }, '38: review destinations');
+  for (const directory of [OUT_DIR, STAGING_DIR, MIRROR_DIR]) {
+    assert.equal(fs.existsSync(path.join(directory, filename)), false, '38: review isolated');
+  }
 
-  const junk = repairer([repairReply('this is not json at all'), repairReply(JSON.stringify(doc('junkreply')))]);
+  const junk = repairer([
+    repairReply('this is not json at all'),
+    repairReply(JSON.stringify(doc('junkreply'))),
+  ]);
   const brokenJunk = doc('junkreply');
   delete brokenJunk.hero.subtitle;
-  const afterJunk = await finalizeResult('item-junkreply', receipt(JSON.stringify(brokenJunk)), ctx({ repair: junk.fn }));
-  assert.equal(junk.calls.length, 2, 'an unparseable reply uses up an attempt');
-  assert.equal(afterJunk.status, 'succeeded', JSON.stringify(afterJunk.issues));
-  assert.equal(afterJunk.receipts[1].text, 'this is not json at all');
+  const afterJunk = await finalizeResult(
+    'item-junkreply',
+    receipt(JSON.stringify(brokenJunk)),
+    ctx({ repair: junk.fn }),
+  );
+  assert.equal(junk.calls.length, 2, '38: junk consumes an attempt');
+  assert.equal(afterJunk.status, 'succeeded', '38: repair after junk');
+  assert.equal(afterJunk.receipts[1].text, 'this is not json at all', '38: junk receipt retained');
 
   const once = repairer([repairReply(JSON.stringify(doc('fixedonce')))]);
   const brokenOnce = doc('fixedonce');
   delete brokenOnce.hero.subtitle;
-  const good = await finalizeResult('item-fixedonce', receipt(JSON.stringify(brokenOnce)), ctx({ repair: once.fn }));
-  assert.equal(once.calls.length, 1, 'repair stops once nothing repairable remains');
-  assert.equal(good.status, 'succeeded', JSON.stringify(good.issues));
+  const good = await finalizeResult(
+    'item-fixedonce',
+    receipt(JSON.stringify(brokenOnce)),
+    ctx({ repair: once.fn }),
+  );
+  assert.equal(once.calls.length, 1, '38: stop when fixed');
+  assert.equal(good.status, 'succeeded', '38: one repair succeeds');
 
   const truncated = repairer([
-    repairReply(undefined, { finishReason: 'length', error: { code: 'OUTPUT_LIMIT', message: 'cut off', retryable: false } }),
+    repairReply(undefined, {
+      finishReason: 'length',
+      error: { code: 'OUTPUT_LIMIT', message: 'cut off', retryable: false },
+    }),
     repairReply(JSON.stringify(doc('truncrepair'))),
   ]);
   const brokenTrunc = doc('truncrepair');
   delete brokenTrunc.hero.subtitle;
-  const afterTrunc = await finalizeResult('item-truncrepair', receipt(JSON.stringify(brokenTrunc)), ctx({ repair: truncated.fn }));
-  assert.equal(truncated.calls.length, 2, 'a truncated repair reply uses up an attempt');
-  assert.equal(afterTrunc.status, 'succeeded');
-  assert.equal(afterTrunc.receipts[1].finishReason, 'length');
+  const afterTrunc = await finalizeResult(
+    'item-truncrepair',
+    receipt(JSON.stringify(brokenTrunc)),
+    ctx({ repair: truncated.fn }),
+  );
+  assert.equal(truncated.calls.length, 2, '38: truncation consumes an attempt');
+  assert.equal(afterTrunc.status, 'succeeded', '38: repair after truncation');
+  assert.equal(afterTrunc.receipts[1].finishReason, 'length', '38: truncated receipt retained');
 });
 
-test('38: unparseable or metadata-less output fails INVALID_JSON with no repair and nothing saved', async () => {
+test('38: unparseable output fails INVALID_JSON; wire output needs no metadata key', async () => {
   const finalizeResult = finalize();
-  for (const [key, text] of [
-    ['item-badjson', 'Sorry, I cannot help with that.'],
-    ['item-nometa', JSON.stringify({ version: 1, sections: [{ label: 'Only', paragraphs: ['x'] }] })],
-  ]) {
-    const before = listOutputs();
-    const repair = repairer([]);
-    const input = receipt(text);
-    const outcome = await finalizeResult(key, input, ctx({ repair: repair.fn }));
-    assert.equal(outcome.status, 'errored');
-    assert.equal(outcome.code, 'INVALID_JSON');
-    assert.ok(typeof outcome.message === 'string' && outcome.message.length > 0);
-    assert.equal(repair.calls.length, 0, 'no model call to reconstruct an unknown article');
-    assert.deepEqual(listOutputs(), before, 'nothing is written');
-    assert.equal(outcome.receipts.length, 1);
-    assert.equal(outcome.receipts[0].text, text, 'the raw receipt is preserved');
-  }
+  const before = listOutputs();
+  const repair = repairer([]);
+  const text = 'Sorry, I cannot help with that.';
+  const outcome = await finalizeResult(
+    'item-badjson',
+    receipt(text),
+    ctx({ repair: repair.fn }),
+  );
+  assert.equal(outcome.status, 'errored', '38: invalid JSON error');
+  assert.equal(outcome.code, 'INVALID_JSON', '38: invalid JSON code');
+  assert.ok(typeof outcome.message === 'string' && outcome.message.length > 0, '38: error message');
+  assert.equal(repair.calls.length, 0, '38: no reconstruction call');
+  assert.deepEqual(listOutputs(), before, '38: no writes');
+  assert.equal(outcome.receipts.length, 1, '38: raw receipt retained');
+  assert.equal(outcome.receipts[0].text, text, '38: raw text retained');
+
+  const wire = doc('nometa');
+  assert.equal(Object.hasOwn(wire, 'metadata'), false, '38: metadata absent on wire');
+  const valid = await finalizeResult(
+    'item-nometa',
+    receipt(JSON.stringify(wire)),
+    ctx({ repair: repair.fn }),
+  );
+  assert.equal(valid.status, 'succeeded', '38: metadata-less wire valid');
+  assert.equal(repair.calls.length, 0, '38: no repair needed');
+  assert.ok(fs.existsSync(valid.jsonPath), '38: metadata-less wire saved');
+  assert.equal(valid.article.metadata.date_created, EXPECTED_DATE, '38: metadata stamped');
 });
 
 test('38: a truncated or failed synthesis is errored with its own code, never saved', async () => {
@@ -384,66 +545,81 @@ test('38: a malformed receipt is an adapter bug and rejects MALFORMED_RESULT', a
   await assert.rejects(finalizeResult('item-malformed', bad, ctx()), (err: any) => err?.code === 'MALFORMED_RESULT');
 });
 
-test('38: an optional figure is attached, and a figure failure saves without an image and a warning', async () => {
-  const finalizeResult = finalize();
-  const image = { source_figure: 'Figure 1', caption: 'Smith (2026), Figure 1.', src: 'figure-1.jpg' };
-  const withFigure = await finalizeResult('item-figure', receipt(JSON.stringify(doc('figure'))), ctx({ figure: async () => image }));
-  assert.equal(withFigure.status, 'succeeded', JSON.stringify(withFigure.issues));
-  assert.deepEqual(withFigure.article.image, image);
-
-  const failing = await finalizeResult('item-figfail', receipt(JSON.stringify(doc('figfail'))), ctx({
-    figure: async () => { throw new Error('renderer missing'); },
-  }));
-  assert.equal(failing.status, 'succeeded');
-  assert.equal('image' in failing.article, false);
-  assert.ok(failing.warnings.some((w: string) => /renderer missing/.test(w)), JSON.stringify(failing.warnings));
-});
-
-test('38: replay of a finished or interrupted item makes no further repair or figure calls', async () => {
+test('38: replay of a finished or interrupted item makes no further repair calls', async () => {
   const finalizeResult = finalize();
   const broken = doc('replay');
   delete broken.hero.subtitle;
   const input = receipt(JSON.stringify(broken), { attemptId: 'attempt-replay' });
   const checkpoints = store();
-  let figureCalls = 0;
-  const figure = async () => { figureCalls += 1; return { source_figure: 'Figure 2', caption: 'Smith (2026), Figure 2.' }; };
 
   const first = repairer([repairReply(JSON.stringify(doc('replay')))]);
-  const done = await finalizeResult('item-replay', input, ctx({ checkpoints, repair: first.fn, figure }));
-  assert.equal(done.status, 'succeeded', JSON.stringify(done.issues));
-  assert.equal(first.calls.length, 1);
-  assert.equal(figureCalls, 1);
-  assert.ok(checkpoints.map.size > 0, 'progress is checkpointed');
+  const done = await finalizeResult(
+    'item-replay',
+    input,
+    ctx({ checkpoints, repair: first.fn }),
+  );
+  assert.equal(done.status, 'succeeded', '38: initial success');
+  assert.equal(first.calls.length, 1, '38: initial repair');
+  assert.ok(checkpoints.map.size > 0, '38: progress checkpointed');
+  assert.match(done.artefactDigest, /^[0-9a-f]{64}$/, '38: original digest');
+  assert.equal(done.artefactDigest, sha256File(done.jsonPath), '38: original bytes');
 
   const again = repairer([]);
-  const replay = await finalizeResult('item-replay', input, ctx({ checkpoints, repair: again.fn, figure }));
-  assert.equal(again.calls.length, 0, 'replay makes no repair call');
-  assert.equal(figureCalls, 1, 'replay makes no figure call');
-  assert.equal(replay.status, 'succeeded');
-  assert.equal(replay.artefactDigest, done.artefactDigest);
-  assert.equal(replay.receipts.length, 2, 'replay returns every receipt of the attempt');
+  const replay = await finalizeResult(
+    'item-replay',
+    input,
+    ctx({ checkpoints, repair: again.fn }),
+  );
+  assert.equal(again.calls.length, 0, '38: no replay repair');
+  assert.equal(replay.status, 'succeeded', '38: replay success');
+  assert.equal(replay.artefactDigest, done.artefactDigest, '38: exact replay digest');
+  assert.equal(replay.chartDigest, done.chartDigest, '38: replay chart digest');
+  assert.equal(sha256File(replay.jsonPath), done.artefactDigest, '38: replay bytes');
+  assert.equal(replay.receipts.length, 2, '38: replay receipts');
+  assert.deepEqual(replay.article, done.article, '38: replay article');
 
   const interrupted = store();
   const brokenI = doc('interrupt');
   delete brokenI.hero.subtitle;
   const inputI = receipt(JSON.stringify(brokenI), { attemptId: 'attempt-interrupt' });
-  let figureI = 0;
-  const figureCount = async () => { figureI += 1; return null; };
   const r1 = repairer([repairReply(JSON.stringify(doc('interrupt')))]);
+  let interruptedDigest = '';
+  let interruptedArticle: any;
   await assert.rejects(finalizeResult('item-interrupt', inputI, ctx({
-    checkpoints: interrupted, repair: r1.fn, figure: figureCount,
-    persist: async () => { throw new Error('disk full'); },
+    checkpoints: interrupted,
+    repair: r1.fn,
+    persist: async (article: any) => {
+      interruptedArticle = JSON.parse(JSON.stringify(article));
+      interruptedDigest = crypto.createHash('sha256')
+        .update(JSON.stringify(article, null, 2)).digest('hex');
+      throw new Error('disk full');
+    },
   })), /disk full/);
-  assert.equal(r1.calls.length, 1);
+  assert.equal(r1.calls.length, 1, '38: repaired before interruption');
+  assert.match(interruptedDigest, /^[0-9a-f]{64}$/, '38: interrupted digest captured');
+  assert.equal(interruptedArticle.hero.title, 'interrupt', '38: interrupted article captured');
+
   const r2 = repairer([]);
-  const resumed = await finalizeResult('item-interrupt', inputI, ctx({ checkpoints: interrupted, repair: r2.fn, figure: figureCount }));
-  assert.equal(r2.calls.length, 0, 'an interrupted save resumes without another repair');
-  assert.equal(figureI, 1, 'or another figure call');
-  assert.equal(resumed.status, 'succeeded');
-  assert.ok(fs.existsSync(resumed.jsonPath));
+  const resumed = await finalizeResult(
+    'item-interrupt',
+    inputI,
+    ctx({ checkpoints: interrupted, repair: r2.fn }),
+  );
+  assert.equal(r2.calls.length, 0, '38: no repair after interrupted save');
+  assert.equal(resumed.status, 'succeeded', '38: resumed success');
+  assert.ok(fs.existsSync(resumed.jsonPath), '38: resumed file');
+  assert.equal(resumed.artefactDigest, interruptedDigest, '38: interrupted digest preserved');
+  assert.equal(sha256File(resumed.jsonPath), interruptedDigest, '38: interrupted bytes preserved');
+  assert.deepEqual(resumed.article, interruptedArticle, '38: interrupted article preserved');
+  assert.equal(resumed.receipts.length, 2, '38: interrupted receipts retained');
 
   const fresh = repairer([repairReply(JSON.stringify(doc('replay')))]);
-  await finalizeResult('item-replay', { ...input, attemptId: 'attempt-replay-2' }, ctx({ checkpoints, repair: fresh.fn, figure }));
-  assert.equal(fresh.calls.length, 1, 'a new attempt of the same item is new work');
+  const newAttempt = await finalizeResult(
+    'item-replay',
+    { ...input, attemptId: 'attempt-replay-2' },
+    ctx({ checkpoints, repair: fresh.fn }),
+  );
+  assert.equal(fresh.calls.length, 1, '38: new attempt repairs');
+  assert.equal(newAttempt.status, 'succeeded', '38: new attempt succeeds');
 });
 // AUTOMETTA-CONTRACT-END
