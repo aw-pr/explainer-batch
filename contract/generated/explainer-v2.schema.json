@@ -305,8 +305,7 @@
                   "minItems": 1,
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "minLength": 1
+                    "type": "string"
                   }
                 },
                 "description": "Table rows, each a list of cell strings in column order."

@@ -142,3 +142,14 @@ test('sanitiseInline is idempotent on malformed input', () => {
 test('contract:check finds the generated files up to date', () => {
   assert.deepEqual(checkContract(), []);
 });
+
+test('a table accepts an empty cell and rejects a tagged cell and an empty column heading', () => {
+  const withTable = (columns: string[], rows: string[][]): any => {
+    const doc = storedSample();
+    doc.sections[0].table = { columns, rows };
+    return doc;
+  };
+  assert.ok(ExplainerV2.safeParse(withTable(['Year', 'Cost'], [['2025', '']])).success);
+  assert.ok(!ExplainerV2.safeParse(withTable(['Year', 'Cost'], [['2025', '<b>10</b>']])).success);
+  assert.ok(!ExplainerV2.safeParse(withTable(['Year', ''], [['2025', '10']])).success);
+});

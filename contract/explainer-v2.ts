@@ -56,6 +56,10 @@ export const PlainText = z
   .min(1)
   .refine(isPlainText, 'must be plain text: no HTML tags and no HTML entities');
 
+export const TableCell = z
+  .string()
+  .refine(s => s === '' || isPlainText(s), 'must be empty or plain text: no HTML tags and no HTML entities');
+
 export const InlineText = z
   .string()
   .min(1)
@@ -127,7 +131,7 @@ const table = <W extends boolean>(c: Comp<W>) =>
   z.strictObject({
     caption: c.opt(PlainText).describe('What the table shows, without a source tag, or null.'),
     columns: z.array(PlainText).min(2).describe('Column headings, at least two.'),
-    rows: z.array(z.array(PlainText).min(1)).min(1).describe('Table rows, each a list of cell strings in column order.'),
+    rows: z.array(z.array(TableCell).min(1)).min(1).describe('Table rows, each a list of cell strings in column order.'),
     source: c.opt(sourceRef(c)).describe('Where the table comes from in the paper, or null.'),
   });
 

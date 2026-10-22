@@ -80,7 +80,11 @@ export function migrateV1(raw: unknown, io: MigrateIo): MigrateResult {
       return sanitiseInline(s);
     };
     const twin = (o: Obj, key: string, path: string): string => inline(o[`${key}_html`] ?? o[key], path);
-    const takeaway = (v: unknown, path: string): Obj => ({ label: plain(obj(v).label), body: twin(obj(v), 'body', path) });
+    const takeaway = (v: unknown, path: string): Obj => {
+      const o = obj(v), hasBody = o.body_html != null || o.body != null;
+      const paragraphs = arr(o.paragraphs_html ?? o.paragraphs).map(text).filter(p => p !== '').join(' ');
+      return { label: plain(o.label ?? o.headline), body: hasBody ? twin(o, 'body', path) : inline(paragraphs, path) };
+    };
     const bound = (path: string, length: number, min: number, max: number): void => {
       if (length < min || length > max) issues.push(`${path}: outside editorial bound ${min} to ${max}`);
     };
@@ -118,7 +122,7 @@ export function migrateV1(raw: unknown, io: MigrateIo): MigrateResult {
         } }),
         ...(s.table == null ? {} : { table: {
           ...(table.caption == null ? {} : captionSource(table.caption)),
-          columns: arr(table.columns).map(plain), rows: arr(table.rows).map(row => arr(row).map(plain)),
+          columns: arr(table.columns).map(plain), rows: arr(table.rows).map(row => arr(row).map(cell => cell === '' ? '' : plain(cell))),
         } }),
       };
     });

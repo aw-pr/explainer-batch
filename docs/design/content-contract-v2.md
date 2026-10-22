@@ -308,7 +308,7 @@ naming the bound instead of failing to parse.
 | `label` | `PlainText` | model | section label |
 | `paragraphs[]` | `InlineText[]` | model | prose, search |
 | `list` | `{ordered: boolean, intro?: InlineText, items: 1+ of {label?: PlainText, body: InlineText}}` | model | list block |
-| `table` | `{caption?: PlainText, columns: 2+ PlainText, rows: 1+ PlainText[], source?: SourceRef}` | model | table block; stage 19 gate |
+| `table` | `{caption?: PlainText, columns: 2+ PlainText, rows: 1+ of (PlainText or empty)[], source?: SourceRef}` | model | table block; stage 19 gate |
 
 `SourceRef` is `{ref: PlainText, page?: integer}`; `ref` names the table as
 printed ("Table 2") or, for a URL source, the section heading. The caption
@@ -648,7 +648,9 @@ then does explainer-batch's producer run with the new revision. Because the
 new field is optional, promo-flow at step 2 still reads every older artefact.
 The public mirror of explainer-batch receives steps 1 and 3 whenever the
 operator next replays `publish`; that replay is manual and curated and is
-never a card step.
+never a card step. A change made before any artefact or vendored copy exists
+at the current revision leaves the revision unchanged (the blank-cell change
+of 2026-10-22).
 
 ## What the promo-flow renderer needs
 
@@ -742,6 +744,8 @@ base64 image and the folder listing it needs through parameters.
 | `sections[].paragraphs`, `paragraphs_html` | `paragraphs` = `sanitiseInline(paragraphs_html[i])` when present, else `paragraphs[i]`; removed tags are recorded in `quality.dropped` |
 | `list.style`, `intro_html`, `items[].body_html` | `style` dropped; `intro` and `body` from the `_html` twin when present |
 | `table.align` | dropped |
+| a takeaway (`top_block` or `end_takeaway`) with `headline` instead of `label`, or `paragraphs_html` / `paragraphs` instead of `body` | `label` = `label`, else `headline`; `body` = the `body_html` / `body` twin when either is present, else the non-empty paragraphs joined with one space; a takeaway with neither `label` nor `headline` stays a typed failure |
+| an empty table cell (the paper reported no value) | stays `''`; every other cell goes through `toPlain()` |
 | `table.caption` ending in a source tag `(Table 2, p. 6)` | tag parsed into `table.source {ref, page}` and removed from the caption |
 | `charts[]` with an object `config_json` of type `bar`, `line` or `scatter`; the legacy `chart` copy (35 live files) when `charts` is empty (13 live files) | one `Chart` per entry: `data.labels` to `x.values`, each dataset to a series, `options.scales.*.title.text` to axis labels, `stacked` to `stacked_bar`, a log axis to `scale: log`; every series gets `source {kind: 'legacy', ref: 'v1 charts[i]'}` and the caption's source tag, when present, becomes `ref`. A legacy `chart` beside a non-empty `charts` is the duplicate `src/output.ts:416` writes (identical to `charts[0]` in 21 of the 22 live files that have both) and is dropped, with a `quality.dropped` entry only when it differs |
 | a legacy `chart` with `config_json: null` and code in `config_raw` only (12 live files, their only chart) or a `charts[]` entry of a banned type (5 live entries) | not converted automatically; the chart is dropped with a `quality.dropped` entry naming the title and the migration prints the list for curation (Q13; none of the 12 `config_raw` strings contains a function, which gives the operator a third option there) |
@@ -919,6 +923,7 @@ so the mirror carries them.
 15. **Q15** Whether `metadata.quality` should be stripped from the public sidecar at approve time. **Answer:** no; it holds validator messages and dropped-item names, nothing sensitive, and leaving it in place lets `check:contract` report review state across the archive. The approve route copies the artefact unchanged.
 16. **Q16** Whether promo-flow should vendor only the generated JSON Schema and validate with a JSON Schema library instead of adopting zod. **Answer:** adopt zod; the vendored zod source yields the TypeScript type, the validator and the sanitiser from one file, whereas a JSON Schema validator would add a dependency and still need a hand-written type.
 17. **Q17** What changed between attempt 1 and attempt 2 of this document, for the cards (17 to 19) that may already cite it. **Answer:** the chart shape and its `source` are unchanged. Field changes: `citation` added to the wire schema and `references[0].origin` to the artefact; `metadata.quality.stamped` removed; `metadata.migrated_from` added; `metadata.route` gains `unknown` and `metadata.provider` reserves it; `metadata.source` and `lead_figure.width`/`height` become optional in the artefact; editorial bounds move to the wire schema; the stored slug rule is relaxed to safe filename characters; `contract/derive.ts` joins the vendored files. Card renumbering, attempt 1 to attempt 2: W2 to W5, W3 to W6, W4 to W6 (the sidecar write) and W7 (reextract), W5 to W8, W6 to W2, W7 to W3, W8 to W9, W9 to W4; W1 and W10 keep their ids.
+18. **Q18** Whether a table cell may be empty. **Answer:** yes (2026-10-22): a cell is `PlainText` or `''`, rendered blank, because the paper printed no value and a placeholder would put a mark in the data it never printed; headings and every other `PlainText` keep `min(1)`. `migrateV1` also reads the `headline` and `paragraphs_html` takeaway shapes. `CONTRACT_REVISION` stays 1.
 
 ## Wave-2 cards
 
