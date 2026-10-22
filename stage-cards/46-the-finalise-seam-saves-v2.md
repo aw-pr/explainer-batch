@@ -11,7 +11,7 @@
 - **Worker effort:** high
 - **Verifier effort:** medium
 - **Verifier panel:** false
-- **Depends on:** 45-the-skill-schema-block-is-generated-from-the-contract
+- **Gate:** stage-completed: 45-the-skill-schema-block-is-generated-from-the-contract
 - **Path claims:** src/finalize.ts, src/quality.ts, src/style-lint.ts, src/output.ts, tests/unit/finalize.test.ts, tests/unit/fixtures/v2/
 - **Pairing rationale:** The seam every route will share, rewritten to the design's save order. The card fixes the order, the stamps, the slug rule and the classification of surviving issues, and two frozen tests pin them, so GPT-6.1 Sol at high fits, and the operator asked on 2026-10-22 to bias token spend towards OpenAI. The verifier is Claude Opus 5.5 at medium from the other family; judging that no stamp can overwrite a model value and no repair can touch a chart is judgement work, so Opus rather than Sonnet. Neither role needs Fable or Astra.
 - **Open decisions:** none
@@ -77,7 +77,7 @@ Every file listed here must be created or modified, except the frozen contract t
 
 The verifier will check each of these. Failure of any one is a failure of the stage. Every command runs from the run worktree root. Seat for every criterion: the Claude Opus 5.5 verifier through the Claude CLI, no network needed.
 
-Baseline on `dev` at `0fc0996` (2026-10-22): 1 red (this test 15 of 15; re-frozen 38 8 of 12); 2 red at 38 and 46, and at 45 because W5 has not landed (this card depends on it); 3, 4 and 5 green. Run the frozen suite with `--test-concurrency=1`: contract 45 rewrites `skill.md` for a moment and contract 20 corrupts and restores a generated file.
+Baseline on `dev` at `0fc0996` (2026-10-22): 1 red (this test 15 of 15; re-frozen 38 8 of 12); 2 red at 38 and 46, and at 45 because W5 has not landed (this card is gated on it); 3, 4 and 5 green. Run the frozen suite with `--test-concurrency=1`: contract 45 rewrites `skill.md` for a moment and contract 20 corrupts and restores a generated file.
 
 1. **Contract (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test tests/contract/46-the-finalise-seam-saves-v2.test.ts tests/contract/38-one-finalise-and-repair-seam.test.ts` exits 0.
 2. **Frozen neighbours (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 $(ls tests/contract/*.test.ts | grep -v -e '/26-' -e '/27-' -e '/28-')` exits 0. Contracts 26 to 28 read held PDFs under `input/_held/`, which a run worktree does not have; this card touches nothing they test. Contracts 39 and 42 find held PDFs through the sibling `../explainer-batch` checkout.

@@ -11,7 +11,7 @@
 - **Worker effort:** high
 - **Verifier effort:** medium
 - **Verifier panel:** false
-- **Depends on:** 46-the-finalise-seam-saves-v2
+- **Gate:** stage-completed: 46-the-finalise-seam-saves-v2
 - **Path claims:** src/prompt.ts, src/preprocess.ts, src/state.ts, src/batch.ts, src/providers.ts, src/wire-schema.ts, src/schema/explainer-schema.ts, tests/unit/
 - **Pairing rationale:** Request-side plumbing with every rule written out (the two user-turn sentences, the citation mapping, which dialect each provider sends) and pinned by a frozen test: GPT-6.1 Sol at high fits, and the operator asked on 2026-10-22 to bias token spend towards OpenAI. The verifier is Claude Sonnet 5.5 at medium from the other family: verifying is running the commands and reading a mechanical diff. Neither role needs Fable or Astra.
 - **Open decisions:** none
@@ -66,7 +66,7 @@ Every file listed here must be created or modified, except the frozen contract t
 
 The verifier will check each of these. Failure of any one is a failure of the stage. Every command runs from the run worktree root. Seat for every criterion: the Claude Sonnet 5.5 verifier through the Claude CLI, no network needed.
 
-Baseline on `dev` at `66652d9` (2026-10-22): 1 red (this test 8 of 8; re-frozen 14 1 of 6, the date assertion); 2 red at 14, 45, 46, 38 and 47 on `dev` because cards 45 and 46 have not landed (this card depends on 46, which depends on 45; card 45 adds the system-prompt marker strip that contract 42 needs); 3 and 4 green; 5 red (`EXPLAINER_JSON_SCHEMA` in both files). Run the frozen suite with `--test-concurrency=1`.
+Baseline on `dev` at `66652d9` (2026-10-22): 1 red (this test 8 of 8; re-frozen 14 1 of 6, the date assertion); 2 red at 14, 45, 46, 38 and 47 on `dev` because cards 45 and 46 have not landed (this card is gated on 46, which is gated on 45; card 45 adds the system-prompt marker strip that contract 42 needs); 3 and 4 green; 5 red (`EXPLAINER_JSON_SCHEMA` in both files). Run the frozen suite with `--test-concurrency=1`.
 
 1. **Contract (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 tests/contract/47-requests-ask-for-the-v2-wire-shape.test.ts tests/contract/14-explainer-prose-is-faithful-not-quippy.test.ts tests/contract/12-the-figure-picker-prefers-the-results-figure.test.ts` exits 0.
 2. **Frozen neighbours (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 $(ls tests/contract/*.test.ts | grep -v -e '/26-' -e '/27-' -e '/28-')` exits 0. Contracts 26 to 28 read held PDFs under `input/_held/`, which a run worktree does not have; contracts 39 and 42 find them through the sibling `../explainer-batch` checkout.
