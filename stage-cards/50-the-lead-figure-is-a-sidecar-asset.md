@@ -24,11 +24,11 @@ The figure still comes from today's vision path (`extractFigureViaVlm`), so `pro
 
 Settled by the orchestrator:
 
-- **The hook.** `FinalizeContext` gains `figure?: (wire, itemKey) => Promise<FigureAsset | null>`, where `FigureAsset` is `{ label: string; caption: string; alt_text: string; bytes: Buffer; page?: number; provenance: 'arxiv-source' | 'pdf-embedded' | 'pdf-vector-crop' | 'dom-asset' | 'vlm-crop' }`. The seam calls it after repair and the resolution of surviving issues, and before stamping, only when `figure_request` is non-null. Its result is checkpointed (bytes as base64 inside the checkpoint), so a replay makes no second figure call, as before card 46.
+- **The hook.** `FinalizeContext` gains `figure?: (wire, itemKey) => Promise<FigureAsset | null>`, where `FigureAsset` is `{ label: string; caption: string; alt_text: string; bytes: Buffer; page?: number; provenance: 'arxiv-source' | 'pdf-embedded' | 'pdf-vector-crop' | 'dom-asset' | 'vlm-crop' }`. The seam calls it after repair and the resolution of surviving issues, and before stamping, only when `figure_request` is non-null. Its result is checkpointed (bytes as base64 inside the checkpoint), so a replay makes no second figure call, as before card 46, and `persistArtefact` rewrites the sidecar from those bytes, so a replay after a sidecar was lost restores it with the same article and digest.
 - **No figure.** A hook that returns `null` or throws gives no `lead_figure`; `quality.dropped` gains `figure_request: no figure located` or `figure_request: <error message>`; `figure_request` stays in the artefact for reextract; the item's status is unchanged.
 - **The stamp.** `lead_figure` is `{label, caption, alt_text, asset, sha256, width?, height?, page?, provenance}`: `asset` is `<slug>/<file>`, where `<file>` is `assetFileName(parseLabel(label), sniffImageType(bytes))` from `src/figure-locator/` (`figure-3.jpg`, `figure-4b.png`, `table-2.jpg`, or `figure.<ext>` for a label with no number); `sha256` is the lowercase hex hash of the bytes; `width` and `height` come from `imageSize(bytes)` and are omitted when it returns null (an SVG). Bytes whose type cannot be sniffed count as no figure (`figure_request: unrecognised image bytes`).
 - **The write.** `persistArtefact` writes the image to `<dir>/<slug>/<file>` before the JSON, in the same directory as the JSON (`output/` or `output/review/`), and copies it to `<staging>/<slug>/<file>` and `<mirror>/<slug>/<file>` beside each JSON copy, under the same skip and fail rules as the JSON. The artefact digest covers the JSON bytes only.
-- **The production hook** (`src/output.ts`, called from `saveThroughSeam` in `src/batch.ts`): `locateLeadFigure(wire, customId)` runs `extractFigureViaVlm` with the request's `figure_request.label` as the pinned figure and the `.focus.md` image override as today, decodes the result's data URL to bytes, and returns `provenance: 'vlm-crop'`, the page, and the caption and alt text from the override or the result. It replaces `attachFigureImage`, which is deleted.
+- **The production hook** (`src/output.ts`, called from `saveThroughSeam` in `src/batch.ts`): `locateLeadFigure(wire, customId)` runs `extractFigureViaVlm` with the pinned figure taken from the `.focus.md` image override when one names a figure (the operator's pin wins, as today) and otherwise from `figure_request.label`, and the override's other fields as today, decodes the result's data URL to bytes, and returns `provenance: 'vlm-crop'`, the page, and the caption and alt text from the override or the result. It replaces `attachFigureImage`, which is deleted.
 - **`recreated_figure` is never written**, whatever `FIGURE_RECREATE` or a `.focus.md` recreate directive says: the recreation call is not made from the save path. W8 brings it back as a v2 `Chart`. `src/figure-data.ts` is unchanged.
 - **The smoke.** `scripts/smoke-contract.ts <wire.json> [--detected]` runs the seam offline on a wire fixture with a stub figure hook returning a tiny fixed JPEG, writes into a temporary directory, prints the saved artefact, and prints `repair attempts: <n>`; with `--detected` the stamp context carries a fixed detected citation.
 
@@ -63,13 +63,14 @@ Every file listed here must be created or modified, except the frozen contract t
 - `contract/`, `skill.md`, `src/figure-vlm.ts`, `src/figure-data.ts`, `src/figure-locator/` and `src/types/explainer-json.ts` are unchanged.
 - Every frozen contract passes unedited.
 - No network and no paid API calls in any test or in the smoke; the production hook is never called by a test.
-- Do not create or modify files outside the deliverables, except this card's run state. What the frozen tests and the smoke do themselves under the system temporary directory is not a breach.
+- Do not create or modify files outside the deliverables, except this card's run state and a gitignored `node_modules` clone. What the frozen tests and the smoke do themselves under the system temporary directory is not a breach.
+- No file under `src/` assigns a `recreated_figure` property except `src/types/` and `src/figure-data.ts` (the frozen test scans for it); today the only other assignments are in `attachFigureImage`, which this card deletes.
 
 ## Acceptance criteria
 
 The verifier will check each of these. Failure of any one is a failure of the stage. Every command runs from the run worktree root. Seat for every criterion: the Claude Opus 5.5 verifier through the Claude CLI, no network needed.
 
-Baseline: recorded under `## Contract test`.
+Baseline on `dev` at `b542523` (2026-10-22, card 49 landed): 1 red (12 of 14; the fixture check and the no-hook-call-without-`figure_request` test pass by design); 2 red at 50 only; 3 and 4 green; 5 red (no smoke script).
 
 1. **Contract (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 tests/contract/50-the-lead-figure-is-a-sidecar-asset.test.ts` exits 0.
 2. **Frozen neighbours (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 $(ls tests/contract/*.test.ts | grep -v -e '/26-' -e '/27-' -e '/28-')` exits 0. Contracts 26 to 28 read held PDFs under `input/_held/`, which a run worktree does not have; contracts 39 and 42 find them through the sibling `../explainer-batch` checkout.
@@ -83,8 +84,12 @@ Baseline: recorded under `## Contract test`.
 ## Contract test
 
 - **Test file:** `tests/contract/50-the-lead-figure-is-a-sidecar-asset.test.ts`
-- **Assertions digest:** `PENDING`
-- **Oracle proof:** PENDING
+- **Assertions digest:** `sha256:44205a676b54e82670367f040edef13ed4b9b259adb4c0261e0fb21777ad27a5`
+- **Oracle proof:**
+  - **Drafted** by a read-only GPT-6.1 Sol session from this card; reviewed by the orchestrator, who replaced the draft's hand-built JPEG (which `imageSize` cannot read) with a real 1x1 JPEG produced by `sips`.
+  - **Red on `dev` `b542523`:** 12 of 14 fail (no figure hook on the seam, no sidecar write, no `locateLeadFigure`, no smoke script).
+  - **Green on a throwaway reference** written by a GPT-6.1 Sol session in a detached worktree at `~/repos/eb-ref50` (removed and pruned; nothing committed): 14 of 14, `tsc` clean, `npm test` 219, and the whole frozen suite with `--test-concurrency=1` 487 of 487.
+  - **Traps the reference met:** `contextFromExplainer` takes the v1 type, so the production hook builds the picker's context from v2 fields; `tsc` does not cover `scripts/`, so run the smoke through `ts-node`; the output directories are fixed when `src/output.ts` is imported, so the smoke sets its environment before importing the seam.
 
 ## Out of scope
 
@@ -114,4 +119,4 @@ Any edit to a frozen contract block fails the stage. The worker runs criteria 1 
 - **Codex (worker):** workspace-write with no network is enough. If `node_modules` is missing in the run worktree, clone it from the main checkout (`cp -cR ../explainer-batch/node_modules node_modules`, an APFS clone, never a symlink). Run commands with stdin from `/dev/null`.
 - **Claude (verifier):** runs unsandboxed; make no network calls and write nothing outside the worktree beyond what the frozen tests and the smoke write under the system temporary directory.
 - **Both roles:** do not create `.env.local` in the run worktree.
-- **Cold read:** PENDING
+- **Cold read:** a read-only Codex session (GPT-6.1 Sol) read this card and its draft test on 2026-10-22. Folded in: the `.focus.md` pin wins over `figure_request.label`; a replay restores a lost sidecar; the `node_modules` clone and the `recreated_figure` scan are stated as constraints. It found the draft's hand-built JPEG unreadable by `imageSize`; the test now carries a real 1x1 JPEG.
