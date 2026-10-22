@@ -227,8 +227,9 @@ test('skill.md asks for figure_request and never for an image block', () => {
   assert.match(para, /key results figure/i);
   assert.match(para, /null/);
   assert.doesNotMatch(skill, /vision model (?:auto-)?picks/i, 'no paragraph says a vision model picks the figure');
-  assert.doesNotMatch(skill, /CONTRACT-V2-BEGIN/, 'stage 16 W5 has not landed; no generated block here');
+  assert.equal((skill.match(/CONTRACT-V2-BEGIN/g) ?? []).length, 1, 'skill.md carries exactly one generated contract block');
   const system = prompt().buildSystemPrompt();
+  assert.doesNotMatch(system, /CONTRACT-V2-BEGIN/, 'the system prompt strips the contract marker');
   assert.match(system, /`figure_request`/);
   assert.doesNotMatch(system, /NEVER emit/);
 });

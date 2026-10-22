@@ -87,7 +87,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 ## Contract test
 
 - **Test file:** `tests/contract/42-synthesis-names-the-figure.test.ts`
-- **Assertions digest:** `sha256:c4c7f6adb85859dca401697c049cbacbc7287d8656f166088d9f0e2ff08d318b`
+- **Assertions digest:** `sha256:1dff820825ecc04d2bc09d4ee3e0736b7686262dd5d9931b56ad6437e0800d26`
 - **Oracle proof:** On `dev` (`8bb4372`) all 10 tests fail because `src/figure-locator/request.ts` and `index.ts` do not exist. A throwaway reference (about 50 lines for `request.ts`, 50 for `index.ts`, the four `skill.md` edits, two `prompt.ts` lines and five `preprocess.ts` lines), stacked on the card 39 to 41 references in a detached scratch worktree, passed all 10; `tsc --noEmit` was clean and `npm test` passed 125 of 125. Every other contract test passed on it except `tests/contract/11`'s `image_raster` case, which is the re-freeze in `## Surfacing concern`; with that case re-frozen, card 11 passed 12 of 12 on the reference and on `dev`. The worktree was removed and pruned. Its Figure 3 crop of `w35275.pdf` page 12 came from the region 74,94 to 538,152 points.
 
 ## Out of scope
