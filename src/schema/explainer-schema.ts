@@ -193,7 +193,4 @@ export const EXPLAINER_JSON_SCHEMA: JsonSchemaObject = obj(
   ['version', 'metadata', 'hero', 'top_block', 'charts', 'image', 'sections', 'end_takeaway', 'references'],
 );
 
-/** Default ON. Set STRUCTURED_OUTPUT=0 to fall back to unenforced JSON output. */
-export function structuredOutputEnabled(): boolean {
-  return process.env.STRUCTURED_OUTPUT !== '0';
-}
+export { structuredOutputEnabled } from '../wire-schema';

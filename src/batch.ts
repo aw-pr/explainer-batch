@@ -14,7 +14,7 @@ import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type Ope
 import type { InputItem } from './preprocess';
 import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, isFatalHttpError, openAIJsonSchemaFormat, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
 import { repairUntilValid, type RepairResult } from './repair';
-import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
+import { wireSchema, structuredOutputEnabled } from './wire-schema';
 
 // Optional shared batch-dashboard integration. Defaults to `<repo>/jobs`;
 // override with EXPLAINER_JOBS_DIR. Job-file writes are best-effort: if the
@@ -231,15 +231,19 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     detectedSurname: req.detectedSurname,
     detectedPublished: req.detectedPublished,
     detectedReference: req.detectedReference,
+    detectedCitation: req.detectedCitation,
+    publishedOn: req.publishedOn,
   };
 }
 
-function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedSurname' | 'detectedPublished' | 'detectedReference'> {
+function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedSurname' | 'detectedPublished' | 'detectedReference' | 'detectedCitation' | 'publishedOn'> {
   return {
     expectedDate,
     detectedSurname: item.detectedSurname,
     detectedPublished: item.detectedPublished,
     detectedReference: item.detectedReference,
+    detectedCitation: item.detectedCitation,
+    publishedOn: item.publishedOn,
   };
 }
 
@@ -269,7 +273,7 @@ async function maybeRepairClaude(
       if (authMode === 'claude_cli') {
         return client.createMessageViaCli(repairModel, repairSystem, text);
       }
-      return client.createMessage(repairModel, repairMaxTokens, repairSystem, text, false, EXPLAINER_JSON_SCHEMA);
+      return client.createMessage(repairModel, repairMaxTokens, repairSystem, text, false, wireSchema('claude'));
     },
   });
 }
@@ -290,7 +294,7 @@ async function maybeRepairOpenAI(
       repairSystem,
       [{ role: 'user', content: [{ type: 'input_text', text }] }],
       false,
-      EXPLAINER_JSON_SCHEMA,
+      wireSchema('openai'),
     ),
   });
 }
@@ -331,8 +335,8 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
     model: modelConfig.batchModel,
     maxTokens: modelConfig.maxTokens,
     system: systemPrompt,
-    content: buildClaudeRequestContent(item, buildUserInstruction(expectedDate, item.focusHint)),
-    jsonSchema: EXPLAINER_JSON_SCHEMA,
+    content: buildClaudeRequestContent(item, buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined)),
+    jsonSchema: wireSchema('claude'),
   }));
 
   console.log(`  Submitting batch of ${items.length} request(s) using ${modelConfig.batchModel}…`);
@@ -442,7 +446,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
 
     const lines: string[] = [];
     for (const item of items) {
-      const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+      const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
       if (lanesEnabled) {
         for (const lane of OPENAI_LANES) {
           const customId = laneCustomId(item.customId, lane);
@@ -470,7 +474,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
             instructions: buildSystemPrompt(),
             input: [{ role: 'user' as const, content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction) }],
             ...(structuredOutputEnabled()
-              ? { text: { format: openAIJsonSchemaFormat(EXPLAINER_JSON_SCHEMA) } }
+              ? { text: { format: openAIJsonSchemaFormat(wireSchema('openai')) } }
               : {}),
           },
         }));
@@ -715,7 +719,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
       .map(lane => `## ${lane}\n${laneMap![lane]}`)
       .join('\n\n');
 
-    const userInstruction = buildUserInstruction(expectedDate, req.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, req.focusHint, undefined, req.detectedCitation !== undefined);
 
     synthesisLines.push(JSON.stringify({
       custom_id: customId,
@@ -730,7 +734,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
         }],
         ...(structuredOutputEnabled()
-          ? { text: { format: openAIJsonSchemaFormat(EXPLAINER_JSON_SCHEMA) } }
+          ? { text: { format: openAIJsonSchemaFormat(wireSchema('openai')) } }
           : {}),
       },
     }));
@@ -825,7 +829,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
   for (const [customId, req] of Object.entries(freshBatch.requests)) {
     if (req.type !== 'explainer') continue;
     const item = requestToInputItem(customId, req);
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
 
     try {
       let synthesis: ProviderMessageResponse;
@@ -889,7 +893,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
           }],
           false,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       } else {
         synthesis = await client.createMessage(
@@ -901,7 +905,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
             content: buildOpenAIInput(item, null, userInstruction),
           }],
           item.isUrl,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       }
 
@@ -968,7 +972,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
   for (const item of items) {
     const req = freshBatch.requests[item.customId];
     if (!req) continue;
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
     try {
       const response = await client.createMessageViaCli(
         modelConfig.synthesisModel,
@@ -1076,7 +1080,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
   for (const item of items) {
     const req = freshBatch.requests[item.customId];
     if (!req) continue;
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
 
     try {
       let synthesis: ProviderMessageResponse;
@@ -1140,7 +1144,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
           }],
           false,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       } else {
         synthesis = await client.createMessage(
@@ -1152,7 +1156,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
             content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction),
           }],
           mode === 'codex_cli' && item.isUrl,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       }
 

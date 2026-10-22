@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { structuredOutputEnabled } from './schema/explainer-schema';
+import { structuredOutputEnabled } from './wire-schema';
 
 export const PROVIDER_NAMES = ['claude', 'openai'] as const;
 export type ProviderName = (typeof PROVIDER_NAMES)[number];
@@ -154,9 +154,8 @@ const EMIT_INSTRUCTION = `\n\nReturn the explainer by calling the ${FORCED_TOOL_
 
 /**
  * Asks Claude to return the explainer as structured tool input rather than
- * free-form text. Claude's `input_schema` is permissive (unlike OpenAI's
- * strict subset), so the same EXPLAINER_JSON_SCHEMA object serves both
- * providers unmodified. Where the model cannot be forced, the system prompt
+ * free-form text, using the generated Claude dialect as `input_schema`.
+ * Where the model cannot be forced, the system prompt
  * names the tool instead; a plain-text reply still parses via extractJson.
  */
 function toolOutputParams(

@@ -52,6 +52,14 @@ export interface TokenUsage {
   saving_usd: number;
 }
 
+export interface DetectedCitation {
+  authors: Array<{ family: string; given?: string }>;
+  year?: number;
+  title: string;
+  venue?: string;
+  url: string;
+}
+
 export interface RequestState {
   type: 'explainer' | 'lane';
   lane?: string;
@@ -81,6 +89,8 @@ export interface RequestState {
   detectedSurname?: string;
   detectedPublished?: string;
   detectedReference?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 export interface BatchState {

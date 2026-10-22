@@ -3,7 +3,8 @@ import path from 'path';
 import { createHash } from 'crypto';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
-import type { FigureCandidate, RecreateDirective } from './state';
+import type { DetectedCitation, FigureCandidate, RecreateDirective } from './state';
+import { toPlain } from '../contract/inline';
 import { isPdfUrl } from './figure-vlm';
 import { formatLabel } from './figure-locator/label';
 import { decodeHtmlEntities, isWrapperClass, labelFromHints, resolveSources, RawSource } from './figure-locator/dom-figures';
@@ -44,6 +45,8 @@ export interface InputItem {
   detectedPublished?: string;
   /** Canonical single-entry reference (HTML) built deterministically from arXiv `/abs/` metadata. Replaces the model's reference when present. */
   detectedReference?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 export interface ImageOverride {
@@ -498,6 +501,44 @@ function buildReference(meta: CitationMeta, sourceUrl: string): string | undefin
     `<a href="${escRefText(link)}" target="_blank" rel="noopener noreferrer">${escRefText(link)}</a>`;
 }
 
+export function buildCitation(meta: CitationMeta, sourceUrl: string): DetectedCitation | undefined {
+  const title = toPlain(meta.title ?? '').trim();
+  const names = meta.authors.map(name => toPlain(name).trim()).filter(Boolean);
+  if (!title || names.length === 0) return undefined;
+  const authors = names.map(name => {
+    const family = surnameOf(name);
+    const givenNames = name.includes(',')
+      ? name.split(',').slice(1).join(' ').trim()
+      : name.split(/\s+/).slice(0, -1).join(' ');
+    const given = givenNames.split(/\s+/).filter(Boolean)
+      .map(part => `${part[0].toUpperCase()}.`).join(' ');
+    return { family: toPlain(family), ...(given ? { given: toPlain(given) } : {}) };
+  });
+  const year = toPlain(meta.date ?? '').match(/\d{4}/)?.[0];
+  const doi = toPlain(meta.doi ?? '').trim();
+  const journal = toPlain(meta.journal ?? '').trim();
+  const source = toPlain(sourceUrl);
+  const absUrl = arxivAbsUrl(source);
+  const venue = doi ? journal : absUrl
+    ? `arXiv preprint arXiv:${absUrl.split('/abs/')[1].replace(/v\d+$/i, '')}`
+    : journal;
+  const url = doi ? `https://doi.org/${doi.replace(/^doi:/i, '')}` : absUrl ?? source;
+  return {
+    authors,
+    ...(year ? { year: Number(year) } : {}),
+    title,
+    ...(venue ? { venue: toPlain(venue) } : {}),
+    url: toPlain(url),
+  };
+}
+
+export function publishedOnFrom(date?: string): string | undefined {
+  const match = date?.match(/^(\d{4})[/-](\d{1,2})(?=$|[/-]\d{1,2}(?:$|[T\s]))/);
+  if (!match) return undefined;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? `${match[1]}-${String(month).padStart(2, '0')}` : undefined;
+}
+
 /**
  * Fetch citation metadata from an arXiv paper's `/abs/` page. arXiv HTML fulltext
  * omits the `citation_*` meta (and some converters emit no author marker at all),
@@ -528,6 +569,8 @@ interface FetchedHtml {
   detectedPublished?: string;
   /** Canonical single-entry reference (HTML) built from arXiv `/abs/` metadata. */
   detectedReference?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
@@ -560,6 +603,8 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
     const detectedSurname = firstName ? surnameOf(firstName) : undefined;
     const detectedPublished = formatCitationDate(meta.date);
     const detectedReference = buildReference({ ...meta, authors: authorList }, url);
+    const detectedCitation = buildCitation({ ...meta, authors: authorList }, url);
+    const publishedOn = publishedOnFrom(meta.date);
     if (text && (authors || detectedPublished)) {
       const lines: string[] = [];
       if (authors) lines.push(`Detected paper author(s): ${authors}`);
@@ -567,7 +612,7 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
       lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
       text = `${lines.join('\n')}\n\n${text}`;
     }
-    return { text, candidates, detectedSurname, detectedPublished, detectedReference };
+    return { text, candidates, detectedSurname, detectedPublished, detectedReference, detectedCitation, publishedOn };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
@@ -660,6 +705,8 @@ export async function preprocessInputs(): Promise<InputItem[]> {
       let detectedSurname: string | undefined;
       let detectedPublished: string | undefined;
       let detectedReference: string | undefined;
+      let detectedCitation: DetectedCitation | undefined;
+      let publishedOn: string | undefined;
       let cachedPdfPath: string | undefined;
       if (isPdfUrl(url)) {
         cachedPdfPath = await cachePdfUrl(url);
@@ -671,6 +718,8 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         detectedSurname = fetched.detectedSurname;
         detectedPublished = fetched.detectedPublished;
         detectedReference = fetched.detectedReference;
+        detectedCitation = fetched.detectedCitation;
+        publishedOn = fetched.publishedOn;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
       }
 
@@ -687,6 +736,8 @@ export async function preprocessInputs(): Promise<InputItem[]> {
         detectedSurname,
         detectedPublished,
         detectedReference,
+        detectedCitation,
+        publishedOn,
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,
