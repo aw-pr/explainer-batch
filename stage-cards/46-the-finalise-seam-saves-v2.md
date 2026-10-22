@@ -69,7 +69,7 @@ Every file listed here must be created or modified, except the frozen contract t
 
 - `saveResult`, `repairUntilValid`, `validateJsonOutput`, `buildRepairInstruction`, `normalizeSchemaDrift`, `canonicaliseExplainerJson`, `isChartIssue` and every v1 behaviour they implement are unchanged. `src/batch.ts`, `src/repair.ts`, `src/prompt.ts`, `src/providers.ts` and `src/schema/` are unchanged.
 - `contract/` and `skill.md` are unchanged; `WEBSITE_REPO= npm run contract:check` stays clean.
-- Every frozen contract passes unedited: 01 to 15 and 20 to 45 as they stand, and 38 and 46 as re-frozen for this card. Contracts 26 to 28 need held PDFs a run worktree lacks, so criterion 2 leaves them out; nothing this card changes is read by them. The `MIN_CHART_POINTS` block in `src/output.ts` stays byte-identical.
+- Every frozen contract passes unedited except 12, 14 and 47, which belong to card 47 and are red on this card's base: 01 to 15 and 20 to 45 as they stand, and 38 and 46 as re-frozen for this card. Contracts 26 to 28 need held PDFs a run worktree lacks, so criterion 2 leaves them out; nothing this card changes is read by them. The `MIN_CHART_POINTS` block in `src/output.ts` stays byte-identical.
 - No network and no paid API calls. British English and no em dashes in prose and messages.
 - Do not create or modify files outside the deliverables, except this card's run state. What the frozen tests do themselves (scratch files under the system temporary directory, card 20's `contract:build` into one) is not a breach.
 
@@ -80,7 +80,7 @@ The verifier will check each of these. Failure of any one is a failure of the st
 Baseline on `dev` at `0fc0996` (2026-10-22): 1 red (this test 15 of 15; re-frozen 38 8 of 12); 2 red at 38 and 46, and at 45 because W5 has not landed (this card is gated on it); 3, 4 and 5 green. Run the frozen suite with `--test-concurrency=1`: contract 45 rewrites `skill.md` for a moment and contract 20 corrupts and restores a generated file.
 
 1. **Contract (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test tests/contract/46-the-finalise-seam-saves-v2.test.ts tests/contract/38-one-finalise-and-repair-seam.test.ts` exits 0.
-2. **Frozen neighbours (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 $(ls tests/contract/*.test.ts | grep -v -e '/26-' -e '/27-' -e '/28-')` exits 0. Contracts 26 to 28 read held PDFs under `input/_held/`, which a run worktree does not have; this card touches nothing they test. Contracts 39 and 42 find held PDFs through the sibling `../explainer-batch` checkout.
+2. **Frozen neighbours (verifier):** `TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test --test-concurrency=1 $(ls tests/contract/*.test.ts | grep -v -e '/26-' -e '/27-' -e '/28-' -e '/12-' -e '/14-' -e '/47-')` exits 0. Contracts 26 to 28 read held PDFs under `input/_held/`, which a run worktree does not have; this card touches nothing they test. Contracts 39 and 42 find held PDFs through the sibling `../explainer-batch` checkout. Contracts 12, 14 and 47 are left out too: they were frozen or re-frozen for card 47, which lands after this one, so they are red on this card's base by design. Do not change `buildUserInstruction()` to satisfy them.
 3. **Types (verifier):** `npx tsc --noEmit` exits 0.
 4. **Unit suite (verifier):** `npm test` exits 0.
 5. **Drift gate (verifier):** `WEBSITE_REPO= npm run contract:check` prints `contract: generated files up to date`.
