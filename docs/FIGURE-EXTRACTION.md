@@ -1,9 +1,9 @@
 # Figure extraction pipeline
 
 How the explainer pipeline turns a source document into a lead figure
-stored beside the JSON output. The deterministic caption/gap-finder
-(`figure-extract.ts`) has been **retired** in favour of a vision model
-that looks at the rendered document the way a reader does.
+stored beside the JSON output. A conservative native-image path handles
+unambiguous local PDF images; other layouts use the vision model. The old
+caption/gap-finder (`figure-extract.ts`) remains retired.
 
 ## V2 sidecar assets
 
@@ -22,7 +22,7 @@ The filename comes from the printed label and the sniffed image type:
 `figure-3.jpg`, `figure-4b.png`, `table-2.jpg`, or `figure.<ext>` when the label
 has no number. `lead_figure` records the label, caption, alt text, relative
 `asset` path (`<slug>/<file>`), SHA-256 of the image bytes, pixel width and
-height when readable, optional page, and provenance (currently `vlm-crop`).
+height when readable, optional page, and provenance (`pdf-embedded` or `vlm-crop`).
 SVG dimensions are omitted. The article digest covers JSON bytes only.
 
 A null result, extraction error or unrecognised image bytes leaves out
@@ -31,11 +31,29 @@ the item's success or review status. New save paths write no inline image data
 or `recreated_figure`. Recreation switches and directives do not run a
 recreation pass during saves; W8 will return recreation as a v2 `Chart`.
 
-## Current model: vision-driven selection
+## Local PDF embedded-image fast path
 
-`src/figure-vlm.ts:extractFigureViaVlm` is the single entry point, called
-from `output.ts:locateLeadFigure` after wire repair (and from the
-`reextract` script). Callers pass the explainer's own context (hero
+After wire repair, `output.ts:locateLeadFigure` first tries
+`src/figure-locator/pdf-embedded.ts`. It requires one exact caption label and
+one complete embedded image immediately above it, with no intervening or
+overlapping PDF text. Duplicate captions, panel requests, multiple nearby
+images, an image below the caption, distant images and `forceRegionCrop`
+all fall through to the existing VLM path. Page hints remain advisory; the
+caption supplies the actual page. The operator's figure pin and caption/alt
+text overrides retain precedence.
+
+Poppler renders the native image bounds directly as JPEG at at least 300 DPI
+(up to 600 DPI when the embedded image's resolution warrants it). This is a
+PDF render of the image bounds, rather than extraction of the original image
+stream. `pdf-embedded` records that the bounds came from a native embedded
+image. The source caption supplies caption and alt text unless overridden.
+This path makes no model calls; VLM selection and crop verification remain
+unchanged for every layout it declines. The broader locator work remains W8.
+
+## Vision-driven selection
+
+`src/figure-vlm.ts:extractFigureViaVlm` handles the fallback from
+`output.ts:locateLeadFigure` and the `reextract` script. Callers pass the explainer's own context (hero
 headline, subtitle, section labels, chart titles) into the selection
 prompt as context. The operator's `.focus.md` image pin takes precedence over
 `figure_request.label`; otherwise that requested label pins the selection.

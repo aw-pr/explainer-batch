@@ -5,6 +5,9 @@ import { randomUUID } from 'node:crypto';
 import type { Chart, ExplainerV2, ModelOutputV2 } from '../contract/explainer-v2';
 import type { FigureAsset } from './finalize';
 import { extractFigureViaVlm } from './figure-vlm';
+import { locateEmbeddedFigure } from './figure-locator/pdf-embedded';
+import { buildFigureRequest } from './figure-locator/request';
+import { formatLabel } from './figure-locator/label';
 import { readState, type FigureCandidate } from './state';
 import { loadDotEnv } from './env';
 
@@ -113,7 +116,7 @@ export function resolveSourcePdf(customId: string): string | null {
   return null;
 }
 
-function lookupImageOverride(customId: string): { source_figure?: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
+function lookupImageOverride(customId: string): { source_figure?: string; caption?: string; alt_text?: string; pageHint?: number; forceRegionCrop?: boolean } | undefined {
   try {
     const state = readState();
     // Iterate newest-first: when a paper is re-run, the most recent batch's
@@ -173,6 +176,18 @@ export async function locateLeadFigure(wire: ModelOutputV2, customId: string): P
   const url = pdfPath ? null : resolveSourceUrl(customId);
   if (!pdfPath && !url) return null;
   const snapshotCandidates = url ? resolveFigureCandidates(customId) : undefined;
+  const native = locateEmbeddedFigure(buildFigureRequest({
+    output: wire, override, source: { ...(pdfPath && { pdfPath }) },
+  }));
+  if (native) {
+    console.log(`  ✓ ${customId}: figure via pdf-embedded (p.${native.page})`);
+    return {
+      label: formatLabel(native.label),
+      caption: override?.caption ?? native.captionText!,
+      alt_text: override?.alt_text ?? native.captionText!,
+      bytes: native.bytes, page: native.page, provenance: native.provenance,
+    };
+  }
   const result = await extractFigureViaVlm({
     pdfPath, url, snapshotCandidates,
     override: { ...override, source_figure: override?.source_figure ?? wire.figure_request.label },

@@ -19,8 +19,9 @@
 - It **is** a focused pipeline that produces a specific JSON schema
   (`contract/explainer-v2.ts`) intended for a separate React renderer.
 - It is **not** a general-purpose PDF summariser or chat tool.
-- Figure cropping is **macOS-first**: it shells out to `sips` for JPEG
-  re-encoding (Linux falls back to PNG). URL figures additionally need
+- Unambiguous local PDF figures use caption-matched embedded image bounds
+  and Poppler, without a vision call. Other layouts use the **macOS-first**
+  VLM path, which shells out to `sips` for image processing. URL figures additionally need
   Playwright + Chromium (`npx playwright install chromium`); the PDF path does not.
 - The website integration is **optional**. Without it you still get JSON.
 
@@ -33,7 +34,8 @@
 > **selection + cropping**), but we borrowed the idea: render the paper, let the
 > model choose the most useful figure, then crop it from the source render. It
 > replaced a brittle deterministic caption/gap-finder that never worked on
-> HTML and often clipped prose. See `docs/FIGURE-EXTRACTION.md`.
+> HTML and often clipped prose. Local PDFs now try an unambiguous embedded-image
+> capture first, retaining the VLM path as fallback. See `docs/FIGURE-EXTRACTION.md`.
 
 ## Architecture
 
@@ -72,9 +74,8 @@ entirely optional.
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
 - **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
   figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
-- **`sips`**: ships with macOS; used to downscale extracted figures. Not
-  available on Linux: figures are skipped there, the rest of the pipeline is
-  unaffected.
+- **`sips`**: ships with macOS; used by the VLM figure path. The local PDF
+  embedded-image path uses Poppler alone.
 - **tmux**: only required for the secure headless route
   (`npm run process:secure:tmux`).
 
