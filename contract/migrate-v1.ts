@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Chart, CONTRACT_REVISION, ExplainerV2 } from './explainer-v2';
+import { type Chart, CONTRACT_REVISION, ExplainerV2 } from './explainer-v2';
 import { sanitiseInline, toPlain } from './inline';
 
 export type MigrateIo = { listing: readonly string[]; bytes: (relPath: string) => Uint8Array | undefined };
