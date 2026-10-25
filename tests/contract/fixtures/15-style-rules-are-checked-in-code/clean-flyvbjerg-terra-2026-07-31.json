@@ -1,0 +1,507 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "The Uniqueness of IT Cost Risk: Flyvbjerg (2026)",
+    "eyebrow": "Research Explainer · Flyvbjerg et al. (2026)",
+    "date_created": "2026-07-31",
+    "filename_slug": "2026-07-31_flyvbjerg_it-cost-risk_explainer",
+    "model": "gpt-5.6-terra",
+    "run_mode": "sync"
+  },
+  "hero": {
+    "headline": "IT projects often look ordinary, but their cost risk sits in a category of one",
+    "headline_html": "IT projects often look ordinary, but <span>their cost risk sits in a category of one</span>",
+    "subtitle": "Across 11,011 projects in 23 types, IT was the only category with a Pareto tail parameter at or below one. That means conventional average-based forecasting is the wrong instrument for the worst IT cost outcomes.",
+    "publication_date": "Published January 2026"
+  },
+  "top_block": {
+    "kind": "pills",
+    "pills": [
+      {
+        "number": "α = 0.92",
+        "description": "the only project-type tail parameter at or below one, placing IT in the extreme-risk category",
+        "accent_color": "#ff6b6b"
+      },
+      {
+        "number": "5,360",
+        "description": "IT projects in a cross-group sample of 11,011 projects across 126 countries",
+        "accent_color": "#4dabf7"
+      },
+      {
+        "number": "453%",
+        "description": "mean cost overrun among IT projects that exceeded 50% overrun",
+        "accent_color": "#51cf66"
+      }
+    ]
+  },
+  "charts": [
+    {
+      "title": "IT has the fattest cost-overrun tail of all 23 project types",
+      "caption": "Flyvbjerg et al. (2026), Table D2. Lower Pareto Type I alpha values indicate fatter upper tails and greater exposure to extreme cost overruns. This recreates the ranked tail-risk finding underlying the paper's discussion of Figure 3; the empirical Figure 3 curves are not printed as recoverable values.",
+      "config_json": {
+        "type": "bar",
+        "data": {
+          "labels": [
+            "IT",
+            "Nuclear storage",
+            "Defense",
+            "Olympics",
+            "Nuclear power",
+            "Buildings",
+            "Dams (other)",
+            "Hydroelectric dams",
+            "Rail",
+            "Aerospace",
+            "Rail stations",
+            "Water",
+            "Mining",
+            "Tunnels",
+            "Bridges",
+            "Roads",
+            "Fossil thermal power",
+            "Pipelines",
+            "Oil and gas",
+            "Wind power",
+            "Nuclear decommissioning",
+            "Energy transmission",
+            "Solar power"
+          ],
+          "datasets": [
+            {
+              "label": "Median Pareto alpha",
+              "data": [
+                0.92,
+                1.047,
+                1.235,
+                1.237,
+                1.526,
+                1.728,
+                1.793,
+                1.801,
+                1.962,
+                2.276,
+                2.31,
+                2.502,
+                2.579,
+                2.621,
+                2.687,
+                2.85,
+                2.866,
+                2.966,
+                3.054,
+                4.289,
+                4.504,
+                5.463,
+                7.836
+              ],
+              "backgroundColor": [
+                "#ff6b6b",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7",
+                "#4dabf7"
+              ],
+              "borderWidth": 0,
+              "borderRadius": 3
+            }
+          ]
+        },
+        "options": {
+          "indexAxis": "y",
+          "responsive": true,
+          "plugins": {
+            "legend": {
+              "display": false
+            },
+            "tooltip": {
+              "callbacks": {}
+            }
+          },
+          "scales": {
+            "x": {
+              "beginAtZero": true,
+              "title": {
+                "display": true,
+                "text": "Pareto Type I tail parameter alpha (unitless)"
+              },
+              "grid": {
+                "color": "rgba(255,255,255,0.12)"
+              },
+              "ticks": {
+                "color": "#d8dee9"
+              }
+            },
+            "y": {
+              "ticks": {
+                "color": "#d8dee9",
+                "font": {
+                  "size": 11
+                }
+              },
+              "grid": {
+                "display": false
+              }
+            }
+          }
+        }
+      },
+      "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"IT\",\"Nuclear storage\",\"Defense\",\"Olympics\",\"Nuclear power\",\"Buildings\",\"Dams (other)\",\"Hydroelectric dams\",\"Rail\",\"Aerospace\",\"Rail stations\",\"Water\",\"Mining\",\"Tunnels\",\"Bridges\",\"Roads\",\"Fossil thermal power\",\"Pipelines\",\"Oil and gas\",\"Wind power\",\"Nuclear decommissioning\",\"Energy transmission\",\"Solar power\"],\"datasets\":[{\"label\":\"Median Pareto alpha\",\"data\":[0.92,1.047,1.235,1.237,1.526,1.728,1.793,1.801,1.962,2.276,2.31,2.502,2.579,2.621,2.687,2.85,2.866,2.966,3.054,4.289,4.504,5.463,7.836],\"backgroundColor\":[\"#ff6b6b\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\"],\"borderWidth\":0,\"borderRadius\":3}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"tooltip\":{\"callbacks\":{}}},\"scales\":{\"x\":{\"beginAtZero\":true,\"title\":{\"display\":true,\"text\":\"Pareto Type I tail parameter alpha (unitless)\"},\"grid\":{\"color\":\"rgba(255,255,255,0.12)\"},\"ticks\":{\"color\":\"#d8dee9\"}},\"y\":{\"ticks\":{\"color\":\"#d8dee9\",\"font\":{\"size\":11}},\"grid\":{\"display\":false}}}}}"
+    }
+  ],
+  "sections": [
+    {
+      "label": "The comparison that had not been made",
+      "paragraphs": [
+        "The authors assembled written cost records for 11,011 projects across 23 types, including 5,360 IT projects, in 126 countries and on six continents. Cost risk is actual cost divided by the estimate at final investment decision, in real terms: 1.0 is on budget, above 1.0 is an overrun.",
+        "They used all projects for descriptive statistics, then examined the 5,596 projects with overruns above 1.0 as the upper tail. The study fitted Pareto Type I distributions, bootstrapped the tail parameter and checked the result against several goodness-of-fit tests. That is a much less flattering test of risk than asking what happened on the average Tuesday."
+      ],
+      "paragraphs_html": [
+        "The authors assembled written cost records for <strong>11,011 projects across 23 types</strong>, including 5,360 IT projects, in 126 countries and on six continents. Cost risk is actual cost divided by the estimate at final investment decision, in real terms: 1.0 is on budget, above 1.0 is an overrun.",
+        "They used all projects for descriptive statistics, then examined the 5,596 projects with overruns above 1.0 as the upper tail. The study fitted Pareto Type I distributions, bootstrapped the tail parameter and checked the result against several goodness-of-fit tests. That is a much less flattering test of risk than asking what happened on the average Tuesday."
+      ]
+    },
+    {
+      "label": "IT looks tame until the tail arrives",
+      "paragraphs": [
+        "IT's mean cost overrun was 73%, while its median was 0%. Only 40.86% of IT projects overran, one of the lower frequencies in the study, but 18.26% exceeded a 50% overrun. Among that latter group, the mean overrun was 453%, the highest of any project type.",
+        "This is the paper's barbell profile: plenty of projects appear manageable, while a substantial minority deliver a very different financial experience. A portfolio governed by the median can therefore feel reassuring right up to the point it becomes expensive."
+      ],
+      "paragraphs_html": [
+        "IT's <strong>mean cost overrun was 73%</strong>, while its median was 0%. Only 40.86% of IT projects overran, one of the lower frequencies in the study, but 18.26% exceeded a 50% overrun. Among that latter group, the mean overrun was 453%, the highest of any project type.",
+        "This is the paper's <strong>barbell profile</strong>: plenty of projects appear manageable, while a substantial minority deliver a very different financial experience. A portfolio governed by the median can therefore feel reassuring right up to the point it becomes expensive."
+      ]
+    },
+    {
+      "label": "Why alpha changes the management problem",
+      "paragraphs": [
+        "A smaller Pareto alpha means a flatter complementary cumulative distribution and a fatter tail. IT's median alpha was 0.92, with a bootstrap 95% confidence interval of 0.75 to 1.17. Nuclear storage was the nearest comparator at 1.047, while every other project type had a higher point estimate.",
+        "Under the fitted distribution, alpha at or below one implies infinite mean and variance. This is a mathematical property of the model, not a claim that a particular invoice is literally infinite. Its practical implication is sharper: methods built around means, standard deviations and normal-distribution assumptions cannot reliably predict IT's extreme cost risk. The paper argues that it must be mitigated instead."
+      ],
+      "paragraphs_html": [
+        "A smaller Pareto alpha means a flatter complementary cumulative distribution and a fatter tail. IT's median alpha was <strong>0.92</strong>, with a bootstrap 95% confidence interval of 0.75 to 1.17. Nuclear storage was the nearest comparator at 1.047, while every other project type had a higher point estimate.",
+        "Under the fitted distribution, alpha at or below one implies <strong>infinite mean and variance</strong>. This is a mathematical property of the model, not a claim that a particular invoice is literally infinite. Its practical implication is sharper: methods built around means, standard deviations and normal-distribution assumptions cannot reliably predict IT's extreme cost risk. The paper argues that it must be mitigated instead."
+      ]
+    },
+    {
+      "label": "Reduce exposure before forecasting it",
+      "paragraphs": [
+        "The authors connect the pattern to established explanations for IT difficulty: relative immaturity, intangibility, ambiguous goals and stakeholder resistance. They add bespokeness and fast decision-making as possible drivers of extreme risk. These are supported explanations, not proven causes: the study is observational and does not distinguish IT subtypes.",
+        "Their proposed response is to reduce bespoke, tightly coupled delivery through modularity and to replace rushed decisions with more deliberate ones. The results held across source type, project size, duration, completion year, taxonomy and statistical method, and may be conservative because better-documented organisations may also be better managed. Shorter IT projects did not rescue the risk profile, which is inconvenient but admirably clear."
+      ],
+      "paragraphs_html": [
+        "The authors connect the pattern to established explanations for IT difficulty: relative immaturity, intangibility, ambiguous goals and stakeholder resistance. They add <strong>bespokeness and fast decision-making</strong> as possible drivers of extreme risk. These are supported explanations, not proven causes: the study is observational and does not distinguish IT subtypes.",
+        "Their proposed response is to reduce bespoke, tightly coupled delivery through modularity and to replace rushed decisions with more deliberate ones. The results held across source type, project size, duration, completion year, taxonomy and statistical method, and may be conservative because better-documented organisations may also be better managed. Shorter IT projects did not rescue the risk profile, which is inconvenient but admirably clear."
+      ]
+    }
+  ],
+  "end_takeaway": {
+    "label": "THE MANAGEMENT LESSON",
+    "body": "IT is not merely another project category with a worse average. Its fitted tail makes conventional prediction least useful precisely where decision-makers need it most, so the sensible move is to reduce exposure to the tail before it arrives with a spreadsheet."
+  },
+  "references": [
+    "Flyvbjerg, B., Budzier, A., Aaen, J., Keil, M., & Zottoli, M. (2026). The uniqueness of IT cost risk: A cross-group comparison of 23 project types. <em>Project Management Journal</em>, <em>57</em>(1), 14–43. <a href=\"https://doi.org/10.1177/87569728251340590\" target=\"_blank\" rel=\"noopener noreferrer\">https://doi.org/10.1177/87569728251340590</a>"
+  ],
+  "chart": {
+    "title": "IT has the fattest cost-overrun tail of all 23 project types",
+    "caption": "Flyvbjerg et al. (2026), Table D2. Lower Pareto Type I alpha values indicate fatter upper tails and greater exposure to extreme cost overruns. This recreates the ranked tail-risk finding underlying the paper's discussion of Figure 3; the empirical Figure 3 curves are not printed as recoverable values.",
+    "config_json": {
+      "type": "bar",
+      "data": {
+        "labels": [
+          "IT",
+          "Nuclear storage",
+          "Defense",
+          "Olympics",
+          "Nuclear power",
+          "Buildings",
+          "Dams (other)",
+          "Hydroelectric dams",
+          "Rail",
+          "Aerospace",
+          "Rail stations",
+          "Water",
+          "Mining",
+          "Tunnels",
+          "Bridges",
+          "Roads",
+          "Fossil thermal power",
+          "Pipelines",
+          "Oil and gas",
+          "Wind power",
+          "Nuclear decommissioning",
+          "Energy transmission",
+          "Solar power"
+        ],
+        "datasets": [
+          {
+            "label": "Median Pareto alpha",
+            "data": [
+              0.92,
+              1.047,
+              1.235,
+              1.237,
+              1.526,
+              1.728,
+              1.793,
+              1.801,
+              1.962,
+              2.276,
+              2.31,
+              2.502,
+              2.579,
+              2.621,
+              2.687,
+              2.85,
+              2.866,
+              2.966,
+              3.054,
+              4.289,
+              4.504,
+              5.463,
+              7.836
+            ],
+            "backgroundColor": [
+              "#ff6b6b",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7",
+              "#4dabf7"
+            ],
+            "borderWidth": 0,
+            "borderRadius": 3
+          }
+        ]
+      },
+      "options": {
+        "indexAxis": "y",
+        "responsive": true,
+        "plugins": {
+          "legend": {
+            "display": false
+          },
+          "tooltip": {
+            "callbacks": {}
+          }
+        },
+        "scales": {
+          "x": {
+            "beginAtZero": true,
+            "title": {
+              "display": true,
+              "text": "Pareto Type I tail parameter alpha (unitless)"
+            },
+            "grid": {
+              "color": "rgba(255,255,255,0.12)"
+            },
+            "ticks": {
+              "color": "#d8dee9"
+            }
+          },
+          "y": {
+            "ticks": {
+              "color": "#d8dee9",
+              "font": {
+                "size": 11
+              }
+            },
+            "grid": {
+              "display": false
+            }
+          }
+        }
+      }
+    },
+    "config_raw": "{\"type\":\"bar\",\"data\":{\"labels\":[\"IT\",\"Nuclear storage\",\"Defense\",\"Olympics\",\"Nuclear power\",\"Buildings\",\"Dams (other)\",\"Hydroelectric dams\",\"Rail\",\"Aerospace\",\"Rail stations\",\"Water\",\"Mining\",\"Tunnels\",\"Bridges\",\"Roads\",\"Fossil thermal power\",\"Pipelines\",\"Oil and gas\",\"Wind power\",\"Nuclear decommissioning\",\"Energy transmission\",\"Solar power\"],\"datasets\":[{\"label\":\"Median Pareto alpha\",\"data\":[0.92,1.047,1.235,1.237,1.526,1.728,1.793,1.801,1.962,2.276,2.31,2.502,2.579,2.621,2.687,2.85,2.866,2.966,3.054,4.289,4.504,5.463,7.836],\"backgroundColor\":[\"#ff6b6b\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\",\"#4dabf7\"],\"borderWidth\":0,\"borderRadius\":3}]},\"options\":{\"indexAxis\":\"y\",\"responsive\":true,\"plugins\":{\"legend\":{\"display\":false},\"tooltip\":{\"callbacks\":{}}},\"scales\":{\"x\":{\"beginAtZero\":true,\"title\":{\"display\":true,\"text\":\"Pareto Type I tail parameter alpha (unitless)\"},\"grid\":{\"color\":\"rgba(255,255,255,0.12)\"},\"ticks\":{\"color\":\"#d8dee9\"}},\"y\":{\"ticks\":{\"color\":\"#d8dee9\",\"font\":{\"size\":11}},\"grid\":{\"display\":false}}}}}"
+  },
+  "recreated_figure": {
+    "source_figure": "Figure 3",
+    "title": "IT is the only project type with extreme cost-tail risk (α ≤ 1)",
+    "caption": "Bootstrapped median tail parameter (alpha) of the Pareto fit to cost overruns, per project type; lower alpha means a fatter tail and less predictable risk. Values from Flyvbjerg et al. (2025), Table D2 (N = 11,011). Figure 3 in the paper shows the corresponding empirical CCDF curves for the five largest-sample types.",
+    "chart_type": "bar",
+    "x": {
+      "label": "Project type",
+      "values": [
+        "IT",
+        "Nuclear storage",
+        "Defense",
+        "Olympics",
+        "Nuclear power",
+        "Buildings",
+        "Dams (other)",
+        "Hydroelectric dams",
+        "Rail",
+        "Aerospace",
+        "Rail stations",
+        "Water",
+        "Mining",
+        "Tunnels",
+        "Bridges",
+        "Roads",
+        "Fossil thermal power",
+        "Pipelines",
+        "Oil and gas",
+        "Wind power",
+        "Nuclear decommissioning",
+        "Energy transmission",
+        "Solar power"
+      ]
+    },
+    "y": {
+      "label": "Alpha (tail fatness; lower = riskier)"
+    },
+    "series": [
+      {
+        "provenance": "exact",
+        "source": "Table D2, bootstrapped median alpha values",
+        "name": "Median alpha",
+        "values": [
+          0.92,
+          1.047,
+          1.235,
+          1.237,
+          1.526,
+          1.728,
+          1.793,
+          1.801,
+          1.962,
+          2.276,
+          2.31,
+          2.502,
+          2.579,
+          2.621,
+          2.687,
+          2.85,
+          2.866,
+          2.966,
+          3.054,
+          4.289,
+          4.504,
+          5.463,
+          7.836
+        ]
+      }
+    ],
+    "data_provenance": "supplied",
+    "echarts_option": {
+      "tooltip": {
+        "trigger": "axis"
+      },
+      "grid": {
+        "left": 48,
+        "right": 24,
+        "top": 16,
+        "bottom": 40,
+        "containLabel": true
+      },
+      "xAxis": {
+        "type": "category",
+        "name": "Project type",
+        "nameLocation": "middle",
+        "nameGap": 30,
+        "data": [
+          "IT",
+          "Nuclear storage",
+          "Defense",
+          "Olympics",
+          "Nuclear power",
+          "Buildings",
+          "Dams (other)",
+          "Hydroelectric dams",
+          "Rail",
+          "Aerospace",
+          "Rail stations",
+          "Water",
+          "Mining",
+          "Tunnels",
+          "Bridges",
+          "Roads",
+          "Fossil thermal power",
+          "Pipelines",
+          "Oil and gas",
+          "Wind power",
+          "Nuclear decommissioning",
+          "Energy transmission",
+          "Solar power"
+        ]
+      },
+      "yAxis": {
+        "type": "value",
+        "name": "Alpha (tail fatness; lower = riskier)",
+        "nameLocation": "middle",
+        "nameGap": 44
+      },
+      "series": [
+        {
+          "name": "Median alpha",
+          "type": "bar",
+          "data": [
+            0.92,
+            1.047,
+            1.235,
+            1.237,
+            1.526,
+            1.728,
+            1.793,
+            1.801,
+            1.962,
+            2.276,
+            2.31,
+            2.502,
+            2.579,
+            2.621,
+            2.687,
+            2.85,
+            2.866,
+            2.966,
+            3.054,
+            4.289,
+            4.504,
+            5.463,
+            7.836
+          ]
+        }
+      ]
+    }
+  },
+  "image": {
+    "source_figure": "Figure 3",
+    "caption": "Complementary cumulative distribution functions show that IT cost overruns have a much longer, fatter tail than the other large project categories.",
+    "alt_text": "Log-scale tail chart comparing IT, rail, mining, roads and pipelines; IT extends farthest right with the slowest-declining curve."
+  }
+}

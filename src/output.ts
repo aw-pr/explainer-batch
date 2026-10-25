@@ -1,11 +1,14 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import type { ExplainerChart, ExplainerJson } from './types/explainer-json';
-import { extractFigureViaVlm, contextFromExplainer } from './figure-vlm';
-import { recreateFigureData } from './figure-data';
-import { readState, type FigureCandidate, type RecreateDirective } from './state';
-import { htmlToPlain } from './text';
+import { randomUUID } from 'node:crypto';
+import type { Chart, ExplainerV2, ModelOutputV2 } from '../contract/explainer-v2';
+import type { FigureAsset } from './finalize';
+import { extractFigureViaVlm } from './figure-vlm';
+import { locateEmbeddedFigure } from './figure-locator/pdf-embedded';
+import { buildFigureRequest } from './figure-locator/request';
+import { formatLabel } from './figure-locator/label';
+import { readState, type FigureCandidate } from './state';
 import { loadDotEnv } from './env';
 
 // Fill-only .env load must run before the path consts below read process.env.
@@ -62,15 +65,6 @@ export const OBSIDIAN_MIRROR_DIR: string | null = (() => {
   return path.join(os.homedir(), 'obsidian', 'explainers');
 })();
 
-export interface SaveResult {
-  jsonFile: string;
-  jsonPath: string;
-  /** null when WEBSITE_REPO is not configured (staging skipped). */
-  stagedJsonPath: string | null;
-  /** null when the Obsidian mirror is disabled (EXPLAINER_OBSIDIAN_DIR=""). */
-  mirroredJsonPath: string | null;
-}
-
 /**
  * Extracts a JSON object from raw model output.
  * Handles:
@@ -96,69 +90,21 @@ export function extractJson(raw: string): unknown {
   return JSON.parse(raw.trim());
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-/**
- * OpenAI's strict structured-output subset requires config_json to be a
- * string (a stringified Chart.js config); parse it back to an object here so
- * the saved artifact matches the website's `config_json: unknown | null`
- * contract regardless of which route produced it. Parse failures are left
- * as-is (still a string) so the validator/repair path can catch them.
- */
-function parseStringifiedConfigJson(chart: Record<string, unknown>): void {
-  if (typeof chart.config_json === 'string') {
-    try {
-      chart.config_json = JSON.parse(chart.config_json);
-    } catch {
-      // leave as-is; malformed config_json falls through to validation/repair
-    }
-  }
-}
-
-function normalizeChartEntry(chart: ExplainerChart | Record<string, unknown>): ExplainerChart {
-  const normalized = chart as ExplainerChart;
-  parseStringifiedConfigJson(normalized as unknown as Record<string, unknown>);
-  if (normalized.config_json && !normalized.config_raw) {
-    normalized.config_raw = JSON.stringify(normalized.config_json);
-  }
-  return normalized;
-}
-
-/**
- * Deletes explicit `null` values recursively so a schema-enforced route's
- * nullable-optional fields (e.g. `image: null`, `end_takeaway: null`,
- * `paragraphs_html: null`) come out looking like an absent field, matching
- * what non-enforced routes have always produced. `config_json` is left
- * untouched — a Chart.js config may legitimately contain nulls (and the type
- * itself allows `config_json: unknown | null` to signal "see config_raw
- * instead"), so recursion does not descend into it.
- */
-function stripSchemaNulls(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const entry of value) stripSchemaNulls(entry);
-    return;
-  }
-  if (!isRecord(value)) return;
-
-  for (const key of Object.keys(value)) {
-    if (key === 'config_json') continue;
-    if (value[key] === null) {
-      delete value[key];
-    } else {
-      stripSchemaNulls(value[key]);
-    }
-  }
-}
-
 /**
  * Reverses preprocess.ts's customId derivation to find the source PDF.
- * Returns null for URL-sourced explainers or when no matching PDF exists
+ * Uses the newest recorded cache path for URL-sourced explainers.
+ * Returns null when no matching PDF exists
  * (e.g. the input file was removed after the batch was submitted).
  */
-function resolveSourcePdf(customId: string): string | null {
-  if (customId.startsWith('explainer-url-')) return null;
+export function resolveSourcePdf(customId: string): string | null {
+  if (customId.startsWith('explainer-url-')) {
+    const state = readState();
+    for (let i = state.batches.length - 1; i >= 0; i--) {
+      const cachedPath = state.batches[i].requests[customId]?.source?.cachedPdfPath;
+      if (cachedPath !== undefined) return fs.existsSync(cachedPath) ? cachedPath : null;
+    }
+    return null;
+  }
   const target = customId.replace(/^explainer-/, '');
   if (!fs.existsSync(INPUT_DIR)) return null;
 
@@ -170,7 +116,7 @@ function resolveSourcePdf(customId: string): string | null {
   return null;
 }
 
-function lookupImageOverride(customId: string): { source_figure: string; caption?: string; alt_text?: string; pageHint?: number } | undefined {
+function lookupImageOverride(customId: string): { source_figure?: string; caption?: string; alt_text?: string; pageHint?: number; forceRegionCrop?: boolean } | undefined {
   try {
     const state = readState();
     // Iterate newest-first: when a paper is re-run, the most recent batch's
@@ -182,27 +128,6 @@ function lookupImageOverride(customId: string): { source_figure: string; caption
     }
   } catch { /* ignore */ }
   return undefined;
-}
-
-function lookupRecreate(customId: string): RecreateDirective | undefined {
-  try {
-    const state = readState();
-    for (let i = state.batches.length - 1; i >= 0; i--) {
-      const req = state.batches[i].requests[customId];
-      if (req?.recreate) return req.recreate;
-    }
-  } catch { /* ignore */ }
-  return undefined;
-}
-
-/**
- * Whether the figure-recreation pass should run for this paper. A sidecar
- * directive always wins (including an explicit `recreate: no`); otherwise the
- * FIGURE_RECREATE=1 env switch enables it globally.
- */
-function recreationRequested(directive?: RecreateDirective): boolean {
-  if (directive) return directive.enabled;
-  return process.env.FIGURE_RECREATE === '1';
 }
 
 /**
@@ -241,118 +166,47 @@ function resolveFigureCandidates(customId: string): FigureCandidate[] | undefine
 }
 
 /**
- * Vision-driven figure attachment. The deterministic caption/gap-finder has
- * been retired: a vision model now looks at the rendered document (PDF pages
- * or a live web page) and picks the single most useful figure, returning a
- * bounding box we crop from the source render.
- *
- * A `.focus.md` image override is no longer required — when present it pins a
- * specific figure and supplies caption/alt overrides; when absent the model
- * selects autonomously. Always async (the vision call is remote); never throws.
+ * The operator's image pin wins over the model's figure request. Return bytes
+ * to the seam so extraction never changes the stored article directly.
  */
-async function attachFigureImage(json: ExplainerJson, customId: string): Promise<void> {
+export async function locateLeadFigure(wire: ModelOutputV2, customId: string): Promise<FigureAsset | null> {
+  if (!wire.figure_request) return null;
   const override = lookupImageOverride(customId);
-  const directive = lookupRecreate(customId);
-  const recreate = recreationRequested(directive);
   const pdfPath = resolveSourcePdf(customId);
   const url = pdfPath ? null : resolveSourceUrl(customId);
-
-  // Tier-0 recreation (user-supplied data sidecar) needs no crop or source
-  // document, so it runs even when figure extraction is impossible.
-  if (recreate && directive?.dataFile) {
-    const fig = await recreateFigureData({
-      directive,
-      inputDir: INPUT_DIR,
-      sourceFigure: directive.target ?? override?.source_figure,
-    });
-    if (fig) json.recreated_figure = fig;
-  }
-
-  if (json.image?.src) return; // already populated
-
-  if (!pdfPath && !url) {
-    if (json.image) delete json.image;
-    return;
-  }
-
+  if (!pdfPath && !url) return null;
   const snapshotCandidates = url ? resolveFigureCandidates(customId) : undefined;
-
-  // A recreation target pins the figure pick too (recreate and clip must be
-  // the same figure so the clip is the honest fallback), unless an explicit
-  // image: override already pins one.
-  const effOverride = recreate && directive?.target && !override?.source_figure
-    ? { ...(override ?? {}), source_figure: directive.target }
-    : override;
-  const wantCrop = recreate && !json.recreated_figure;
-
-  // Explainer context steers selection towards a figure that complements the
-  // article (the charts already recreate the headline results).
-  const result = await extractFigureViaVlm({ pdfPath, url, override: effOverride, context: contextFromExplainer(json), snapshotCandidates, keepCropPng: wantCrop });
-  if (!result) {
-    if (json.image) delete json.image;
-    return;
+  const native = locateEmbeddedFigure(buildFigureRequest({
+    output: wire, override, source: { ...(pdfPath && { pdfPath }) },
+  }));
+  if (native) {
+    console.log(`  ✓ ${customId}: figure via pdf-embedded (p.${native.page})`);
+    return {
+      label: formatLabel(native.label),
+      caption: override?.caption ?? native.captionText!,
+      alt_text: override?.alt_text ?? native.captionText!,
+      bytes: native.bytes, page: native.page, provenance: native.provenance,
+    };
   }
-
-  // Caption/alt sidecar overrides win over model-generated text. An existing
-  // caption/alt only survives when the model re-picked the SAME figure;
-  // carrying it onto a different figure would mislabel the image.
-  const existing = json.image;
-  const pickedFigure = effOverride?.source_figure ?? result.source_figure;
-  const samePick = Boolean(existing?.source_figure && pickedFigure && existing.source_figure === pickedFigure);
-  json.image = {
-    ...(existing ?? {}),
-    source_figure: pickedFigure,
-    caption: effOverride?.caption ?? (samePick ? existing?.caption : undefined) ?? result.caption ?? existing?.caption,
-    alt_text: effOverride?.alt_text ?? (samePick ? existing?.alt_text : undefined) ?? result.alt_text ?? existing?.alt_text,
-    src: result.src,
-  };
+  const result = await extractFigureViaVlm({
+    pdfPath, url, snapshotCandidates,
+    override: { ...override, source_figure: override?.source_figure ?? wire.figure_request.label },
+    context: {
+      headline: wire.hero.headline, subtitle: wire.hero.subtitle,
+      sectionLabels: wire.sections.map(section => section.label),
+      chartTitles: wire.charts.map(chart => chart.title),
+    },
+  });
+  if (!result) return null;
+  const data = /^data:image\/[^;,]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(result.src);
+  if (!data) throw new Error('unrecognised image bytes');
   console.log(`  ✓ ${customId}: figure via ${result.provider}/${result.route}${result.page ? ` (p.${result.page})` : ''}`);
-
-  // Tiers 1-2: extract the data behind the crop; on any honest failure the
-  // clip above simply stands.
-  if (wantCrop && result.cropPngBase64) {
-    const fig = await recreateFigureData({
-      cropPngBase64: result.cropPngBase64,
-      pdfPath,
-      page: result.page,
-      sourceFigure: pickedFigure,
-      directive,
-      inputDir: INPUT_DIR,
-    });
-    if (fig) json.recreated_figure = fig;
-  }
-}
-
-/**
- * Conform model output to the canonical schema. Opus consistently emits
- * `paragraphs_html` without `paragraphs`, and `end_takeaway.heading/body_html`
- * instead of `label/body`. We derive the missing fields rather than fail
- * validation or render blank blocks.
- */
-export function normalizeSchemaDrift(json: ExplainerJson): void {
-  if (Array.isArray(json.sections)) {
-    for (const section of json.sections) {
-      const s = section as unknown as Record<string, unknown>;
-      if (!Array.isArray(s.paragraphs) && Array.isArray(s.paragraphs_html)) {
-        s.paragraphs = (s.paragraphs_html as string[]).map(htmlToPlain);
-      }
-    }
-  }
-
-  const et = json.end_takeaway as unknown as Record<string, unknown> | undefined;
-  if (et) {
-    if (typeof et.label !== 'string' && typeof et.heading === 'string') {
-      et.label = et.heading;
-      delete et.heading;
-    }
-    if (typeof et.body !== 'string' && typeof et.body_html === 'string') {
-      et.body = htmlToPlain(et.body_html as string);
-    }
-    // Opus sometimes emits paragraphs_html on end_takeaway instead of body_html
-    if (typeof et.body !== 'string' && Array.isArray(et.paragraphs_html)) {
-      et.body = (et.paragraphs_html as string[]).map(htmlToPlain).join(' ');
-    }
-  }
+  return {
+    label: override?.source_figure ?? result.source_figure,
+    caption: override?.caption ?? result.caption,
+    alt_text: override?.alt_text ?? result.alt_text,
+    bytes: Buffer.from(data[1], 'base64'), page: result.page, provenance: 'vlm-crop',
+  };
 }
 
 // A chart whose richest data series has fewer than this many points carries
@@ -364,207 +218,82 @@ const MIN_CHART_POINTS = (() => {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 6;
 })();
 
-/** Longest `data` array across a chart's datasets (Chart.js config), or 0. */
-function chartLongestSeries(chart: ExplainerChart | Record<string, unknown>): number {
-  const cfg = (chart as Record<string, unknown>).config_json as
-    | { data?: { datasets?: Array<{ data?: unknown[] }> } }
-    | undefined;
-  const datasets = cfg?.data?.datasets;
-  if (!Array.isArray(datasets)) return 0;
-  let max = 0;
-  for (const d of datasets) {
-    if (Array.isArray(d?.data)) max = Math.max(max, d.data.length);
-  }
-  return max;
-}
+export { MIN_CHART_POINTS };
 
-function normalizeExplainerJson(json: ExplainerJson): ExplainerJson {
-  stripSchemaNulls(json);
-  normalizeSchemaDrift(json);
-  const legacyChart = isRecord(json.chart) ? normalizeChartEntry(json.chart) : undefined;
-  const charts = Array.isArray(json.charts)
-    ? json.charts
-        .filter((entry) => isRecord(entry))
-        .map((entry) => normalizeChartEntry(entry))
-    : [];
-
-  const candidates = charts.length > 0 ? charts : legacyChart ? [legacyChart] : [];
-
-  // Drop information-poor charts (longest series < MIN_CHART_POINTS).
-  const kept = candidates.filter((c) => {
-    const len = chartLongestSeries(c);
+export function dropThinCharts(charts: Chart[]): { kept: Chart[]; dropped: string[] } {
+  const dropped: string[] = [];
+  const kept = charts.filter((chart, index) => {
+    const series = Array.isArray(chart?.series) ? chart.series : [];
+    const len = Math.max(0, ...series.map(series => {
+      const values = chart?.kind === 'scatter' ? series?.points : series?.values;
+      return Array.isArray(values) ? values.length : 0;
+    }));
     if (len < MIN_CHART_POINTS) {
-      console.warn(`  ⚠ chart "${(c as ExplainerChart).title ?? '(untitled)'}" dropped — longest series ${len} < ${MIN_CHART_POINTS} points.`);
+      dropped.push(`charts[${index}]: "${chart?.title ?? '(untitled)'}" dropped, fewer than ${MIN_CHART_POINTS} points`);
       return false;
     }
     return true;
   });
-  const normalizedCharts = kept.slice(0, 3);
-
-  json.charts = normalizedCharts.length > 0 ? normalizedCharts : undefined;
-  json.chart = normalizedCharts[0] ?? undefined;
-
-  return json;
+  return { kept, dropped };
 }
 
-/**
- * Derives the output filename from the JSON metadata,
- * falling back to the custom_id slug if unavailable.
- */
-function deriveFilename(customId: string, json: ExplainerJson | null): string {
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (json?.metadata?.filename_slug) {
-    // Model-supplied value goes into path.join: strip separators and dot
-    // sequences so it can only ever name a file inside OUTPUT_DIR.
-    const slug = json.metadata.filename_slug
-      .replace(/\.json$/, '')
-      .replace(/[/\\\0]/g, '-')
-      .replace(/\.{2,}/g, '.')
-      .replace(/^\.+/, '');
-    if (slug.length > 0) return `${slug}.json`;
-  }
-
-  // Fallback: use the custom_id slug
-  const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
-  return `${today}_${slug}_explainer.json`;
-}
-
-export interface RunProvenance {
-  /** Model ID that generated the result, e.g. "claude-fable-5". */
-  model?: string;
-  /** Dispatch route: batch API vs synchronous single request. */
-  runMode?: 'sync' | 'batch';
-  /** First author's surname, detected deterministically upstream. Stamps the byline when the model drops or placeholders it. */
-  detectedSurname?: string;
-  /** Publication date ("Published Month Year") detected from source metadata. Authoritative over the model's guess. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) detected upstream. Replaces the model's reference when present, guaranteeing consistent attribution. */
-  detectedReference?: string;
-}
-
-const PLACEHOLDER_AUTHOR_RE = /\b(?:unknown|unattributed|anonymous|unspecified|n\/a)\b/gi;
-
-function slugifySurname(surname: string): string {
-  return surname
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '')
-    .slice(0, 40);
-}
-
-/**
- * Overwrite the author segment of a canonical filename slug
- * (`YYYY-MM-DD_authorsurname_short-title_explainer`) with the deterministically
- * detected surname. Only touches a slug that already matches the shape; a
- * malformed slug is left for deriveFilename to sanitise.
- */
-function stampSlugAuthor(slug: string, surnameSlug: string): string {
-  const m = slug.match(/^(\d{4}-\d{2}-\d{2})_([^_]+)_(.+)$/);
-  return m ? `${m[1]}_${surnameSlug}_${m[3]}` : slug;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function firstYear(...candidates: Array<string | undefined>): string | undefined {
-  for (const c of candidates) {
-    const m = c?.match(/\b(?:19|20|21)\d{2}\b/);
-    if (m) return m[0];
-  }
-  return undefined;
-}
-
-/**
- * Apply deterministically-detected byline/date over the model's output. The
- * detected values come from source metadata (arXiv `/abs/` citation tags), so
- * they beat a model that dropped the author or guessed the date. The title is
- * only touched to swap a placeholder token ("Unknown" etc.); the eyebrow has a
- * fixed format, so it is rebuilt whenever it does not already name the author (a
- * real model-written eyebrow that already includes the surname is left alone,
- * preserving nuances like "et al.").
- */
-function stampProvenanceByline(json: ExplainerJson, provenance: RunProvenance): void {
-  if (provenance.detectedSurname) {
-    const surname = provenance.detectedSurname;
-    const surnameSlug = slugifySurname(surname);
-    if (surnameSlug && json.metadata?.filename_slug) {
-      json.metadata.filename_slug = stampSlugAuthor(json.metadata.filename_slug, surnameSlug);
-    }
-    if (json.metadata?.title) json.metadata.title = json.metadata.title.replace(PLACEHOLDER_AUTHOR_RE, surname);
-    if (json.metadata) {
-      const eyebrow = (json.metadata.eyebrow ?? '').replace(PLACEHOLDER_AUTHOR_RE, surname);
-      const hasSurname = new RegExp(`\\b${escapeRegExp(surname)}\\b`, 'i').test(eyebrow);
-      if (hasSurname) {
-        json.metadata.eyebrow = eyebrow;
-      } else {
-        const year = firstYear(provenance.detectedPublished, json.metadata.title, json.hero?.publication_date);
-        json.metadata.eyebrow = `Research Explainer · ${surname}${year ? ` (${year})` : ''}`;
-      }
-    }
-  }
-  if (provenance.detectedPublished && json.hero) {
-    json.hero.publication_date = provenance.detectedPublished;
-  }
-  if (provenance.detectedReference) {
-    json.references = [provenance.detectedReference];
-  }
-}
-
-export async function saveResult(customId: string, rawText: string, provenance?: RunProvenance): Promise<SaveResult> {
-  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-  let json: ExplainerJson;
-  try {
-    const parsed = extractJson(rawText);
-    json = normalizeExplainerJson(parsed as ExplainerJson);
-  } catch {
-    // Non-parseable output — save the raw text as a .txt for inspection
-    const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
-    const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
-    fs.writeFileSync(errFile, rawText, 'utf8');
-    throw new Error(`JSON parse failed; raw output saved to ${path.basename(errFile)}`);
-  }
-
-  if (provenance) stampProvenanceByline(json, provenance);
-  if (provenance?.model) json.metadata.model = provenance.model;
-  if (provenance?.runMode) json.metadata.run_mode = provenance.runMode;
-
-  // A figure failure must not discard a valid explainer: warn and save it
-  // without an image instead of routing to the parse-error path.
-  try {
-    await attachFigureImage(json, customId);
-  } catch (err) {
-    console.warn(`  ⚠ ${customId}: figure attachment failed, saving without an image (${err instanceof Error ? err.message : String(err)})`);
-    if (json.image) delete json.image;
-  }
-
-  const filename = deriveFilename(customId, json);
-  const outPath = path.join(OUTPUT_DIR, filename);
-  fs.writeFileSync(outPath, JSON.stringify(json, null, 2), 'utf8');
-
-  // Stage into the consuming website repo only when it is configured.
-  let stagedPath: string | null = null;
-  if (WEBSITE_STAGING_DIR) {
-    fs.mkdirSync(WEBSITE_STAGING_DIR, { recursive: true });
-    stagedPath = path.join(WEBSITE_STAGING_DIR, filename);
-    fs.copyFileSync(outPath, stagedPath);
-  }
-
-  // Mirror into the local knowledge base (Obsidian vault) unless disabled.
-  let mirroredPath: string | null = null;
-  if (OBSIDIAN_MIRROR_DIR) {
-    fs.mkdirSync(OBSIDIAN_MIRROR_DIR, { recursive: true });
-    mirroredPath = path.join(OBSIDIAN_MIRROR_DIR, filename);
-    fs.copyFileSync(outPath, mirroredPath);
-  }
-
-  return {
-    jsonFile: filename,
-    jsonPath: outPath,
-    stagedJsonPath: stagedPath,
-    mirroredJsonPath: mirroredPath,
+export async function persistArtefact(
+  article: ExplainerV2,
+  { itemKey, kind, figureBytes }: { itemKey: string; kind: 'success' | 'review'; figureBytes?: Buffer },
+): Promise<{
+  jsonPath: string;
+  destinations: {
+    output: 'written';
+    staging: 'written' | 'skipped' | 'failed';
+    mirror: 'written' | 'skipped' | 'failed';
   };
+}> {
+  const directory = kind === 'review' ? path.join(OUTPUT_DIR, 'review') : OUTPUT_DIR;
+  const filename = `${article.metadata.slug}.json`;
+  const jsonPath = path.join(directory, filename);
+  const temporaryPath = path.join(directory, `.${filename}.${randomUUID()}.tmp`);
+  const writeSidecar = async (destination: string): Promise<void> => {
+    if (!article.lead_figure) return;
+    if (!figureBytes) throw new Error('Lead figure bytes are required to persist its sidecar');
+    const file = path.join(destination, article.lead_figure.asset);
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${randomUUID()}.tmp`);
+    try {
+      await fs.promises.writeFile(temporary, figureBytes, { flag: 'wx' });
+      await fs.promises.rename(temporary, file);
+    } finally {
+      await fs.promises.rm(temporary, { force: true });
+    }
+  };
+  await fs.promises.mkdir(directory, { recursive: true });
+  try {
+    await writeSidecar(directory);
+    await fs.promises.writeFile(temporaryPath, JSON.stringify(article, null, 2), { encoding: 'utf8', flag: 'wx' });
+    await fs.promises.rename(temporaryPath, jsonPath);
+  } finally {
+    await fs.promises.rm(temporaryPath, { force: true });
+  }
+
+  const copy = async (destination: string | null): Promise<'written' | 'skipped' | 'failed'> => {
+    if (kind === 'review' || !destination) return 'skipped';
+    try {
+      await fs.promises.mkdir(destination, { recursive: true });
+      await writeSidecar(destination);
+      await fs.promises.copyFile(jsonPath, path.join(destination, filename));
+      return 'written';
+    } catch {
+      return 'failed';
+    }
+  };
+  const staging = await copy(WEBSITE_STAGING_DIR);
+  const mirror = await copy(OBSIDIAN_MIRROR_DIR);
+  return { jsonPath, destinations: { output: 'written', staging, mirror } };
+}
+
+export function saveRawOutput(customId: string, text: string): string {
+  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  const slug = customId.replace(/^explainer-(?:url-)?/, '').slice(0, 50);
+  const errFile = path.join(OUTPUT_DIR, `${new Date().toISOString().slice(0, 10)}_${slug}_error.txt`);
+  fs.writeFileSync(errFile, text, 'utf8');
+  return path.basename(errFile);
 }

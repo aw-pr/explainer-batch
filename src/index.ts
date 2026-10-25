@@ -1,7 +1,9 @@
 import { loadDotEnv } from './env';
 import { preprocessInputs } from './preprocess';
 import { submitBatch, pollAndRetrieve, printStatus, runSync } from './batch';
-import { getProviderFromArgs, parseOpenAIAuthMode, type ProviderName } from './providers';
+import { getProviderFromArgs, isProviderName, parseOpenAIAuthMode, type ProviderName } from './providers';
+import { resolveFigureDataModel, resolveVisionModel, resolveVisionVerifyModel } from './model-config';
+import { resolveVisionProvider, visionAuthAvailable } from './vision';
 
 // Fill-only: never overrides a real shell export or an op-fetch injection.
 loadDotEnv();
@@ -29,7 +31,7 @@ function parseCommandArgs(command: Command): { provider: ProviderName; batchId?:
   const args = process.argv.slice(3);
   const provider = getProviderFromArgs(args);
   const providerExplicit = args.includes('--provider') || Boolean(process.env.PROVIDER);
-  const nonFlagArgs = args.filter(arg => !arg.startsWith('--') && arg !== 'claude' && arg !== 'openai');
+  const nonFlagArgs = args.filter(arg => !arg.startsWith('--') && !isProviderName(arg));
   const batchId = command === 'poll' ? nonFlagArgs[0] : undefined;
   const syncMode = args.includes('--sync');
   return { provider, batchId, providerExplicit, syncMode };
@@ -90,6 +92,13 @@ async function main(): Promise<void> {
   }
 
   assertProviderAuth(parsed.provider, command, parsed.syncMode);
+
+  if (visionAuthAvailable()) {
+    const visionProvider = resolveVisionProvider();
+    resolveVisionModel(visionProvider);
+    resolveVisionVerifyModel(visionProvider);
+    resolveFigureDataModel(visionProvider);
+  }
 
   if (command === 'poll') {
     console.log('\n── Poll ─────────────────────────────────────────');

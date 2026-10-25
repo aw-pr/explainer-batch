@@ -1,0 +1,584 @@
+{
+  "type": "object",
+  "properties": {
+    "hero": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Short article title, used for the page title, cards and the slug."
+        },
+        "headline": {
+          "type": "string",
+          "description": "One-sentence hero headline stating the main finding."
+        },
+        "emphasis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A phrase copied exactly from the headline to highlight, or null for none."
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "One or two sentences expanding the headline."
+        }
+      },
+      "required": [
+        "title",
+        "headline",
+        "emphasis",
+        "subtitle"
+      ],
+      "additionalProperties": false,
+      "description": "The article hero."
+    },
+    "top_block": {
+      "description": "The block under the hero: pills, or a takeaway.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "description": "Key-figure pills under the hero.",
+              "enum": [
+                "pills"
+              ]
+            },
+            "pills": {
+              "minItems": 2,
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lead": {
+                    "type": "string",
+                    "description": "The pill's short lead: a number with its unit, or a two or three word phrase."
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "One sentence saying what the lead means."
+                  }
+                },
+                "required": [
+                  "lead",
+                  "text"
+                ],
+                "additionalProperties": false
+              },
+              "description": "Two to six key figures or ideas from the paper."
+            }
+          },
+          "required": [
+            "kind",
+            "pills"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "description": "A single takeaway block under the hero.",
+              "enum": [
+                "takeaway"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": "Short label for the takeaway, such as \"In short\"."
+            },
+            "body": {
+              "type": "string",
+              "description": "The takeaway itself, one to three sentences."
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "sections": {
+      "minItems": 2,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Section heading."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The section prose, one string per paragraph."
+          },
+          "list": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "ordered": {
+                "type": "boolean",
+                "description": "True for a sequence whose order matters, false otherwise."
+              },
+              "intro": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "One sentence introducing the list, or null."
+              },
+              "items": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Short bold label for the item, or null."
+                    },
+                    "body": {
+                      "type": "string",
+                      "description": "The item text."
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "body"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "The list items."
+              }
+            },
+            "required": [
+              "ordered",
+              "intro",
+              "items"
+            ],
+            "additionalProperties": false,
+            "description": "An optional list block, or null."
+          },
+          "table": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "caption": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "What the table shows, without a source tag, or null."
+              },
+              "columns": {
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Column headings, at least two."
+              },
+              "rows": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "description": "Table rows, each a list of cell strings in column order."
+              },
+              "source": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "description": "The table as printed in the paper (\"Table 2\"), or for a web page the section heading."
+                  },
+                  "page": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "The PDF page the table sits on, or null when unknown or not a PDF."
+                  }
+                },
+                "required": [
+                  "ref",
+                  "page"
+                ],
+                "additionalProperties": false,
+                "description": "Where the table comes from in the paper, or null."
+              }
+            },
+            "required": [
+              "caption",
+              "columns",
+              "rows",
+              "source"
+            ],
+            "additionalProperties": false,
+            "description": "An optional table block, or null."
+          }
+        },
+        "required": [
+          "label",
+          "paragraphs",
+          "list",
+          "table"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Two to five article sections."
+    },
+    "charts": {
+      "maxItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bar",
+              "stacked_bar",
+              "line",
+              "scatter"
+            ],
+            "description": "The chart type."
+          },
+          "title": {
+            "type": "string",
+            "description": "Chart title."
+          },
+          "caption": {
+            "type": "string",
+            "description": "One sentence saying what the chart shows, without a source tag."
+          },
+          "x": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Axis label."
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Axis unit; required when the axis is numeric, otherwise null."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "category",
+                  "linear",
+                  "log"
+                ],
+                "description": "category for labels, linear or log for numbers."
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "description": "The x positions, aligned by index with each non-scatter series; may be empty for scatter."
+              }
+            },
+            "required": [
+              "label",
+              "unit",
+              "type",
+              "values"
+            ],
+            "additionalProperties": false,
+            "description": "The x axis."
+          },
+          "y": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Axis label."
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Axis unit, such as \"%\" or \"ms\"."
+              },
+              "scale": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "log"
+                ],
+                "description": "The y scale."
+              }
+            },
+            "required": [
+              "label",
+              "unit",
+              "scale"
+            ],
+            "additionalProperties": false,
+            "description": "The y axis."
+          },
+          "series": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Series name, shown in the legend."
+                },
+                "values": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "description": "One value per x.values entry, null for a gap; null for a scatter series."
+                },
+                "points": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "The points of a scatter series; null otherwise."
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "table",
+                        "text"
+                      ],
+                      "description": "table: the values come from a printed table; text: from a sentence in the paper."
+                    },
+                    "ref": {
+                      "type": "string",
+                      "description": "For table, the table as printed (\"Table 2\"); for text, a verbatim fragment of at most 160 characters containing the values."
+                    },
+                    "page": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "The PDF page of the source, or null."
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ref",
+                    "page"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Where the series values are stated in the paper."
+                }
+              },
+              "required": [
+                "name",
+                "values",
+                "points",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The data series, at least one."
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "caption",
+          "x",
+          "y",
+          "series"
+        ],
+        "additionalProperties": false
+      },
+      "description": "At most one chart, built only from values the paper states."
+    },
+    "figure_request": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "The figure as labelled in the paper, such as \"Figure 3\"."
+        },
+        "why": {
+          "type": "string",
+          "description": "Why this figure best illustrates the article."
+        }
+      },
+      "required": [
+        "label",
+        "why"
+      ],
+      "additionalProperties": false,
+      "description": "The paper figure to show as the lead image, or null."
+    },
+    "end_takeaway": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Short label, such as \"Bottom line\"."
+        },
+        "body": {
+          "type": "string",
+          "description": "The closing takeaway, one to three sentences."
+        }
+      },
+      "required": [
+        "label",
+        "body"
+      ],
+      "additionalProperties": false,
+      "description": "Closing takeaway: required with pills, null with a takeaway top block."
+    },
+    "citation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "authors": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string",
+                "description": "Family name."
+              },
+              "given": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Given names or initials, or null."
+              }
+            },
+            "required": [
+              "family",
+              "given"
+            ],
+            "additionalProperties": false
+          },
+          "description": "The authors in the order the paper lists them."
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Publication year, or null when the paper does not state one."
+        },
+        "title": {
+          "type": "string",
+          "description": "The paper's full title."
+        },
+        "venue": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Journal, conference or archive, or null."
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A canonical http(s) URL for the paper, or null."
+        }
+      },
+      "required": [
+        "authors",
+        "year",
+        "title",
+        "venue",
+        "url"
+      ],
+      "additionalProperties": false,
+      "description": "The paper's citation read from its front matter, or null when told the citation is known."
+    }
+  },
+  "required": [
+    "hero",
+    "top_block",
+    "sections",
+    "charts",
+    "figure_request",
+    "end_takeaway",
+    "citation"
+  ],
+  "additionalProperties": false,
+  "description": "A research explainer article."
+}

@@ -1,20 +1,65 @@
 # Figure extraction pipeline
 
 How the explainer pipeline turns a source document into a lead figure
-embedded in the JSON output. The deterministic caption/gap-finder
-(`figure-extract.ts`) has been **retired** in favour of a vision model
-that looks at the rendered document the way a reader does.
+stored beside the JSON output. A conservative native-image path handles
+unambiguous local PDF images; other layouts use the vision model. The old
+caption/gap-finder (`figure-extract.ts`) remains retired.
 
-## Current model: vision-driven selection
+## V2 sidecar assets
 
-`src/figure-vlm.ts:extractFigureViaVlm` is the single entry point, called
-from `output.ts:attachFigureImage` after the JSON is parsed (and from the
-`reextract` script). Callers pass the explainer's own context (hero
+The finalise seam calls the figure hook after repair and resolution of
+surviving issues, only when `figure_request` is present. It checkpoints the
+result, including image bytes, so replay restores a lost sidecar without
+another extraction call. The request remains in the saved article for reextract.
+
+`persistArtefact` writes the image before the JSON at
+`output/<slug>/<file>`, or `output/review/<slug>/<file>` for review articles.
+Successful articles also copy the sidecar beside each JSON in website staging
+(`explainers-new/`) and the Obsidian mirror. Review copies are skipped;
+staging or mirror failures are reported independently, as for JSON copies.
+
+The filename comes from the printed label and the sniffed image type:
+`figure-3.jpg`, `figure-4b.png`, `table-2.jpg`, or `figure.<ext>` when the label
+has no number. `lead_figure` records the label, caption, alt text, relative
+`asset` path (`<slug>/<file>`), SHA-256 of the image bytes, pixel width and
+height when readable, optional page, and provenance (`pdf-embedded` or `vlm-crop`).
+SVG dimensions are omitted. The article digest covers JSON bytes only.
+
+A null result, extraction error or unrecognised image bytes leaves out
+`lead_figure` and records the reason in `metadata.quality.dropped`, preserving
+the item's success or review status. New save paths write no inline image data
+or `recreated_figure`. Recreation switches and directives do not run a
+recreation pass during saves; W8 will return recreation as a v2 `Chart`.
+
+## Local PDF embedded-image fast path
+
+After wire repair, `output.ts:locateLeadFigure` first tries
+`src/figure-locator/pdf-embedded.ts`. It requires one exact caption label and
+one complete embedded image immediately above it, with no intervening or
+overlapping PDF text. Duplicate captions, panel requests, multiple nearby
+images, an image below the caption, distant images and `forceRegionCrop`
+all fall through to the existing VLM path. Page hints remain advisory; the
+caption supplies the actual page. The operator's figure pin and caption/alt
+text overrides retain precedence.
+
+Poppler renders the native image bounds directly as JPEG at at least 300 DPI
+(up to 600 DPI when the embedded image's resolution warrants it). This is a
+PDF render of the image bounds, rather than extraction of the original image
+stream. `pdf-embedded` records that the bounds came from a native embedded
+image. The source caption supplies caption and alt text unless overridden.
+This path makes no model calls; VLM selection and crop verification remain
+unchanged for every layout it declines. The broader locator work remains W8.
+
+## Vision-driven selection
+
+`src/figure-vlm.ts:extractFigureViaVlm` handles the fallback from
+`output.ts:locateLeadFigure` and the `reextract` script. Callers pass the explainer's own context (hero
 headline, subtitle, section labels, chart titles) into the selection
-prompt. Because the explainer already recreates headline results as its
-own charts, the prompt steers towards a complementary conceptual figure
-(architecture, pipeline, schematic, visual abstract) rather than a
-results plot the charts duplicate.
+prompt as context. The operator's `.focus.md` image pin takes precedence over
+`figure_request.label`; otherwise that requested label pins the selection.
+The prompt asks for the paper's key results figure, the one carrying its
+headline finding, and falls back to a conceptual figure (architecture,
+pipeline, schematic, visual abstract) only when the paper has no results figure.
 
 ### PDF path: two-pass zoom-refine
 
@@ -30,9 +75,15 @@ results plot the charts duplicate.
    figure body, excluding caption and body text. Thumbnails are too
    coarse for trustworthy coordinates; the refined box is what gets
    cropped.
-3. **Crop.** The page is rendered at `FIGURE_VLM_DPI` (300), cropped to
-   the refined bbox plus a small pad (`FIGURE_VLM_PAD`, default 0.005),
-   then JPEG-encoded via `sips`.
+3. **Crop, with pad escalation.** The page is rendered at
+   `FIGURE_VLM_DPI` (300) and cropped to the refined bbox plus a pad.
+   Verification failures escalate the pad through
+   0.5% → 2% → 4.5% (`CROP_PAD_STEPS`; the first step is
+   `FIGURE_VLM_PAD`), and as a last resort the crop widens to the full
+   page width over the bbox's vertical span — that step exists because a
+   rotated y-axis label sits far left of where the model draws the box.
+   Only when every step fails does the whole selection retry. The result
+   is JPEG-encoded via `sips`.
 
 ### URL path: DOM-candidate choose
 
@@ -72,22 +123,59 @@ as-is with a warning).
 
 Every produced crop gets one cheap vision check: does this image show a
 single complete figure with no surrounding body text, sharp enough that
-axis labels and legend text are legible? A rejection feeds
-its reason into a retry of the selection, and the retry prompt also names
-the failed pick (page, figure, bbox or candidate number), so "choose a
-different figure" is actionable. The check fails open: a transport or
-parse error never discards a crop. A crude blank-crop guard
+axis labels and legend text are legible? On the PDF path a rejection
+first escalates the crop pad (see pad escalation above); only when every
+crop of the same bbox fails does the rejection feed its reason into a
+retry of the *selection*, and the retry prompt names the failed pick
+(page, figure, bbox or candidate number), so "choose a different figure"
+is actionable — unless the figure is pinned, in which case a different
+figure is not an acceptable answer. For an unpinned pick the check fails
+open: a transport or parse error never discards a crop. For a pinned
+figure the check is told the expected label ("the crop must be Figure 3
+of the source document") and fails closed: a transport error, an
+unparseable reply or a rejection all count as a failed check, and only an
+explicit pass keeps the crop. The snapshot path verifies a pinned caption
+match the same way before using it; an unpinned snapshot asset is still
+used without verification. `FIGURE_VLM_VERIFY=0` turns verification off
+for every pick, pins included. A crude blank-crop guard
 (bytes-per-pixel below 0.006, or either side under 48px) rejects
 unpainted-chart screenshots before a verification call is spent.
 
 Selections below `MIN_CONFIDENCE` (0.35) or `found: false` drop the
 image block.
 
-The model selects autonomously when no directive is present. A
-`<paper>.focus.md` sidecar is **optional**: `image: Figure N` pins a
+The extractor can select autonomously when called without a pin; new saves
+pin `figure_request.label` by default. A `<paper>.focus.md` sidecar is
+**optional**: `image: Figure N` pins a
 specific figure, `image_caption:` / `image_alt:` override the
 model-supplied text, and `image_page_hint:` biases the selection prompt
 towards a page without constraining it.
+
+A PDF URL source is downloaded to a temporary file and follows the PDF path;
+HTML URL sources continue through the existing snapshot and live-page paths.
+
+**Pinning means "this figure or nothing."** A retry after a failed crop
+may re-crop the pinned figure, but a selection that names a *different*
+figure, or names no figure at all, is rejected outright (drift guard, on
+the PDF, URL-candidate and full-page paths) and the retry prompt tells
+the model only the pinned label is acceptable. The pin's label is only
+ever stamped on a pick the selection named as the pin and verification
+confirmed. If the pin cannot be
+satisfied the image block is dropped rather than silently substituted —
+a wrong figure under the right label is worse than no figure. Two
+practical consequences:
+
+- A pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24) fails with
+  "no suitable figure" because the model never sees its page. Raise the
+  env var (page-hint directives do not extend the render range).
+- The page hint and pin work best together: the pin constrains *what*,
+  the hint speeds up *where*.
+
+**Captions are written for a glancing reader.** The selection prompt
+requires the caption to translate any statistical construct (CCDF /
+1 − F(x), tail parameters, log axes, error bands) into plain words —
+first what a point on the figure means, then the takeaway. The same rule
+lives in the synthesis skill for the explainer's own charts.
 
 ## Routing & cost
 
@@ -99,26 +187,29 @@ is cheaper than metered API spend.
 |---|---|
 | `FIGURE_VLM_PROVIDER` | `claude` \| `openai`. Default: whichever subscription session is present (Claude OAuth first), else any API key. |
 | `FIGURE_VLM_ROUTE` | `auto` (default) \| `subscription` \| `api`. `auto` prefers the subscription route and falls back to the API. |
-| `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `batchModel`). |
-| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). |
+| `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `visionModel`). A model from the other provider is refused at start-up. |
+| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF — the model cannot pick a page it never saw. |
 | `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, a blank/uncroppable crop, or a verification rejection (default 2). |
 | `FIGURE_VLM_DPI` | PDF crop render DPI, i.e. sharpness (default 300). |
-| `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the inlined base64 size (default 2200). |
+| `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the sidecar image size (default 2200). |
 | `FIGURE_VLM_JPEG_QUALITY` | JPEG quality 1-100; size vs fidelity (default 90). |
 | `FIGURE_VLM_REFINE_PX` | Width of the pass-2 single-page render (default 2200). |
-| `FIGURE_VLM_PAD` | Fractional padding around the refined bbox (default 0.005; the two-pass box is tight and trustworthy, so generous padding only drags in body text). |
+| `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight — verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
 | `FIGURE_VLM_VERIFY` | Set `0` to disable the crop verification pass (default on). |
-| `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). |
+| `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). A model from the other provider is refused at start-up. |
 
-**Resolution vs size.** The crop is rendered at `FIGURE_VLM_DPI`, capped
+**Superseded base64 description (removed in W7).** The following describes
+legacy output and the pending reextract migration. V2 saves decode the VLM's
+data URL into a sidecar; their JSON does not grow with image size.
+
+The crop is rendered at `FIGURE_VLM_DPI`, capped
 to `FIGURE_VLM_MAX_PX` on its longest side, then JPEG-encoded at
 `FIGURE_VLM_JPEG_QUALITY`. Because the result is inlined as a base64
 `data:` URL inside the explainer JSON, a larger or sharper image inflates
-the JSON to roughly 4/3 of its byte size. Defaults (1600px, q85) land
-most figures at roughly 300-600 KB with the 2200px/q90 defaults (about
-triple the old 1600px/q85 weight, in exchange for axis labels that stay
-legible). Lower `MAX_PX` / `DPI` if JSON weight matters more than
-sharpness.
+the JSON to roughly 4/3 of its byte size. The 2200px/q90 defaults land
+most figures at roughly 300-600 KB (about triple the old 1600px/q85
+weight, in exchange for axis labels that stay legible). Lower `MAX_PX` /
+`DPI` if JSON weight matters more than sharpness.
 
 Routes by provider/auth (`src/vision.ts`):
 
@@ -132,6 +223,9 @@ Routes by provider/auth (`src/vision.ts`):
 - **OpenAI API**: Responses API with `input_image` (`OPENAI_API_KEY`).
 
 ## Figure-data recreation (experimental)
+
+This section describes the legacy tooling. The v2 save path does not run
+recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives.
 
 `FIGURE_RECREATE=1` (or a per-paper `recreate:` directive) adds a
 post-clip pass that tries to recover the **data** behind the picked
@@ -167,10 +261,10 @@ Sidecar directives (same `.focus.md` / `urls.txt` mechanism as `image:`):
 | `recreate: Figure 3` | Enable recreation and pin both the figure pick and the recreation target. |
 | `recreate: yes` / `recreate: no` | Enable for this paper, or opt out of a global `FIGURE_RECREATE=1`. |
 | `recreate_x:` / `recreate_y:` | Free-text axis guidance passed to the extraction prompt. |
-| `data: <file>.csv\|.json` | Supply the values yourself (tier `supplied`); CSV header row is `x-label,series…`, JSON matches the neutral shape. |
+| `data: <file>.csv\|.json` | Supply the values yourself (tier `supplied`); CSV header row is `x-label,series…` and blank cells become gaps (`null`), JSON matches the neutral shape in `src/types/explainer-json.ts`. |
 
 Env knobs: `FIGURE_RECREATE` (global switch), `FIGURE_DATA_MODEL`
-(default: the vision model), `FIGURE_DATA_MAX_TOKENS` (2500),
+(default: the vision model; a model from the other provider is refused at start-up), `FIGURE_DATA_MAX_TOKENS` (2500),
 `FIGURE_DATA_MAX_ESTIMATED_POINTS` (12), `FIGURE_RECREATE_VERIFY=0` to
 skip the render-and-compare pass.
 
@@ -178,12 +272,11 @@ Offline check with no vision call or batch:
 `npx ts-node scripts/smoke-figure-data.ts` exercises the supplied-data
 path, the ECharts mapper, and the SSR render.
 
-One interaction to know about: figure selection normally steers towards
-a *conceptual* figure when the explainer already has charts. With
-recreation enabled and no pinned target, the picked figure may therefore
+One interaction to know about: figure selection prefers the key results
+figure, but if the paper has none it falls back to a conceptual figure.
+With recreation enabled and no pinned target, the picked figure may then
 be a diagram with no data to recover, which correctly falls back to the
-clip. Pin the results figure with `recreate: Figure N` when you want the
-data.
+clip. Pin the figure with `recreate: Figure N` when you want specific data.
 
 ## Dependencies
 
@@ -205,8 +298,20 @@ is a soft page hint; the figure label pins a specific figure.
 
 ## Deferred work
 
-- **Per-page point sizes.** `pageSizePts` reads the first page's size and
-  assumes uniform geometry; mixed-size PDFs could crop slightly off.
+- **Text-layer page targeting for pins.** A pinned figure past
+  `FIGURE_VLM_MAX_PAGES` currently needs the env var raised by hand; the
+  PDF text layer could locate "Figure N" and extend the render range to
+  its page automatically.
+- **Fail-open on verification transport errors (unpinned picks).** When
+  the verification *call* itself errors (e.g. codex quota exhaustion) on
+  an unpinned pick, the unverified crop is kept; a pinned figure is
+  dropped instead. Deliberate for transient blips, but a long outage ships
+  unchecked crops; consider distinguishing "model said no" from "no
+  answer" with a retry.
+- **`reextract` keeps the stale caption.** Patching a new image onto an
+  existing JSON leaves the previous caption/alt unless `--caption` /
+  `--alt` are passed; it should refresh them from the new selection by
+  default.
 - **Candidate shortlist for PDFs.** A cheap first pass could narrow large
   PDFs to a few candidate pages before the full selection call, to cut
   tokens on the subscription route.

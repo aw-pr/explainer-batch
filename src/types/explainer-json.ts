@@ -40,6 +40,12 @@ export interface ExplainerJson {
      * model name in the hero tag. Absent on older artifacts.
      */
     run_mode?: 'sync' | 'batch';
+    /**
+     * Validation result recorded when the file was saved. explainer-batch
+     * writes it; readers may ignore it. `needs_review` is true exactly when
+     * `issues` is non-empty.
+     */
+    quality?: { issues: string[]; needs_review: boolean };
   };
 
   hero: {

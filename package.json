@@ -15,7 +15,7 @@
     "explainer"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "process": "ts-node src/index.ts process",
@@ -28,6 +28,9 @@
     "reextract": "ts-node scripts/reextract-figure.ts",
     "export-html": "ts-node scripts/export-html.ts",
     "typecheck": "tsc --noEmit",
+    "contract:build": "ts-node scripts/contract-build.ts",
+    "contract:check": "ts-node scripts/contract-build.ts --check",
+    "test": "TS_NODE_TRANSPILE_ONLY=1 node --require ts-node/register --test \"tests/unit/**/*.test.ts\"",
     "smoke": "ts-node scripts/smoke-models.ts",
     "build": "tsc",
     "guards:install": "bash ./scripts/install-guards.sh"
@@ -36,7 +39,8 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.114",
     "@anthropic-ai/sdk": "^0.82.0",
     "echarts": "^6.1.0",
-    "playwright": "^1.61.0"
+    "playwright": "^1.61.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

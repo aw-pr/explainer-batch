@@ -1,0 +1,37 @@
+                                                                                E PIC: Efficient Position-Independent Caching for Serving Large Language Models
+
+                            /HJR/LQN&&5                /HJR/LQN&&5                                                           &DFKH%OHQG&&5
+                            /HJR/LQN&&5                /HJR/LQN&&5                                                           &DFKH%OHQG&&5                            6        FR
+                            /HJR/LQN&&5
+                            /HJR/LQN&&5
+                                                                                     &DFKH%OHQG&&5
+                                                                                     &DFKH%OHQG&&5
+                                                                                                                                                                                         &DFKH%OHQG&&5
+                                                                                                                                                                                         &DFKH%OHQG&&5                            5        CacheBlend-15
+                                                                                                                                                          ×                                                                                                 4        LegoLink-16
+                                                                                                                                                                                                                                                       TTFT (s)   3
+
+                                                                                                                                                                                                                                                                  2
+
+                                                                                                          7KURXJKSXWWRNHQV
+
+                                                                                                                                                                                                                                                                  1
+77)7V                                                                                                                                                                                                                                          0
+                                                                                                                                                                                                                                                                      0   10000 20000 30000 40000 50000
+                                                                                                                                                                                                                                                                   Context length (# tokens)
+
+                                               5HTXHVWUDWHUHTV                                                                                      5HTXHVWUDWHUHTV                         Figure 9. TTFT vs. context length of FR, CacheBlend-15, and
+                                                                                                                                                                                                                                              LegoLink-16, using a fixed chunk size of 512 tokens. For FR, we
+  Figure 8. Latency and throughput comparison of LegoLink-16 and                                                                                                                                                                              do not compile context cache to display its full quadratic time
+  CacheBlend-15 under asynchronous workloads with varying re-                                                                                                                                                                                 complexity trend, as it would otherwise run out of memory earlier
+  quest rates and context cache ratios (CCR). Each data point rep-                                                                                                                                                                            than CacheBlend-15 and LegoLink-16.
+  resents the average and standard deviation from five experiments.
+  LegoLink-16 is shown using solid lines, while CacheBlend-15 is
+  represented with dashed lines. Two algorithms with the same CCR                                                                                                                                                                             observe three key trends. First, LegoLink-16 achieves up to
+  are shown in the same color.                                                                                                                                                                                                                an 8× reduction in TTFT compared to CacheBlend-15. Sec-
+                                                                                                                                                                                                                                              ond, as the Context Cache Ratio (CCR) increases, LegoLink-
+                                                                                                                                                                                                                                              16 remains stable TTFT, whereas CacheBlend-15 fluctu-
+                                                                                                                                                                                                                                              ates around 0.5 seconds. This stability likely results from
+
+
+                                                                                                                                                                                                                                          8

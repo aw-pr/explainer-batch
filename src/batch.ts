@@ -7,14 +7,15 @@ import {
   type BatchState, type RequestState,
 } from './state';
 import { buildSystemPrompt, buildUserInstruction } from './prompt';
-import { saveResult, OUTPUT_DIR, type SaveResult } from './output';
+import { saveRawOutput, OUTPUT_DIR, locateLeadFigure } from './output';
+import { finalizeResult, type FinalizeContext } from './finalize';
+import type { NormalizedResult, TokenUsage } from './llm-contract';
 import { exportHtmlForJsonFiles } from './html-export';
 import { calcCost, formatUsd, BATCH_DISCOUNT } from './pricing';
-import { buildRepairInstruction, validateJsonOutput } from './quality';
 import { getModelConfig, OPENAI_LANES, laneCustomId, parseLaneCustomId, type OpenAILane } from './model-config';
 import type { InputItem } from './preprocess';
-import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
-import { EXPLAINER_JSON_SCHEMA, structuredOutputEnabled } from './schema/explainer-schema';
+import { ClaudeProvider, OpenAIProvider, detectClaudeAuthMode, isFatalHttpError, openAIJsonSchemaFormat, type ClaudeAuthMode, type ProviderName, type ProviderMessageResponse, type ProviderBatchStatus } from './providers';
+import { wireSchema, structuredOutputEnabled } from './wire-schema';
 
 // Optional shared batch-dashboard integration. Defaults to `<repo>/jobs`;
 // override with EXPLAINER_JOBS_DIR. Job-file writes are best-effort: if the
@@ -34,13 +35,12 @@ const POLL_SYNTH_INITIAL_WAIT_MS = 90_000; // synthesis batches are smaller/fast
 const POLL_MAX_TOTAL_MS = 12 * 60 * 60_000;
 const POLL_MAX_CONSECUTIVE_ERRORS = 5;
 const POLL_ERROR_BACKOFF_CAP_MS = 8 * 60_000;
-const MAX_REPAIR_ATTEMPTS = 2;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
 
-async function pollUntilEnded(
+export async function pollUntilEnded(
   label: string,
   initialWaitMs: number,
   fetchStatus: () => Promise<ProviderBatchStatus>,
@@ -66,6 +66,9 @@ async function pollUntilEnded(
     } catch (error) {
       consecutiveErrors += 1;
       const message = error instanceof Error ? error.message : String(error);
+      if (isFatalHttpError(error)) {
+        throw new Error(`${label} status polling failed and cannot succeed on retry: ${message}`);
+      }
       if (consecutiveErrors > POLL_MAX_CONSECUTIVE_ERRORS) {
         throw new Error(`${label} status polling failed ${consecutiveErrors} times in a row: ${message}`);
       }
@@ -82,23 +85,27 @@ async function pollUntilEnded(
   }
 }
 
-interface RepairResult {
-  html: string;
-  usage?: ProviderMessageResponse;
-}
-
 function dateFromIso(value: string): string {
   return value.slice(0, 10);
 }
 
-async function exportSavedHtml(savedResults: SaveResult[]): Promise<void> {
-  const summary = await exportHtmlForJsonFiles(savedResults.map((result) => result.jsonPath));
+async function exportSavedHtml(savedPaths: string[]): Promise<void> {
+  const summary = await exportHtmlForJsonFiles(savedPaths);
   if (summary.ok > 0) {
     console.log(`\nHTML export: ${summary.ok} file(s) written to ${path.basename(OUTPUT_DIR)}/`);
   }
+  if (summary.failed === 0) return;
+
+  const slugs = summary.failures.map((failure) => path.basename(failure.jsonPath));
   for (const failure of summary.failures) {
     console.error(`  ! HTML export failed for ${path.basename(failure.jsonPath)} — ${failure.error}`);
   }
+  // JSON is already saved at this point — the failure must not disappear into
+  // the run's console output. Throwing surfaces it as the run's final,
+  // non-zero-exit error instead of a silent skip.
+  throw new Error(
+    `HTML export failed for ${summary.failed} file(s): ${slugs.join(', ')} — see errors above.`,
+  );
 }
 
 function buildClaudeRequestContent(item: InputItem, userInstruction: string): Anthropic.MessageParam['content'] {
@@ -167,8 +174,12 @@ function lanePrompt(lane: OpenAILane): string {
 }
 
 function useOpenAILanes(): boolean {
-  const raw = (process.env.OPENAI_USE_LANES ?? '1').toLowerCase();
-  return !(raw === '0' || raw === 'false' || raw === 'no');
+  const raw = process.env.OPENAI_USE_LANES?.toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function missingLanes(laneMap: Partial<Record<OpenAILane, string>> | undefined): OpenAILane[] {
+  return OPENAI_LANES.filter(lane => !laneMap || !(lane in laneMap));
 }
 
 function sourceReferenceText(item: InputItem): string {
@@ -218,84 +229,119 @@ function requestToInputItem(customId: string, req: RequestState): InputItem {
     imageOverride: req.imageOverride,
     figureCandidates: req.figureCandidates,
     recreate: req.recreate,
+    detectedCitation: req.detectedCitation,
+    publishedOn: req.publishedOn,
   };
 }
 
-async function maybeRepairClaude(
-  client: ClaudeProvider,
-  authMode: ClaudeAuthMode,
-  repairModel: string,
-  repairMaxTokens: number,
-  rawText: string,
-  expectedDate: string
-): Promise<RepairResult> {
-  let currentText = rawText;
-  let usage: ProviderMessageResponse | undefined;
-
-  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    let parsed: unknown;
-    try {
-      const { extractJson, normalizeSchemaDrift } = await import('./output');
-      parsed = extractJson(currentText);
-      normalizeSchemaDrift(parsed as never);
-    } catch {
-      return { html: currentText }; // unparseable — saveResult will handle the error
-    }
-
-    const validation = validateJsonOutput(parsed, { expectedDate });
-    if (validation.ok) return { html: currentText, usage };
-    if (attempt === MAX_REPAIR_ATTEMPTS) return { html: currentText, usage };
-
-    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
-    const repairSystem = buildRepairInstruction(validation.issues, expectedDate);
-    if (authMode === 'claude_cli') {
-      usage = await client.createMessageViaCli(repairModel, repairSystem, currentText);
-    } else {
-      usage = await client.createMessage(repairModel, repairMaxTokens, repairSystem, currentText, false, EXPLAINER_JSON_SCHEMA);
-    }
-    currentText = usage.text;
-  }
-
-  return { html: currentText, usage };
+function provenanceFields(item: InputItem, expectedDate: string): Pick<RequestState, 'expectedDate' | 'detectedCitation' | 'publishedOn'> {
+  return {
+    expectedDate,
+    detectedCitation: item.detectedCitation,
+    publishedOn: item.publishedOn,
+  };
 }
 
-async function maybeRepairOpenAI(
-  client: OpenAIProvider,
+type CompletionMode = 'batch-api' | 'api_key' | 'claude_cli' | 'codex_cli';
+type CompletionReceipt = NormalizedResult & { provider: ProviderName; finishReason: 'stop' };
+
+function reportedUsage(response: ProviderMessageResponse): TokenUsage {
+  return {
+    in: response.inputTokens, out: response.outputTokens,
+    cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0, source: 'reported',
+  };
+}
+
+export function buildResultReceipt(
+  provider: ProviderName,
+  mode: CompletionMode,
+  batchId: string,
+  customId: string,
+  model: string,
+  response: ProviderMessageResponse,
+): CompletionReceipt {
+  return {
+    provider,
+    route: mode === 'batch-api' ? 'batch-api' : mode === 'api_key' ? 'sync-api' : 'subscription-cli',
+    stage: 'synthesis', model, customId, attemptId: `${batchId}:${customId}`,
+    finishReason: 'stop', text: response.text, usage: reportedUsage(response),
+  };
+}
+
+function createRepairAdapter(
+  client: ClaudeProvider | OpenAIProvider,
+  authMode: ClaudeAuthMode | 'codex_cli',
   repairModel: string,
   repairMaxTokens: number,
-  rawText: string,
-  expectedDate: string
-): Promise<RepairResult> {
-  let currentText = rawText;
-  let usage: ProviderMessageResponse | undefined;
-
-  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    let parsed: unknown;
-    try {
-      const { extractJson, normalizeSchemaDrift } = await import('./output');
-      parsed = extractJson(currentText);
-      normalizeSchemaDrift(parsed as never);
-    } catch {
-      return { html: currentText };
+): (instruction: string, payload: string) => Promise<ProviderMessageResponse> {
+  return async (instruction, payload) => {
+    if (client instanceof ClaudeProvider) {
+      if (authMode === 'claude_cli') {
+        return client.createMessageViaCli(repairModel, instruction, payload);
+      }
+      return client.createMessage(repairModel, repairMaxTokens, instruction, payload, false, wireSchema('claude'));
     }
-
-    const validation = validateJsonOutput(parsed, { expectedDate });
-    if (validation.ok) return { html: currentText, usage };
-    if (attempt === MAX_REPAIR_ATTEMPTS) return { html: currentText, usage };
-
-    console.warn(`  ⚠ JSON validation issues: ${validation.issues.join('; ')}`);
-    usage = await client.createMessage(
-      repairModel,
-      repairMaxTokens,
-      buildRepairInstruction(validation.issues, expectedDate),
-      [{ role: 'user', content: [{ type: 'input_text', text: currentText }] }],
-      false,
-      EXPLAINER_JSON_SCHEMA
+    return client.createMessage(
+      repairModel, repairMaxTokens, instruction,
+      [{ role: 'user', content: [{ type: 'input_text', text: payload }] }],
+      false, wireSchema('openai'),
     );
-    currentText = usage.text;
-  }
+  };
+}
 
-  return { html: currentText, usage };
+async function saveThroughSeam(
+  receipt: CompletionReceipt,
+  req: RequestState,
+  expectedDate: string,
+  repairModel: string,
+  repair: (instruction: string, payload: string) => Promise<ProviderMessageResponse>,
+): Promise<string | null> {
+  const checkpoints = new Map<string, unknown>();
+  const citation = req.detectedCitation;
+  const source = requestToInputItem(receipt.customId, req).source;
+  const context: FinalizeContext = {
+    stamp: {
+      expectedDate: req.expectedDate ?? expectedDate,
+      detectedReference: citation ? {
+        authors: citation.authors.map(author => ({ family: author.family, given: author.given })),
+        year: citation.year, title: citation.title, venue: citation.venue, url: citation.url,
+      } : undefined,
+      publishedOn: req.publishedOn,
+      source: source.kind === 'url'
+        ? { kind: 'url', ref: source.url ?? req.input }
+        : { kind: 'pdf', ref: path.basename(source.filename ?? source.filePath ?? req.input) },
+    },
+    checkpoints: { get: key => checkpoints.get(key), put: (key, value) => { checkpoints.set(key, value); } },
+    figure: wire => locateLeadFigure(wire, receipt.customId),
+    repair: async (instruction, payload) => {
+      const response = await repair(instruction, payload);
+      return {
+        ...receipt, route: receipt.route === 'batch-api' ? 'sync-api' : receipt.route,
+        stage: 'repair', model: repairModel, text: response.text, usage: reportedUsage(response),
+      };
+    },
+  };
+  const outcome = await finalizeResult(receipt.customId, receipt, context);
+  const repairUsage = outcome.receipts.filter(result => result.stage === 'repair').reduce((sum, result) => ({
+    text: '', inputTokens: sum.inputTokens + (result.usage.in ?? 0),
+    outputTokens: sum.outputTokens + (result.usage.out ?? 0),
+  }), { text: '', inputTokens: 0, outputTokens: 0 });
+  applyUsage(req, receipt.provider, receipt.model, receipt.usage.in ?? 0, receipt.usage.out ?? 0,
+    receipt.route === 'batch-api', repairModel, repairUsage);
+
+  if (outcome.status === 'errored') {
+    req.result = 'errored';
+    req.output = null;
+    req.error = `${outcome.code}: ${outcome.message}`;
+    saveRawOutput(receipt.customId, receipt.text);
+    console.error(`  ✗ ${receipt.customId}: ${req.error}`);
+    return null;
+  }
+  req.result = 'succeeded';
+  req.output = path.relative(OUTPUT_DIR, outcome.jsonPath);
+  req.error = null;
+  console.log(`  ✓ ${receipt.customId} → ${req.output}`);
+  return outcome.status === 'succeeded' ? outcome.jsonPath : null;
 }
 
 function applyUsage(
@@ -334,8 +380,8 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
     model: modelConfig.batchModel,
     maxTokens: modelConfig.maxTokens,
     system: systemPrompt,
-    content: buildClaudeRequestContent(item, buildUserInstruction(expectedDate, item.focusHint)),
-    jsonSchema: EXPLAINER_JSON_SCHEMA,
+    content: buildClaudeRequestContent(item, buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined)),
+    jsonSchema: wireSchema('claude'),
   }));
 
   console.log(`  Submitting batch of ${items.length} request(s) using ${modelConfig.batchModel}…`);
@@ -362,6 +408,7 @@ async function submitClaudeBatch(items: InputItem[]): Promise<BatchState> {
         imageOverride: item.imageOverride,
         figureCandidates: item.figureCandidates,
         recreate: item.recreate,
+        ...provenanceFields(item, expectedDate),
       } satisfies RequestState])
     ),
   };
@@ -386,6 +433,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
       recreate: item.recreate,
+      ...provenanceFields(item, expectedDate),
     };
     if (lanesEnabled) {
       for (const lane of OPENAI_LANES) {
@@ -443,7 +491,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
 
     const lines: string[] = [];
     for (const item of items) {
-      const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+      const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
       if (lanesEnabled) {
         for (const lane of OPENAI_LANES) {
           const customId = laneCustomId(item.customId, lane);
@@ -471,7 +519,7 @@ async function submitOpenAIBatch(items: InputItem[]): Promise<BatchState> {
             instructions: buildSystemPrompt(),
             input: [{ role: 'user' as const, content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction) }],
             ...(structuredOutputEnabled()
-              ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+              ? { text: { format: openAIJsonSchemaFormat(wireSchema('openai')) } }
               : {}),
           },
         }));
@@ -545,7 +593,7 @@ async function collectClaude(batchState: BatchState): Promise<void> {
   const freshBatch = getBatchById(freshState, batchState.id);
   if (!freshBatch) return;
   freshBatch.status = 'ended';
-  const savedResults: SaveResult[] = [];
+  const savedResults: string[] = [];
   const expectedDate = dateFromIso(freshBatch.submitted_at);
 
   for await (const entry of client.iterateBatchResults(batchState.id)) {
@@ -560,36 +608,13 @@ async function collectClaude(batchState: BatchState): Promise<void> {
     }
 
     try {
-      const repaired = await maybeRepairClaude(
-        client,
-        'api_key',
-        modelConfig.repairModel,
-        modelConfig.repairMaxTokens,
-        entry.text ?? '',
-        expectedDate
+      const saved = await saveThroughSeam(
+        buildResultReceipt('claude', 'batch-api', batchState.id, entry.customId, freshBatch.model || modelConfig.batchModel,
+          { text: entry.text ?? '', inputTokens: entry.inputTokens ?? 0, outputTokens: entry.outputTokens ?? 0 }),
+        req, expectedDate, modelConfig.repairModel,
+        createRepairAdapter(client, 'api_key', modelConfig.repairModel, modelConfig.repairMaxTokens),
       );
-      const saved = await saveResult(entry.customId, repaired.html, { model: freshBatch.model || modelConfig.batchModel, runMode: 'batch' });
-      savedResults.push(saved);
-
-      req.result = 'succeeded';
-      req.output = saved.jsonFile;
-      req.error = null;
-      applyUsage(
-        req,
-        'claude',
-        freshBatch.model || modelConfig.batchModel,
-        entry.inputTokens ?? 0,
-        entry.outputTokens ?? 0,
-        true,
-        modelConfig.repairModel,
-        repaired.usage
-      );
-
-      console.log(
-        `  ✓ ${entry.customId} → ${saved.jsonFile}` +
-        `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-        `  batch: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}  saved: ${formatUsd(req.usage?.saving_usd ?? 0)}]`
-      );
+      if (saved) savedResults.push(saved);
     } catch (error) {
       req.result = 'errored';
       req.error = error instanceof Error ? error.message : String(error);
@@ -610,7 +635,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
   const freshBatch = getBatchById(freshState, batchState.id);
   if (!freshBatch) return;
   const lanesPresent = Object.values(freshBatch.requests).some(r => r.type === 'lane');
-  const savedResults: SaveResult[] = [];
+  const savedResults: string[] = [];
   const expectedDate = dateFromIso(freshBatch.submitted_at);
 
   if (!lanesPresent) {
@@ -625,33 +650,13 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
       }
 
       try {
-        const repaired = await maybeRepairOpenAI(
-          client,
-          modelConfig.repairModel,
-          modelConfig.repairMaxTokens,
-          entry.text ?? '',
-          expectedDate
+        const saved = await saveThroughSeam(
+          buildResultReceipt('openai', 'batch-api', batchState.id, entry.customId, freshBatch.synthesis_model ?? modelConfig.synthesisModel,
+            { text: entry.text ?? '', inputTokens: entry.inputTokens ?? 0, outputTokens: entry.outputTokens ?? 0 }),
+          req, expectedDate, modelConfig.repairModel,
+          createRepairAdapter(client, 'api_key', modelConfig.repairModel, modelConfig.repairMaxTokens),
         );
-        const saved = await saveResult(entry.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'batch' });
-        savedResults.push(saved);
-        req.result = 'succeeded';
-        req.output = saved.jsonFile;
-        req.error = null;
-        applyUsage(
-          req,
-          'openai',
-          freshBatch.synthesis_model ?? modelConfig.synthesisModel,
-          entry.inputTokens ?? 0,
-          entry.outputTokens ?? 0,
-          true,
-          modelConfig.repairModel,
-          repaired.usage
-        );
-        console.log(
-          `  ✓ ${entry.customId} → ${saved.jsonFile}` +
-          `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-          `  cost: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}]`
-        );
+        if (saved) savedResults.push(saved);
       } catch (error) {
         req.result = 'errored';
         req.error = error instanceof Error ? error.message : String(error);
@@ -705,17 +710,18 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     if (req.type !== 'explainer') continue;
 
     const laneMap = laneTextByPaper.get(customId);
-    if (!laneMap) {
+    const missing = missingLanes(laneMap);
+    if (missing.length > 0) {
       req.result = 'errored';
-      req.error = 'No lane outputs available for synthesis';
+      req.error = `Lane(s) failed: ${missing.join(', ')}`;
       continue;
     }
 
     const laneBody = OPENAI_LANES
-      .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+      .map(lane => `## ${lane}\n${laneMap![lane]}`)
       .join('\n\n');
 
-    const userInstruction = buildUserInstruction(expectedDate, req.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, req.focusHint, undefined, req.detectedCitation !== undefined);
 
     synthesisLines.push(JSON.stringify({
       custom_id: customId,
@@ -730,7 +736,7 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
           content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
         }],
         ...(structuredOutputEnabled()
-          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: EXPLAINER_JSON_SCHEMA } } }
+          ? { text: { format: openAIJsonSchemaFormat(wireSchema('openai')) } }
           : {}),
       },
     }));
@@ -769,35 +775,13 @@ async function collectOpenAI(batchState: BatchState): Promise<void> {
     }
 
     try {
-      const repaired = await maybeRepairOpenAI(
-        client,
-        modelConfig.repairModel,
-        modelConfig.repairMaxTokens,
-        entry.text ?? '',
-        expectedDate
+      const saved = await saveThroughSeam(
+        buildResultReceipt('openai', 'batch-api', synthBatchId, entry.customId, synthesisModel,
+          { text: entry.text ?? '', inputTokens: entry.inputTokens ?? 0, outputTokens: entry.outputTokens ?? 0 }),
+        req, expectedDate, modelConfig.repairModel,
+        createRepairAdapter(client, 'api_key', modelConfig.repairModel, modelConfig.repairMaxTokens),
       );
-      const saved = await saveResult(entry.customId, repaired.html, { model: synthesisModel, runMode: 'batch' });
-      savedResults.push(saved);
-      req.result = 'succeeded';
-      req.output = saved.jsonFile;
-      req.error = null;
-
-      applyUsage(
-        req,
-        'openai',
-        synthesisModel,
-        entry.inputTokens ?? 0,
-        entry.outputTokens ?? 0,
-        true,
-        modelConfig.repairModel,
-        repaired.usage
-      );
-
-      console.log(
-        `  ✓ ${entry.customId} → ${saved.jsonFile}` +
-        `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-        `  cost: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}]`
-      );
+      if (saved) savedResults.push(saved);
     } catch (error) {
       req.result = 'errored';
       req.error = error instanceof Error ? error.message : String(error);
@@ -818,14 +802,14 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
   if (!freshBatch) return;
   freshBatch.status = 'ended';
   const lanesPresent = Object.values(freshBatch.requests).some(r => r.type === 'lane');
-  const savedResults: SaveResult[] = [];
+  const savedResults: string[] = [];
 
   const systemPrompt = buildSystemPrompt();
   const expectedDate = dateFromIso(freshBatch.submitted_at);
   for (const [customId, req] of Object.entries(freshBatch.requests)) {
     if (req.type !== 'explainer') continue;
     const item = requestToInputItem(customId, req);
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
 
     try {
       let synthesis: ProviderMessageResponse;
@@ -868,8 +852,16 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
           }
         }
 
+        const missing = missingLanes(laneMap);
+        if (missing.length > 0) {
+          req.result = 'errored';
+          req.error = `Lane(s) failed: ${missing.join(', ')}`;
+          console.error(`  ✗ ${customId} — ${req.error}`);
+          continue;
+        }
+
         const laneBody = OPENAI_LANES
-          .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+          .map(lane => `## ${lane}\n${laneMap[lane]}`)
           .join('\n\n');
 
         synthesis = await client.createMessage(
@@ -881,7 +873,7 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
           }],
           false,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       } else {
         synthesis = await client.createMessage(
@@ -893,40 +885,17 @@ async function collectOpenAILocal(batchState: BatchState): Promise<void> {
             content: buildOpenAIInput(item, null, userInstruction),
           }],
           item.isUrl,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       }
 
-      const repaired = await maybeRepairOpenAI(
-        client,
-        modelConfig.repairModel,
-        modelConfig.repairMaxTokens,
-        synthesis.text,
-        expectedDate
+      const saved = await saveThroughSeam(
+        buildResultReceipt('openai', 'codex_cli', batchState.id, customId, freshBatch.synthesis_model ?? modelConfig.synthesisModel,
+          synthesis),
+        req, expectedDate, modelConfig.repairModel,
+        createRepairAdapter(client, 'codex_cli', modelConfig.repairModel, modelConfig.repairMaxTokens),
       );
-
-      const saved = await saveResult(customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
-      savedResults.push(saved);
-      req.result = 'succeeded';
-      req.output = saved.jsonFile;
-      req.error = null;
-
-      applyUsage(
-        req,
-        'openai',
-        freshBatch.synthesis_model ?? modelConfig.synthesisModel,
-        synthesis.inputTokens,
-        synthesis.outputTokens,
-        false,
-        modelConfig.repairModel,
-        repaired.usage
-      );
-
-      console.log(
-        `  ✓ ${customId} → ${saved.jsonFile}` +
-        `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-        `  cost: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}]`
-      );
+      if (saved) savedResults.push(saved);
     } catch (error) {
       req.result = 'errored';
       req.error = error instanceof Error ? error.message : String(error);
@@ -952,7 +921,7 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
   const freshState = readState();
   const freshBatch = getBatchById(freshState, batchId);
   if (!freshBatch) return;
-  const savedResults: SaveResult[] = [];
+  const savedResults: string[] = [];
   const expectedDate = dateFromIso(freshBatch.submitted_at);
 
   console.log(`  Using Claude max-plan route (CLAUDE_CODE_OAUTH_TOKEN) — no API credits consumed`);
@@ -960,41 +929,20 @@ async function runClaudeSync(batchId: string, items: InputItem[]): Promise<void>
   for (const item of items) {
     const req = freshBatch.requests[item.customId];
     if (!req) continue;
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
     try {
       const response = await client.createMessageViaCli(
         modelConfig.synthesisModel,
         buildSystemPrompt(),
         buildClaudeRequestContent(item, userInstruction)
       );
-      const repaired = await maybeRepairClaude(
-        client,
-        authMode,
-        modelConfig.repairModel,
-        modelConfig.repairMaxTokens,
-        response.text,
-        expectedDate
+      const saved = await saveThroughSeam(
+        buildResultReceipt('claude', authMode, batchId, item.customId, modelConfig.synthesisModel,
+          response),
+        req, expectedDate, modelConfig.repairModel,
+        createRepairAdapter(client, authMode, modelConfig.repairModel, modelConfig.repairMaxTokens),
       );
-      const saved = await saveResult(item.customId, repaired.html, { model: modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
-      savedResults.push(saved);
-      req.result = 'succeeded';
-      req.output = saved.jsonFile;
-      req.error = null;
-      applyUsage(
-        req,
-        'claude',
-        modelConfig.synthesisModel,
-        response.inputTokens,
-        response.outputTokens,
-        false,
-        modelConfig.repairModel,
-        repaired.usage
-      );
-      console.log(
-        `  ✓ ${item.customId} → ${saved.jsonFile}` +
-        `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-        `  cost: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}]`
-      );
+      if (saved) savedResults.push(saved);
     } catch (error) {
       req.result = 'errored';
       req.error = error instanceof Error ? error.message : String(error);
@@ -1063,12 +1011,12 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
   if (!freshBatch) return;
   const systemPrompt = buildSystemPrompt();
   const expectedDate = dateFromIso(freshBatch.submitted_at);
-  const savedResults: SaveResult[] = [];
+  const savedResults: string[] = [];
 
   for (const item of items) {
     const req = freshBatch.requests[item.customId];
     if (!req) continue;
-    const userInstruction = buildUserInstruction(expectedDate, item.focusHint);
+    const userInstruction = buildUserInstruction(expectedDate, item.focusHint, undefined, item.detectedCitation !== undefined);
 
     try {
       let synthesis: ProviderMessageResponse;
@@ -1111,8 +1059,16 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
           }
         }
 
+        const missing = missingLanes(laneMap);
+        if (missing.length > 0) {
+          req.result = 'errored';
+          req.error = `Lane(s) failed: ${missing.join(', ')}`;
+          console.error(`  ✗ ${item.customId} — ${req.error}`);
+          continue;
+        }
+
         const laneBody = OPENAI_LANES
-          .map(lane => `## ${lane}\n${laneMap[lane] ?? '(missing)'}`)
+          .map(lane => `## ${lane}\n${laneMap[lane]}`)
           .join('\n\n');
 
         synthesis = await client.createMessage(
@@ -1124,7 +1080,7 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
             content: [{ type: 'input_text', text: `${userInstruction}\n\nUse these extracted lane notes as your factual substrate:\n\n${laneBody}` }],
           }],
           false,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       } else {
         synthesis = await client.createMessage(
@@ -1136,39 +1092,17 @@ async function runOpenAISync(batchId: string, items: InputItem[]): Promise<void>
             content: buildOpenAIInput(item, uploadedFileIds.get(item.customId) ?? null, userInstruction),
           }],
           mode === 'codex_cli' && item.isUrl,
-          EXPLAINER_JSON_SCHEMA
+          wireSchema('openai')
         );
       }
 
-      const repaired = await maybeRepairOpenAI(
-        client,
-        modelConfig.repairModel,
-        modelConfig.repairMaxTokens,
-        synthesis.text,
-        expectedDate
+      const saved = await saveThroughSeam(
+        buildResultReceipt('openai', mode, batchId, item.customId, freshBatch.synthesis_model ?? modelConfig.synthesisModel,
+          synthesis),
+        req, expectedDate, modelConfig.repairModel,
+        createRepairAdapter(client, mode, modelConfig.repairModel, modelConfig.repairMaxTokens),
       );
-
-      const saved = await saveResult(item.customId, repaired.html, { model: freshBatch.synthesis_model ?? modelConfig.synthesisModel, runMode: 'sync', detectedSurname: item.detectedSurname, detectedPublished: item.detectedPublished, detectedReference: item.detectedReference });
-      savedResults.push(saved);
-      req.result = 'succeeded';
-      req.output = saved.jsonFile;
-      req.error = null;
-      applyUsage(
-        req,
-        'openai',
-        freshBatch.synthesis_model ?? modelConfig.synthesisModel,
-        synthesis.inputTokens,
-        synthesis.outputTokens,
-        false,
-        modelConfig.repairModel,
-        repaired.usage
-      );
-
-      console.log(
-        `  ✓ ${item.customId} → ${saved.jsonFile}` +
-        `  [${(req.usage?.input_tokens ?? 0).toLocaleString()} in / ${(req.usage?.output_tokens ?? 0).toLocaleString()} out` +
-        `  cost: ${formatUsd(req.usage?.batch_cost_usd ?? 0)}]`
-      );
+      if (saved) savedResults.push(saved);
     } catch (error) {
       req.result = 'errored';
       req.error = error instanceof Error ? error.message : String(error);
@@ -1214,6 +1148,7 @@ export async function runSync(provider: ProviderName, items: InputItem[]): Promi
       imageOverride: item.imageOverride,
       figureCandidates: item.figureCandidates,
       recreate: item.recreate,
+      ...provenanceFields(item, dateFromIso(batchState.submitted_at)),
     };
     if (provider === 'openai' && lanesEnabled) {
       for (const lane of OPENAI_LANES) {

@@ -16,17 +16,20 @@ function stripFrontmatter(content: string): string {
 }
 
 export function buildSystemPrompt(): string {
-  return stripFrontmatter(fs.readFileSync(SKILL_FILE, 'utf8')).trimEnd();
+  return stripFrontmatter(fs.readFileSync(SKILL_FILE, 'utf8')).trimEnd()
+    .replace(/^<!-- CONTRACT-V2-(?:BEGIN|END) -->\r?\n/gm, '');
 }
 
-export function buildUserInstruction(expectedDate: string, focusHint?: string): string {
+export function buildUserInstruction(expectedDate: string, focusHint?: string, pinnedFigure?: string, citationKnown = false): string {
   const base = [
     'Create a JSON explainer for this paper following the skill instructions.',
-    'Read the figures and tables as well as the prose. Put value grids (metric × system breakdowns) in `table` blocks; reserve Chart.js charts for genuine trends, relationships, or capability profiles per skill.md, and prefer a table over a bar chart when in doubt. If the paper has a single standout conceptual figure (visual abstract, architecture overview, taxonomy), emit it as an `image` block per skill.md; otherwise omit `image`. Never invent figure content.',
+    'Use the figures to understand the paper, but take every number from its text and tables. Put value grids (metric × system breakdowns) in `table` blocks; draw a chart only when every value in it is stated in the text or a table, per skill.md, and prefer a table when in doubt. Name the lead figure in `figure_request` (its label as the paper prints it and a one-sentence why), or set it to null. Never emit an `image` block: the figure pipeline locates and attaches the figure. Never invent figure content.',
     'When a visual detail is unclear, state the uncertainty or omit it rather than guessing.',
-    `Use ${expectedDate} as metadata.date_created and as the YYYY-MM-DD prefix of metadata.filename_slug (slug format: YYYY-MM-DD_authorsurname_short-title_explainer).`,
-    'hero.publication_date must use the format "Published Month Year".',
+    citationKnown
+      ? "The paper's citation is already known: set `citation` to null."
+      : "Fill `citation` from the paper's front matter: the authors in order, the year, the full title, the venue and a URL.",
     'Return only a valid JSON object. The first character must be { and the last must be }. No code fences, no explanation.',
+    ...(pinnedFigure !== undefined ? [`A sidecar pins ${pinnedFigure} as the lead figure; set \`figure_request.label\` to it and write \`why\` for it.`] : []),
   ].join(' ');
 
   const hint = focusHint?.trim();
@@ -37,7 +40,7 @@ export function buildUserInstruction(expectedDate: string, focusHint?: string): 
     '',
     'READER EMPHASIS FOR THIS PAPER',
     hint,
-    'Weight the pills, sections, and charts toward this angle where the paper supports it. If the paper does not cover it, do not invent content — stay faithful to the source.',
+    'Weight the pills, sections, and charts toward this angle where the paper supports it. If the paper does not cover it, do not invent content; stay faithful to the source.',
   ].join('\n');
 
   return base + emphasis;

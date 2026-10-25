@@ -1,8 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
 import { INPUT_DIR } from './output';
 import { stripHtml } from './text';
-import type { FigureCandidate, RecreateDirective } from './state';
+import type { DetectedCitation, FigureCandidate, RecreateDirective } from './state';
+import { toPlain } from '../contract/inline';
+import { isPdfUrl } from './figure-vlm';
+import { formatLabel } from './figure-locator/label';
+import { decodeHtmlEntities, isWrapperClass, labelFromHints, resolveSources, RawSource } from './figure-locator/dom-figures';
 
 const URLS_FILE = path.join(INPUT_DIR, 'urls.txt');
 
@@ -34,20 +39,17 @@ export interface InputItem {
   figureCandidates?: FigureCandidate[];
   /** Figure-recreation directive from focus directives (recreate:/recreate_x:/recreate_y:/data:) */
   recreate?: RecreateDirective;
-  /** First author's surname, detected deterministically (arXiv `/abs/` metadata). Used to stamp the byline when the model drops or placeholders it. */
-  detectedSurname?: string;
-  /** Publication date ("Published Month Year"), detected from arXiv `/abs/` metadata. Authoritative over the model's guess. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) built deterministically from arXiv `/abs/` metadata. Replaces the model's reference when present. */
-  detectedReference?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 export interface ImageOverride {
-  source_figure: string;
+  source_figure?: string;
   caption?: string;
   alt_text?: string;
   /** Optional 1-based page hint that short-circuits caption search in figure-extract. */
   pageHint?: number;
+  forceRegionCrop?: boolean;
 }
 
 interface FocusDirectives {
@@ -64,22 +66,25 @@ function normalizeFigureLabel(raw: string): string {
     : trimmed.replace(/^figure/i, 'Figure');
 }
 
-function parseFocusDirectives(raw: string): FocusDirectives {
+export function parseFocusDirectives(raw: string): FocusDirectives {
   const lines = raw.split('\n');
   const remaining: string[] = [];
   let sourceFigure: string | undefined;
   let caption: string | undefined;
   let altText: string | undefined;
   let pageHint: number | undefined;
+  let forceRegionCrop: boolean | undefined;
   let recreateRaw: string | undefined;
   let recreateX: string | undefined;
   let recreateY: string | undefined;
   let dataFile: string | undefined;
+  let sawImageKey = false;
 
   const figDirective = /^\s*image\s*:\s*((?:figure|fig\.?)\s*\d+(?:\.\d+)?[a-z]?)\s*$/i;
   const captionDirective = /^\s*image[_-]caption\s*:\s*(.+?)\s*$/i;
   const altDirective = /^\s*image[_-]alt\s*:\s*(.+?)\s*$/i;
   const pageHintDirective = /^\s*image[_-]page[_-]hint\s*:\s*(.+?)\s*$/i;
+  const rasterDirective = /^\s*image[_-]raster\s*:\s*(.*?)\s*$/i;
   const recreateDirective = /^\s*recreate\s*:\s*(.+?)\s*$/i;
   const recreateXDirective = /^\s*recreate[_-]x\s*:\s*(.+?)\s*$/i;
   const recreateYDirective = /^\s*recreate[_-]y\s*:\s*(.+?)\s*$/i;
@@ -89,18 +94,22 @@ function parseFocusDirectives(raw: string): FocusDirectives {
     let m = line.match(figDirective);
     if (m) {
       sourceFigure = normalizeFigureLabel(m[1]);
+      sawImageKey = true;
       continue;
     }
     m = line.match(captionDirective);
-    if (m) { caption = m[1]; continue; }
+    if (m) { caption = m[1]; sawImageKey = true; continue; }
     m = line.match(altDirective);
-    if (m) { altText = m[1]; continue; }
+    if (m) { altText = m[1]; sawImageKey = true; continue; }
     m = line.match(pageHintDirective);
     if (m) {
       const n = Number.parseInt(m[1].trim(), 10);
       if (Number.isFinite(n) && n > 0) pageHint = n;
+      sawImageKey = true;
       continue;
     }
+    m = line.match(rasterDirective);
+    if (m) { forceRegionCrop = /^(true|yes|1|on)$/i.test(m[1]); sawImageKey = true; continue; }
     m = line.match(recreateDirective);
     if (m) { recreateRaw = m[1]; continue; }
     m = line.match(recreateXDirective);
@@ -109,12 +118,17 @@ function parseFocusDirectives(raw: string): FocusDirectives {
     if (m) { recreateY = m[1]; continue; }
     m = line.match(dataDirective);
     if (m) { dataFile = m[1]; continue; }
+    const unknownImageKey = line.match(/^\s*(image_[^:\s]*)\s*:/i);
+    if (unknownImageKey) {
+      console.warn(`  ⚠ unrecognised image directive: ${unknownImageKey[1]}`);
+      continue;
+    }
     remaining.push(line);
   }
 
   const focusHint = remaining.join('\n').trim() || undefined;
-  const imageOverride = sourceFigure
-    ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint }
+  const imageOverride = sawImageKey
+    ? { source_figure: sourceFigure, caption, alt_text: altText, pageHint, ...(forceRegionCrop !== undefined && { forceRegionCrop }) }
     : undefined;
 
   // recreate: yes|no|Figure N. Any recreate_x/recreate_y/data directive
@@ -135,6 +149,7 @@ export interface InputSource {
   url?: string;
   filename?: string;
   filePath?: string;
+  cachedPdfPath?: string;
 }
 
 function readPdfFocus(filename: string): FocusDirectives {
@@ -153,6 +168,13 @@ function splitUrlAndFocus(line: string): FocusDirectives & { url: string } {
   return { url: m[1], ...parsed };
 }
 
+function imageOverrideLog(override: ImageOverride): string {
+  if (override.source_figure) return `image override: ${override.source_figure}`;
+  if (override.pageHint) return `image override: page hint ${override.pageHint}`;
+  if (override.caption || override.alt_text) return 'image override: caption or alt text';
+  return 'image override';
+}
+
 // Sanitising + truncating filenames/URLs can collapse distinct inputs onto
 // the same customId, which would silently overwrite one request with the
 // other. Suffix deterministically (-2, -3, ...) within the length budget.
@@ -164,11 +186,6 @@ function dedupeCustomId(base: string, used: Set<string>, maxLen: number): string
   }
   used.add(id);
   return id;
-}
-
-function isPdfUrl(url: string): boolean {
-  const lower = url.toLowerCase().split('?')[0];
-  return lower.endsWith('.pdf') || /arxiv\.org\/pdf\//i.test(lower);
 }
 
 function extractTagAttr(tag: string, name: string): string | undefined {
@@ -196,55 +213,106 @@ function parseSourceFigureLabel(figcaption: string): string | undefined {
   return m ? `Figure ${m[2]}` : undefined;
 }
 
+/** Word-bounded attribute read, so `src` never matches inside `data-src` or `srcset`. */
+function tagAttr(tag: string, name: string): string | undefined {
+  const m = new RegExp(`[\\s"'/]${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i').exec(tag);
+  return m ? m[1] ?? m[2] ?? m[3] : undefined;
+}
+
+function imgRawSources(imgTag: string): RawSource[] {
+  const src = ['src', 'data-src', 'data-original'].map(name => tagAttr(imgTag, name)).find(v => v && !/^data:/i.test(v));
+  const srcset = tagAttr(imgTag, 'srcset');
+  return [...(src ? [{ url: src }] : []), ...(srcset ? [{ srcset }] : [])];
+}
+
+/** Each `<img>` (src, then its largest srcset entry), then each `<picture><source srcset>`, then each `<object data>`. */
+function figureRawSources(block: string): RawSource[] {
+  const raw: RawSource[] = [];
+  for (const img of block.match(/<img\b[^>]*>/gi) ?? []) raw.push(...imgRawSources(img));
+  for (const picture of block.match(/<picture\b[^>]*>[\s\S]*?<\/picture>/gi) ?? []) {
+    for (const source of picture.match(/<source\b[^>]*>/gi) ?? []) {
+      const srcset = tagAttr(source, 'srcset');
+      if (srcset) raw.push({ srcset });
+    }
+  }
+  for (const object of block.match(/<object\b[^>]*>/gi) ?? []) {
+    const data = tagAttr(object, 'data');
+    if (data) raw.push({ url: data });
+  }
+  return raw;
+}
+
+function snapshotLabel(openTag: string, figcaption: string | undefined, captionOpenTag: string | undefined): string | undefined {
+  const decoded = (name: string) => {
+    const value = tagAttr(openTag, name);
+    return value === undefined ? undefined : decodeHtmlEntities(value);
+  };
+  const key = labelFromHints({
+    captionText: figcaption,
+    figureStyle: tagAttr(openTag, 'style'),
+    captionStyle: captionOpenTag ? tagAttr(captionOpenTag, 'style') : undefined,
+    ariaLabel: decoded('aria-label'),
+    id: decoded('id'),
+    dataLabel: decoded('data-label'),
+  });
+  return key ? formatLabel(key) : undefined;
+}
+
 /**
- * Regex-based DOM figure-candidate scan (Node has no DOM). Primary pass reads
- * real `<figure>…</figure>` elements; secondary pass catches a bare `<img>`
- * sitting in a `[class*="figure"]` wrapper (mirrors the live selector in
- * figure-vlm.ts's markFigureCandidates), for pages that don't use `<figure>`.
+ * Regex-based DOM figure-candidate scan (Node has no DOM). Every `<figure>`
+ * with an asset is a candidate; only on a page with no `<figure>` does a bare
+ * `<img>` in a whole-token `chart`/`figure`/`graph`/`plot` class wrapper count.
+ * `imgSrc`, `figcaption`, `alt` and `sourceFigure` keep the values the legacy
+ * snapshot path reads; `label` and `sources` carry the richer extraction.
  * Runs on the FULL raw HTML, before the strip+truncate below, so a late
  * figure is never lost to the size cap.
  */
 export function parseFigureCandidates(raw: string, pageUrl: string): FigureCandidate[] {
   const candidates: FigureCandidate[] = [];
-  const seenSrc = new Set<string>();
+  const seen = new Set<string>();
+  const record = (candidate: FigureCandidate): void => {
+    const key = candidate.imgSrc || candidate.sources?.[0];
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    candidates.push(candidate);
+  };
 
-  const figureRe = /<figure\b[^>]*>([\s\S]*?)<\/figure>/gi;
+  const captionRe = /<figcaption\b([^>]*)>([\s\S]*?)<\/figcaption>/i;
+  const figureRe = /<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi;
   let m: RegExpExecArray | null;
   while ((m = figureRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
-    const block = m[1];
+    const block = m[2];
     const imgMatch = block.match(/<img\b[^>]*>/i);
-    if (!imgMatch) continue;
-    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
-    if (!imgSrc || seenSrc.has(imgSrc)) continue;
-
-    const alt = extractTagAttr(imgMatch[0], 'alt');
-    const capMatch = block.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
-    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const imgSrc = (imgMatch && resolveImgSrc(imgMatch[0], pageUrl)) || '';
+    const sources = resolveSources(figureRawSources(block), pageUrl);
+    const alt = imgMatch ? extractTagAttr(imgMatch[0], 'alt') : undefined;
+    const capMatch = block.match(captionRe);
+    const figcaption = capMatch ? stripHtml(capMatch[2]) || undefined : undefined;
     const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
-
-    seenSrc.add(imgSrc);
-    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+    const label = snapshotLabel(m[0], figcaption, capMatch ? capMatch[0] : undefined);
+    record({ imgSrc, figcaption, alt, sourceFigure, ...(label && { label }), sources });
   }
+  if (/<figure\b/i.test(raw)) return candidates;
 
-  // Secondary pass: bare <img> inside a [class*="figure"] wrapper that isn't a
-  // real <figure> element. Scans a bounded window after the wrapper's opening
-  // tag rather than trying to balance nested tags with regex.
+  // Wrapper pass, for pages with no <figure>: scans a bounded window after the
+  // wrapper's opening tag rather than trying to balance nested tags with regex.
   const WRAPPER_WINDOW = 2000;
-  const wrapperRe = /<(?:div|span|section)\b[^>]*class\s*=\s*["'][^"']*figure[^"']*["'][^>]*>/gi;
+  const wrapperRe = /<(?:div|span|section)\b[^>]*>/gi;
   while ((m = wrapperRe.exec(raw)) && candidates.length < MAX_FIGURE_CANDIDATES) {
+    const className = tagAttr(m[0], 'class');
+    if (!className || !isWrapperClass(className)) continue;
     const windowText = raw.slice(m.index, m.index + WRAPPER_WINDOW);
     const imgMatch = windowText.match(/<img\b[^>]*>/i);
     if (!imgMatch) continue;
-    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl);
-    if (!imgSrc || seenSrc.has(imgSrc)) continue;
+    const imgSrc = resolveImgSrc(imgMatch[0], pageUrl) ?? '';
+    const sources = resolveSources(imgRawSources(imgMatch[0]), pageUrl);
 
     const alt = extractTagAttr(imgMatch[0], 'alt');
-    const capMatch = windowText.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
-    const figcaption = capMatch ? stripHtml(capMatch[1]) || undefined : undefined;
+    const capMatch = windowText.match(captionRe);
+    const figcaption = capMatch ? stripHtml(capMatch[2]) || undefined : undefined;
     const sourceFigure = figcaption ? parseSourceFigureLabel(figcaption) : undefined;
-
-    seenSrc.add(imgSrc);
-    candidates.push({ imgSrc, figcaption, alt, sourceFigure });
+    const label = snapshotLabel(m[0], figcaption, capMatch ? capMatch[0] : undefined);
+    record({ imgSrc, figcaption, alt, sourceFigure, ...(label && { label }), sources });
   }
 
   return candidates;
@@ -325,35 +393,6 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-function formatCitationDate(raw?: string): string | undefined {
-  const m = raw?.match(/(\d{4})[/-](\d{1,2})/);
-  if (!m) return undefined;
-  const month = MONTHS[Number.parseInt(m[2], 10) - 1];
-  return month ? `Published ${month} ${m[1]}` : undefined;
-}
-
-function escRefText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/** "Acharya, Vivek" -> "Acharya, V."; leaves a bare surname untouched. */
-function formatAuthorApa(citation: string): string {
-  const parts = citation.split(',').map(s => s.trim());
-  const surname = parts[0] ?? citation.trim();
-  const given = parts.slice(1).join(' ').trim();
-  if (!given) return surname;
-  const initials = given.split(/\s+/).filter(Boolean).map(g => `${g[0].toUpperCase()}.`).join(' ');
-  return `${surname}, ${initials}`;
-}
-
-function formatAuthorsForRef(list: string[]): string {
-  const apa = list.map(formatAuthorApa).filter(Boolean);
-  if (apa.length === 0) return '';
-  if (apa.length > 6) return `${apa[0]}, et al.`;
-  if (apa.length === 1) return apa[0];
-  return `${apa.slice(0, -1).join(', ')}, & ${apa[apa.length - 1]}`;
-}
-
 /** Reads a `<meta name|property="…" content="…">` value by name, order-agnostic. */
 function metaByName(raw: string, name: string): string | undefined {
   const re = /<meta\b[^>]*>/gi;
@@ -395,36 +434,42 @@ function extractCitationMeta(raw: string): CitationMeta {
   };
 }
 
-/**
- * Canonical single-entry reference from citation metadata. Prefers a DOI link
- * (Nature and most journals), falls back to the arXiv abstract, then the source
- * URL. Deterministic so attribution is always present, correctly anchored, and
- * consistent, instead of whatever the model invents (fabricated URLs, missing
- * anchors, "Unattributed").
- */
-function buildReference(meta: CitationMeta, sourceUrl: string): string | undefined {
-  if (!meta.title || meta.authors.length === 0) return undefined;
-  const authors = escRefText(formatAuthorsForRef(meta.authors));
-  const year = meta.date?.match(/\d{4}/)?.[0];
-  const yearPart = year ? ` (${year})` : '';
+export function buildCitation(meta: CitationMeta, sourceUrl: string): DetectedCitation | undefined {
+  const title = toPlain(meta.title ?? '').trim();
+  const names = meta.authors.map(name => toPlain(name).trim()).filter(Boolean);
+  if (!title || names.length === 0) return undefined;
+  const authors = names.map(name => {
+    const family = surnameOf(name);
+    const givenNames = name.includes(',')
+      ? name.split(',').slice(1).join(' ').trim()
+      : name.split(/\s+/).slice(0, -1).join(' ');
+    const given = givenNames.split(/\s+/).filter(Boolean)
+      .map(part => `${part[0].toUpperCase()}.`).join(' ');
+    return { family: toPlain(family), ...(given ? { given: toPlain(given) } : {}) };
+  });
+  const year = toPlain(meta.date ?? '').match(/\d{4}/)?.[0];
+  const doi = toPlain(meta.doi ?? '').trim();
+  const journal = toPlain(meta.journal ?? '').trim();
+  const source = toPlain(sourceUrl);
+  const absUrl = arxivAbsUrl(source);
+  const venue = doi ? journal : absUrl
+    ? `arXiv preprint arXiv:${absUrl.split('/abs/')[1].replace(/v\d+$/i, '')}`
+    : journal;
+  const url = doi ? `https://doi.org/${doi.replace(/^doi:/i, '')}` : absUrl ?? source;
+  return {
+    authors,
+    ...(year ? { year: Number(year) } : {}),
+    title,
+    ...(venue ? { venue: toPlain(venue) } : {}),
+    url: toPlain(url),
+  };
+}
 
-  let venue = '';
-  let link = sourceUrl;
-  if (meta.doi) {
-    if (meta.journal) venue = ` <em>${escRefText(meta.journal)}</em>.`;
-    link = `https://doi.org/${meta.doi.replace(/^doi:/i, '')}`;
-  } else {
-    const absUrl = arxivAbsUrl(sourceUrl);
-    if (absUrl) {
-      const idBase = (absUrl.split('/abs/')[1] ?? '').replace(/v\d+$/i, '');
-      venue = ` <em>arXiv preprint</em>${idBase ? ` arXiv:${escRefText(idBase)}` : ''}.`;
-      link = absUrl;
-    } else if (meta.journal) {
-      venue = ` <em>${escRefText(meta.journal)}</em>.`;
-    }
-  }
-  return `${authors}${yearPart}. ${escRefText(meta.title)}.${venue} ` +
-    `<a href="${escRefText(link)}" target="_blank" rel="noopener noreferrer">${escRefText(link)}</a>`;
+export function publishedOnFrom(date?: string): string | undefined {
+  const match = date?.match(/^(\d{4})[/-](\d{1,2})(?=$|[/-]\d{1,2}(?:$|[T\s]))/);
+  if (!match) return undefined;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? `${match[1]}-${String(month).padStart(2, '0')}` : undefined;
 }
 
 /**
@@ -451,12 +496,8 @@ async function fetchArxivAbsCitation(url: string): Promise<CitationMeta | null> 
 interface FetchedHtml {
   text?: string;
   candidates: FigureCandidate[];
-  /** First author's surname, from arXiv `/abs/` metadata or the page markup. */
-  detectedSurname?: string;
-  /** Publication date as "Published Month Year", from arXiv `/abs/` metadata. */
-  detectedPublished?: string;
-  /** Canonical single-entry reference (HTML) built from arXiv `/abs/` metadata. */
-  detectedReference?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
@@ -485,28 +526,53 @@ async function fetchHtmlContent(url: string): Promise<FetchedHtml> {
     // Last resort for pages with no citation meta at all: body author markup.
     const authorList = meta.authors.length > 0 ? meta.authors : extractAuthorList(raw);
     const authors = joinAuthorNames(authorList);
-    const firstName = authorList[0];
-    const detectedSurname = firstName ? surnameOf(firstName) : undefined;
-    const detectedPublished = formatCitationDate(meta.date);
-    const detectedReference = buildReference({ ...meta, authors: authorList }, url);
-    if (text && (authors || detectedPublished)) {
+    const detectedCitation = buildCitation({ ...meta, authors: authorList }, url);
+    const publishedOn = publishedOnFrom(meta.date);
+    const publicationDate = publishedOn
+      ? `Published ${MONTHS[Number(publishedOn.slice(5)) - 1]} ${publishedOn.slice(0, 4)}`
+      : undefined;
+    if (text && (authors || publicationDate)) {
       const lines: string[] = [];
       if (authors) lines.push(`Detected paper author(s): ${authors}`);
-      if (detectedPublished) lines.push(`Detected publication date: ${detectedPublished}`);
+      if (publicationDate) lines.push(`Detected publication date: ${publicationDate}`);
       lines.push('Use these for the byline and publication date unless the paper text clearly contradicts them.');
       text = `${lines.join('\n')}\n\n${text}`;
     }
-    return { text, candidates, detectedSurname, detectedPublished, detectedReference };
+    return { text, candidates, detectedCitation, publishedOn };
   } catch (err) {
     console.warn(`  ⚠ URL fetch error: ${url} — ${err instanceof Error ? err.message : String(err)}`);
     return { candidates: [] };
   }
 }
 
+async function cachePdfUrl(url: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+      throw new Error('response does not start with %PDF-');
+    }
+    const cacheDir = path.resolve(process.env.PDF_CACHE_DIR || path.join(INPUT_DIR, '_cache', 'pdf'));
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const cachedPath = path.join(cacheDir, `${hash}.pdf`);
+    fs.mkdirSync(cacheDir, { recursive: true });
+    try {
+      fs.writeFileSync(cachedPath, bytes, { flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    return cachedPath;
+  } catch (error) {
+    console.warn(`  ⚠ PDF download failed: ${url}: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+}
+
 /**
  * Scans input/ for PDFs and optionally input/urls.txt for remote URLs.
  * Reads local PDFs into base64 for inline batch embedding.
- * HTML web URLs are fetched and stripped to text; PDF URLs pass through as document blocks.
+ * HTML web URLs are fetched and stripped to text; PDF URLs are cached locally and sent as URL document blocks.
  */
 export async function preprocessInputs(): Promise<InputItem[]> {
   const items: InputItem[] = [];
@@ -539,7 +605,7 @@ export async function preprocessInputs(): Promise<InputItem[]> {
     });
     const flags = [
       focusHint ? 'focus hint loaded' : null,
-      imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+      imageOverride ? imageOverrideLog(imageOverride) : null,
       recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
     ].filter(Boolean).join('; ');
     console.log(`  ✓ ${filename} (${sizeKb} KB)${flags ? `  [${flags}]` : ''}`);
@@ -562,37 +628,37 @@ export async function preprocessInputs(): Promise<InputItem[]> {
 
       let htmlContent: string | undefined;
       let figureCandidates: FigureCandidate[] | undefined;
-      let detectedSurname: string | undefined;
-      let detectedPublished: string | undefined;
-      let detectedReference: string | undefined;
-      if (!isPdfUrl(url)) {
+      let detectedCitation: DetectedCitation | undefined;
+      let publishedOn: string | undefined;
+      let cachedPdfPath: string | undefined;
+      if (isPdfUrl(url)) {
+        cachedPdfPath = await cachePdfUrl(url);
+      } else {
         process.stdout.write(`  Fetching ${url} …`);
         const fetched = await fetchHtmlContent(url);
         htmlContent = fetched.text;
         figureCandidates = fetched.candidates.length > 0 ? fetched.candidates : undefined;
-        detectedSurname = fetched.detectedSurname;
-        detectedPublished = fetched.detectedPublished;
-        detectedReference = fetched.detectedReference;
+        detectedCitation = fetched.detectedCitation;
+        publishedOn = fetched.publishedOn;
         console.log(htmlContent ? ` ${Math.round(htmlContent.length / 1024)}KB` : ' (fetch failed, will use URL reference)');
       }
 
       items.push({
         customId,
         input: url,
-        source: { kind: 'url', url },
+        source: { kind: 'url', url, cachedPdfPath },
         isUrl: true,
         htmlContent,
         focusHint,
         imageOverride,
         recreate,
         figureCandidates,
-        detectedSurname,
-        detectedPublished,
-        detectedReference,
+        detectedCitation,
+        publishedOn,
       });
       const flags = [
         focusHint ? 'focus hint loaded' : null,
-        imageOverride ? `image override: ${imageOverride.source_figure}` : null,
+        imageOverride ? imageOverrideLog(imageOverride) : null,
         recreate?.enabled ? `recreate: ${recreate.target ?? 'auto'}${recreate.dataFile ? ` (data: ${recreate.dataFile})` : ''}` : null,
       ].filter(Boolean).join('; ');
       console.log(`  ✓ URL queued → ${url}${flags ? `  [${flags}]` : ''}`);

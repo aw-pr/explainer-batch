@@ -1,0 +1,92 @@
+{
+  "input": {
+    "version": 1,
+    "metadata": {
+      "title": "Agent Costs: Smith (2026)",
+      "eyebrow": "Research",
+      "date_created": "2026-05-01",
+      "filename_slug": "2026-05-01_smith_agent-costs_explainer"
+    },
+    "hero": {
+      "headline": "Agents reduce costs",
+      "headline_html": "Agents <span>reduce costs</span>",
+      "subtitle": "The results.",
+      "publication_date": "Published March 2026"
+    },
+    "top_block": {
+      "kind": "pills",
+      "pills": [
+        {
+          "number": "R&amp;D",
+          "description": "Research",
+          "accent_color": "red"
+        },
+        {
+          "number": "33%",
+          "description": "Savings",
+          "accent_color": "blue"
+        }
+      ]
+    },
+    "sections": [
+      {
+        "label": "Why",
+        "paragraphs": [
+          "Costs fell."
+        ],
+        "paragraphs_html": [
+          "Costs <strong>fell</strong>."
+        ]
+      },
+      {
+        "label": "How",
+        "paragraphs": [
+          "Measured over time."
+        ],
+        "list": {
+          "ordered": true,
+          "style": "steps",
+          "intro": "Steps",
+          "intro_html": "<em>Steps</em>",
+          "items": [
+            {
+              "label": "One",
+              "body": "Plan",
+              "body_html": "<b>Plan</b>"
+            }
+          ]
+        },
+        "table": {
+          "caption": "Results (Table 2, p. 6)",
+          "columns": [
+            "Year",
+            "Cost"
+          ],
+          "rows": [
+            [
+              "2025",
+              "8"
+            ]
+          ],
+          "align": [
+            "left",
+            "right"
+          ]
+        }
+      }
+    ],
+    "end_takeaway": {
+      "headline": "The harness is the product",
+      "body": "Plain.",
+      "body_html": "The <strong>harness</strong> matters."
+    },
+    "references": [
+      "Smith, J. (2026). Agent costs. <em>Journal</em>. <a href=\"https://example.org/paper\">Paper</a>"
+    ]
+  },
+  "ok": true,
+  "expected": {
+    "end_takeaway.label": "The harness is the product",
+    "end_takeaway.body": "The <strong>harness</strong> matters."
+  }
+}

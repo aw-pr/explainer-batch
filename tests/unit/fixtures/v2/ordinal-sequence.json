@@ -1,0 +1,87 @@
+{
+  "hero": {
+    "title": "Governed agents",
+    "headline": "Agents separate planning from execution",
+    "emphasis": null,
+    "subtitle": "Explicit policy checks constrain tool use."
+  },
+  "top_block": {
+    "kind": "takeaway",
+    "label": "Finding",
+    "body": "Policy gates make agent decisions easier to inspect."
+  },
+  "sections": [
+    {
+      "label": "Architecture",
+      "paragraphs": [
+        "The paper separates planning from execution."
+      ],
+      "list": null,
+      "table": null
+    },
+    {
+      "label": "Evidence",
+      "paragraphs": [
+        "The measured cases took 12.5, 30.1, 7.2, 44, 18 and 26 ms."
+      ],
+      "list": null,
+      "table": null
+    }
+  ],
+  "charts": [
+    {
+      "kind": "bar",
+      "title": "Measured latency",
+      "caption": "Latency varies across the measured cases.",
+      "x": {
+        "label": "Case",
+        "unit": null,
+        "type": "category",
+        "values": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ]
+      },
+      "y": {
+        "label": "Latency",
+        "unit": "ms",
+        "scale": "linear"
+      },
+      "series": [
+        {
+          "name": "Measured",
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "points": null,
+          "source": {
+            "kind": "table",
+            "ref": "Table 2",
+            "page": 4
+          }
+        }
+      ]
+    }
+  ],
+  "figure_request": null,
+  "end_takeaway": null,
+  "citation": {
+    "authors": [
+      {
+        "family": "Smith",
+        "given": null
+      }
+    ],
+    "year": 2026,
+    "title": "Governed agent architectures",
+    "venue": null,
+    "url": "https://example.org/paper"
+  }
+}

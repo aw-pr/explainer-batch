@@ -29,17 +29,26 @@ content across three files and it drifted; keep it single-source.)
 - **`skill.md`** is the explainer specification and JSON schema. Its body after
   the YAML frontmatter is the system prompt sent to the model verbatim, so
   edits change model behaviour directly; treat it as production code.
-- **Schema contract**: `src/types/explainer-json.ts` is the canonical
-  `ExplainerJson` type and must stay in sync with the consuming website repo's
-  equivalent. Any change lands in both.
+- **Schema contract**: the seam saves v2 articles defined in
+  `contract/explainer-v2.ts`. Generated dialects in `contract/generated/` describe
+  model output, while `src/wire-schema.ts` loads the provider-specific schema.
+  Keep the consuming website's contract in sync with stored articles.
 - **`state.json`**: auto-managed (Files API IDs, batch IDs, per-request
   results), gitignored, never hand-edited.
 - **Model defaults**: `src/model-config.ts`. Claude: batch/lane/synthesis
-  `claude-opus-4-8`, repair `claude-sonnet-5`.
-- **Output post-processing**: every save path funnels through `saveResult`
-  (`src/output.ts`): `normalizeSchemaDrift` then `attachFigureImage`. Opus
-  consistently emits `paragraphs_html`/`heading` variants; the normaliser
-  derives the canonical fields. Fix drift there, not in the prompt.
+  `claude-opus-4-8`, repair `claude-sonnet-5-5`.
+- **Output post-processing**: every save path in `src/batch.ts` calls
+  `finalizeResult` in `src/finalize.ts`. The seam canonicalises v2 wire output,
+  validates it, bounds prose repair at two attempts and drops invalid or thin
+  charts. After resolving surviving issues, it calls the figure hook for a
+  non-null `figure_request`, checkpoints its bytes, and stamps provenance and
+  `lead_figure` (relative asset path, hash, size and extraction metadata).
+  `persistArtefact` in `src/output.ts` writes the sidecar before the JSON and
+  copies both to each eligible destination; replay restores lost sidecars.
+  A missing figure records its reason in `quality.dropped`. Saves never run
+  recreation or store inline image bytes.
+  Canonicalisation fixes belong in the seam. Generated provider dialects live
+  in `contract/generated/` and are loaded by `src/wire-schema.ts`.
 
 ## Module map
 
@@ -50,7 +59,9 @@ src/
   preprocess.ts     Scans input/, uploads PDFs, returns InputItem[]
   prompt.ts         Strips skill.md frontmatter; builds system prompt
   batch.ts          Submit/poll/collect for both providers; repair; cost
-  output.ts         Extract JSON, normalise drift, figure extract; save/stage
+  output.ts         Extract JSON, drop thin charts, figure helpers; persist/stage/mirror
+  finalize.ts       Canonicalise v2 wire output, repair, validate, stamp and persist
+  wire-schema.ts    Load generated provider dialects from contract/generated/
   figure-vlm.ts     VLM figure pick: URL DOM-candidate choose / PDF two-pass zoom-refine, crop + verify
   vision.ts         Provider-agnostic single-shot vision call; subscription-first routing (OAuth / codex)
   html-export.ts    Spawns website repo's exporter (skipped if unconfigured)
@@ -58,8 +69,9 @@ src/
   state.ts          Reads/writes state.json
   providers.ts      Claude/OpenAI providers; auth detection; codex runner
   model-config.ts   Per-provider model defaults; env/file merge
-  quality.ts        JSON schema validation + repair instructions
-  types/explainer-json.ts  Canonical ExplainerJson (shared with website repo)
+  quality.ts        Structured chart checks + wire repair instructions
+  repair.ts         Shared repair attempt bound
+  types/explainer-json.ts  Legacy v1 types retained for figure and migration tools
 scripts/
   render-html.ts    Wrapper around the website repo's HTML exporter
   export-html.ts    Re-renders HTML for a directory of JSON

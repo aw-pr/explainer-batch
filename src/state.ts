@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { LlmContractError } from './llm-contract';
 import type { ProviderName } from './providers';
 
 // Overridable so parallel runs can each use an isolated state file (avoids the
@@ -20,6 +21,10 @@ export interface FigureCandidate {
   alt?: string;
   /** Parsed "Figure N" label from the figcaption. */
   sourceFigure?: string;
+  /** formatLabel string (`Figure 5`, `Table 1`, `Figure 2b`) from the caption text, `--figure-label`, aria-label, LaTeXML id or data-label. */
+  label?: string;
+  /** Every asset URL, resolved, entity-decoded and unwrapped from `/_next/image`, in source order. */
+  sources?: string[];
 }
 
 /**
@@ -47,6 +52,14 @@ export interface TokenUsage {
   saving_usd: number;
 }
 
+export interface DetectedCitation {
+  authors: Array<{ family: string; given?: string }>;
+  year?: number;
+  title: string;
+  venue?: string;
+  url: string;
+}
+
 export interface RequestState {
   type: 'explainer' | 'lane';
   lane?: string;
@@ -56,6 +69,7 @@ export interface RequestState {
     url?: string;
     filename?: string;
     filePath?: string;
+    cachedPdfPath?: string;
   };
   output: string | null;
   result: 'pending' | 'succeeded' | 'errored';
@@ -63,13 +77,17 @@ export interface RequestState {
   usage?: TokenUsage;
   focusHint?: string;
   imageOverride?: {
-    source_figure: string;
+    source_figure?: string;
     caption?: string;
     alt_text?: string;
     pageHint?: number;
   };
   figureCandidates?: FigureCandidate[];
   recreate?: RecreateDirective;
+  /** Submit date (YYYY-MM-DD) the quality date check compares against. */
+  expectedDate?: string;
+  detectedCitation?: DetectedCitation;
+  publishedOn?: string;
 }
 
 export interface BatchState {
@@ -102,8 +120,9 @@ function empty(): State {
 
 export function readState(): State {
   if (!fs.existsSync(STATE_FILE)) return empty();
+  let parsed: unknown;
   try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as State;
+    parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   } catch (error) {
     // Never silently discard a state file that fails to parse: it holds batch
     // ids and Files API ids that cannot be recovered any other way.
@@ -117,6 +136,13 @@ export function readState(): State {
     );
     return empty();
   }
+  // A migrated file must never read as v1: the next write would replace it.
+  if (typeof parsed === 'object' && parsed !== null && 'version' in parsed) {
+    throw new LlmContractError('STATE_VERSION_UNSUPPORTED',
+      `${STATE_FILE} carries state version ${JSON.stringify((parsed as { version: unknown }).version)}; `
+      + 'this runtime reads only the unversioned v1 state and will not overwrite it.');
+  }
+  return parsed as State;
 }
 
 export function writeState(state: State): void {
@@ -152,7 +178,7 @@ export function mergeOpenAIFileCache(cache: NonNullable<State['openai_file_cache
 export function getLatestPendingBatchByProvider(state: State, provider: ProviderName): BatchState | undefined {
   return [...state.batches]
     .reverse()
-    .find(b => b.status === 'processing' && (b.provider ?? 'claude') === provider);
+    .find(b => b.status === 'processing' && !b.id.startsWith('sync_') && (b.provider ?? 'claude') === provider);
 }
 
 export function getBatchById(state: State, id: string): BatchState | undefined {

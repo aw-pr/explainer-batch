@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Synthetic figure sources</title></head>
+<body>
+<!-- Synthetic: one figure per label source and asset source the snapshot parser must read. -->
+<article>
+<figure id="f1" aria-label="Figure 7"><picture><source srcset="/p/small.webp 640w, /p/large.webp 1600w" type="image/webp"><img src="/p/fallback.png" srcset="/p/fallback-1x.png 1x, /p/fallback-2x.png 2x" alt="Pic"></picture><figcaption>The caption without a label.</figcaption></figure>
+<p>Body text.</p>
+<figure data-label="Table 3"><object type="image/svg+xml" data="t3.svg"></object></figure>
+<figure id="S2.F2"><img src="two-a.png" alt=""><img src="two-b.png" alt=""><figcaption><span>Fig. 2(b):</span> two panels side by side.</figcaption></figure>
+<figure><img src="prec.png" alt=""><figcaption style="--figure-label:&quot;Figure 5&quot;">Figure 4: the caption text wins over the custom property.</figcaption></figure>
+<figure id="A1.F3"><img src="appendix.png" alt=""><figcaption>An appendix figure labelled only by its id.</figcaption></figure>
+<figure><figcaption>Figure 9: a figure with no asset at all.</figcaption></figure>
+</article>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "input": {
+    "version": 1,
+    "metadata": {
+      "title": "Agent Costs: Smith (2026)",
+      "eyebrow": "Research",
+      "date_created": "2026-05-01",
+      "filename_slug": "2026-05-01_smith_agent-costs_explainer"
+    },
+    "hero": {
+      "headline": "Agents reduce costs",
+      "headline_html": "Agents <span>reduce costs</span>",
+      "subtitle": "The results.",
+      "publication_date": "Published March 2026"
+    },
+    "top_block": {
+      "kind": "pills",
+      "pills": [
+        {
+          "number": "R&amp;D",
+          "description": "Research",
+          "accent_color": "red"
+        },
+        {
+          "number": "33%",
+          "description": "Savings",
+          "accent_color": "blue"
+        }
+      ]
+    },
+    "sections": [
+      {
+        "label": "Why",
+        "paragraphs": [
+          "Costs fell."
+        ],
+        "paragraphs_html": [
+          "Costs <strong>fell</strong>."
+        ]
+      },
+      {
+        "label": "How",
+        "paragraphs": [
+          "Measured over time."
+        ]
+      }
+    ],
+    "end_takeaway": {
+      "label": "Meaning",
+      "body": "Lower <em>costs</em>."
+    },
+    "references": [
+      "Jumper, J., et al. (2021). Protein structure prediction 3.0. Nature."
+    ]
+  },
+  "ok": true,
+  "expected": {
+    "references.0.authors.0.family": "Jumper",
+    "references.0.year": 2021,
+    "references.0.title": "Protein structure prediction 3.0",
+    "references.0.authors": [
+      {
+        "family": "Jumper",
+        "given": "J."
+      }
+    ]
+  }
+}

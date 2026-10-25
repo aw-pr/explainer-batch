@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "metadata": {
+    "title": "Incomplete synthetic explainer",
+    "eyebrow": "Test Research Explainer"
+  },
+  "hero": {
+    "headline": "This document stops before it closes",
+    "headline_html": "This document stops before it closes",
+    "subtitle": "It is deliberately truncated"

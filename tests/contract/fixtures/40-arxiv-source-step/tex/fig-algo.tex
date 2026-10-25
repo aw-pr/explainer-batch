@@ -1,0 +1,8 @@
+\begin{figure*}[thbp]
+    \centering
+    \includegraphics[width=\linewidth]{figs/figs/fig-algo.pdf}
+    \caption{Comparison of PIC Algorithms. The area above the dashed line corresponds to the compile step, while the area below corresponds to the link step. \texttt{KVLink} recomputes a subset of tokens, highlighted in dark colors. Four algorithms include \textit{Naive}, \textit{Fully Recompute (FR)}, \baseline, and \algo. The bottom right visualizes attention maps (layer 5, head 5 of Llama 3.1 8B) for four decoded tokens. The x-axis marks the position ID of the first token of each chunk. To highlight the differences between attention maps, we normalize the $QK^T$ results to the [0, 1] range using min-max scaling instead of Softmax.}
+    \label{fig-algo}
+    
+\end{figure*}
+

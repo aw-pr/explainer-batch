@@ -3,9 +3,19 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { structuredOutputEnabled } from './schema/explainer-schema';
+import { structuredOutputEnabled } from './wire-schema';
 
-export type ProviderName = 'claude' | 'openai';
+export const PROVIDER_NAMES = ['claude', 'openai'] as const;
+export type ProviderName = (typeof PROVIDER_NAMES)[number];
+
+export function isProviderName(value: string): value is ProviderName {
+  return (PROVIDER_NAMES as readonly string[]).includes(value);
+}
+
+export function isFatalHttpError(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null | undefined)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
 export type ClaudeAuthMode = 'api_key' | 'claude_cli';
 
 function hasClaudeCliSession(): boolean {
@@ -60,6 +70,23 @@ export interface OpenAIBatchResultItem {
   error?: string;
 }
 
+function assertCompleteResponse(
+  provider: ProviderName,
+  response: { truncated: boolean; reason?: string | null },
+): void {
+  if (response.truncated) {
+    throw new Error(`${provider} response incomplete: ${response.reason ?? 'unknown reason'}`);
+  }
+}
+
+function assertClaudeResponseComplete(response: { stop_reason?: string | null }): void {
+  const reason = response.stop_reason;
+  assertCompleteResponse('claude', {
+    truncated: reason === 'max_tokens' || reason === 'model_context_window_exceeded',
+    reason,
+  });
+}
+
 const CODEX_AUTH_FILE = path.join(os.homedir(), '.codex', 'auth.json');
 
 function readCodexAuth(): Record<string, unknown> | null {
@@ -102,17 +129,46 @@ type ClaudeSdkMessage =
 
 const FORCED_TOOL_NAME = 'emit_explainer';
 
+// An allowlist, not a denylist: Claude Opus 5.5, Sonnet 5.5 and Fable 5.1
+// reject forced tool_choice (`any` / `tool`) with a 400, and newer models are
+// expected to follow, so an unlisted id gets `auto` plus an instruction.
+const FORCED_TOOL_CHOICE_MODELS = new Set([
+  'claude-haiku-4-5',
+  'claude-sonnet-4-5',
+  'claude-sonnet-4-6',
+  'claude-sonnet-5',
+  'claude-opus-4-1',
+  'claude-opus-4-5',
+  'claude-opus-4-6',
+  'claude-opus-4-7',
+  'claude-opus-4-8',
+  'claude-opus-5',
+  'claude-fable-5',
+]);
+
+export function acceptsForcedToolChoice(model: string): boolean {
+  return FORCED_TOOL_CHOICE_MODELS.has(model.trim().replace(/-\d{8}$/, ''));
+}
+
+const EMIT_INSTRUCTION = `\n\nReturn the explainer by calling the ${FORCED_TOOL_NAME} tool exactly once, with the full explainer as its input. Do not reply in plain text.`;
+
 /**
- * Forces Claude to return the explainer as structured tool input rather than
- * free-form text. Claude's `input_schema` is permissive (unlike OpenAI's
- * strict subset), so the same EXPLAINER_JSON_SCHEMA object serves both
- * providers unmodified.
+ * Asks Claude to return the explainer as structured tool input rather than
+ * free-form text, using the generated Claude dialect as `input_schema`.
+ * Where the model cannot be forced, the system prompt
+ * names the tool instead; a plain-text reply still parses via extractJson.
  */
-function forcedToolParams(jsonSchema: Record<string, unknown>): { tools: unknown[]; tool_choice: unknown } {
-  return {
-    tools: [{ name: FORCED_TOOL_NAME, description: 'Emit the explainer as JSON.', input_schema: jsonSchema }],
-    tool_choice: { type: 'tool', name: FORCED_TOOL_NAME },
-  };
+function toolOutputParams(
+  model: string,
+  system: string,
+  jsonSchema: Record<string, unknown> | undefined
+): { system: string; tools?: unknown[]; tool_choice?: unknown } {
+  if (!jsonSchema || !structuredOutputEnabled()) return { system };
+  const tools = [{ name: FORCED_TOOL_NAME, description: 'Emit the explainer as JSON.', input_schema: jsonSchema }];
+  if (acceptsForcedToolChoice(model)) {
+    return { system, tools, tool_choice: { type: 'tool', name: FORCED_TOOL_NAME } };
+  }
+  return { system: system + EMIT_INSTRUCTION, tools, tool_choice: { type: 'auto' } };
 }
 
 /**
@@ -150,16 +206,19 @@ export class ClaudeProvider {
   }
 
   async createBatch(requests: Array<{ customId: string; model: string; maxTokens: number; system: string; content: Anthropic.MessageParam['content']; jsonSchema?: Record<string, unknown> }>): Promise<{ id: string; status: string }> {
-    const payload = requests.map(req => ({
-      custom_id: req.customId,
-      params: {
-        model: req.model,
-        max_tokens: req.maxTokens,
-        system: [{ type: 'text' as const, text: req.system, cache_control: { type: 'ephemeral' } }] as never,
-        messages: [{ role: 'user' as const, content: req.content }],
-        ...(req.jsonSchema && structuredOutputEnabled() ? forcedToolParams(req.jsonSchema) : {}),
-      },
-    }));
+    const payload = requests.map(req => {
+      const { system, ...toolParams } = toolOutputParams(req.model, req.system, req.jsonSchema);
+      return {
+        custom_id: req.customId,
+        params: {
+          model: req.model,
+          max_tokens: req.maxTokens,
+          system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' } }] as never,
+          messages: [{ role: 'user' as const, content: req.content }],
+          ...toolParams,
+        },
+      };
+    });
 
     const batch = await this.getClient().messages.batches.create({ requests: payload } as never);
     return { id: batch.id, status: batch.processing_status };
@@ -186,6 +245,16 @@ export class ClaudeProvider {
       }
 
       const message = item.result.message;
+      try {
+        assertClaudeResponseComplete(message);
+      } catch (error) {
+        yield {
+          customId: item.custom_id,
+          type: 'errored',
+          error: error instanceof Error ? error.message : String(error),
+        };
+        continue;
+      }
       const text = extractClaudeText(message.content);
       yield {
         customId: item.custom_id,
@@ -215,16 +284,18 @@ export class ClaudeProvider {
     content: Anthropic.MessageParam['content'],
     jsonSchema?: Record<string, unknown>
   ): Promise<ProviderMessageResponse> {
+    const { system: systemText, ...toolParams } = toolOutputParams(model, system, jsonSchema);
     // Use streaming to avoid the SDK's 10-minute timeout cap on long generations.
     const stream = this.getClient().messages.stream({
       model,
       max_tokens: maxTokens,
-      system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' } }] as never,
+      system: [{ type: 'text' as const, text: systemText, cache_control: { type: 'ephemeral' } }] as never,
       messages: [{ role: 'user', content }],
-      ...(jsonSchema && structuredOutputEnabled() ? forcedToolParams(jsonSchema) : {}),
+      ...toolParams,
     } as never);
     const resp = await stream.finalMessage();
 
+    assertClaudeResponseComplete(resp);
     const text = extractClaudeText(resp.content);
 
     return {
@@ -299,9 +370,22 @@ interface ResponsesOutputItem {
 }
 
 interface ResponsesBody {
+  status?: string;
+  incomplete_details?: { reason?: string | null };
   output_text?: string;
   output?: ResponsesOutputItem[];
   usage?: ResponseUsage;
+}
+
+export function openAIJsonSchemaFormat(schema: Record<string, unknown>) {
+  return { type: 'json_schema' as const, name: 'explainer' as const, strict: true as const, schema };
+}
+
+function assertOpenAIResponseComplete(body: ResponsesBody): void {
+  assertCompleteResponse('openai', {
+    truncated: body.status === 'incomplete',
+    reason: body.incomplete_details?.reason ?? body.status,
+  });
 }
 
 export class OpenAIProvider {
@@ -343,7 +427,10 @@ export class OpenAIProvider {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`);
+      throw Object.assign(
+        new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`),
+        { status: response.status },
+      );
     }
 
     return response.json();
@@ -357,7 +444,10 @@ export class OpenAIProvider {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`);
+      throw Object.assign(
+        new Error(`OpenAI ${method} ${endpoint} failed: ${response.status} ${response.statusText}${text ? ` - ${text}` : ''}`),
+        { status: response.status },
+      );
     }
 
     return response.text();
@@ -436,16 +526,41 @@ export class OpenAIProvider {
     if (batch.outputFileId) {
       const content = await this.requestText('GET', `/files/${batch.outputFileId}/content`);
       for (const line of content.split('\n').map(s => s.trim()).filter(Boolean)) {
-        const row = JSON.parse(line) as { custom_id?: string; response?: { body?: ResponsesBody }; error?: { message?: string } };
+        const row = JSON.parse(line) as {
+          custom_id?: string;
+          response?: { status_code?: number; body?: ResponsesBody & { error?: { message?: string } } };
+          error?: { message?: string } | null;
+        };
         if (!row.custom_id) continue;
         if (row.error) {
           yield { customId: row.custom_id, type: 'errored', error: row.error.message ?? 'Unknown OpenAI batch error' };
           continue;
         }
 
-        const body = row.response?.body;
+        const response = row.response;
+        const body = response?.body;
         if (!body) {
           yield { customId: row.custom_id, type: 'errored', error: 'Missing response body' };
+          continue;
+        }
+
+        if (typeof response.status_code === 'number' && (response.status_code < 200 || response.status_code >= 300)) {
+          yield {
+            customId: row.custom_id,
+            type: 'errored',
+            error: `HTTP ${response.status_code}: ${body.error?.message ?? 'Unknown OpenAI batch error'}`,
+          };
+          continue;
+        }
+
+        try {
+          assertOpenAIResponseComplete(body);
+        } catch (error) {
+          yield {
+            customId: row.custom_id,
+            type: 'errored',
+            error: error instanceof Error ? error.message : String(error),
+          };
           continue;
         }
 
@@ -485,10 +600,11 @@ export class OpenAIProvider {
         instructions,
         input,
         ...(jsonSchema && structuredOutputEnabled()
-          ? { text: { format: { type: 'json_schema', name: 'explainer', schema: jsonSchema } } }
+          ? { text: { format: openAIJsonSchemaFormat(jsonSchema) } }
           : {}),
       }) as ResponsesBody;
 
+      assertOpenAIResponseComplete(body);
       return {
         text: extractOutputText(body),
         inputTokens: Number(body.usage?.input_tokens ?? 0),
@@ -615,7 +731,10 @@ export function getProviderFromArgs(args: string[]): ProviderName {
   const fromArg = idx >= 0 ? args[idx + 1] : undefined;
   const fromEnv = process.env.PROVIDER;
   const raw = (fromArg ?? fromEnv ?? 'claude').toLowerCase();
-  return raw === 'openai' ? 'openai' : 'claude';
+  if (!isProviderName(raw)) {
+    throw new Error(`Unknown provider "${raw}". Known providers: ${PROVIDER_NAMES.join(', ')}.`);
+  }
+  return raw;
 }
 
 export function parseOpenAIAuthMode(): OpenAIAuthMode {

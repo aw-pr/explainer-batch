@@ -17,10 +17,11 @@
 ## What this is / is not
 
 - It **is** a focused pipeline that produces a specific JSON schema
-  (`src/types/explainer-json.ts`) intended for a separate React renderer.
+  (`contract/explainer-v2.ts`) intended for a separate React renderer.
 - It is **not** a general-purpose PDF summariser or chat tool.
-- Figure cropping is **macOS-first**: it shells out to `sips` for JPEG
-  re-encoding (Linux falls back to PNG). URL figures additionally need
+- Unambiguous local PDF figures use caption-matched embedded image bounds
+  and Poppler, without a vision call. Other layouts use the **macOS-first**
+  VLM path, which shells out to `sips` for image processing. URL figures additionally need
   Playwright + Chromium (`npx playwright install chromium`); the PDF path does not.
 - The website integration is **optional**. Without it you still get JSON.
 
@@ -33,7 +34,8 @@
 > **selection + cropping**), but we borrowed the idea: render the paper, let the
 > model choose the most useful figure, then crop it from the source render. It
 > replaced a brittle deterministic caption/gap-finder that never worked on
-> HTML and often clipped prose. See `docs/FIGURE-EXTRACTION.md`.
+> HTML and often clipped prose. Local PDFs now try an unambiguous embedded-image
+> capture first, retaining the VLM path as fallback. See `docs/FIGURE-EXTRACTION.md`.
 
 ## Architecture
 
@@ -50,10 +52,10 @@ flowchart LR
   C -->|"batch (50% discount)"| D["Submit + poll provider batch"]
   C -->|"--sync (fast, single)"| E["Synchronous run"]
 
-  D --> F["Validate + one-pass repair"]
+  D --> F["Canonicalise v2 wire output"]
   E --> F
-  F --> G["Normalise schema drift"]
-  G --> H["Vision model selects + crops a figure (PDF or URL)"]
+  F --> G["Validate + bounded prose repair"]
+  G --> H["Drop invalid/thin charts + stamp provenance"]
   H --> R(["output/&lt;slug&gt;.json"])
 
   R -. "only if WEBSITE_REPO set" .-> S["Stage + render website HTML"]
@@ -67,14 +69,13 @@ entirely optional.
 
 ## Prerequisites
 
-- **Node 20+** (`.nvmrc` pins 20; `package.json` enforces `engines`).
+- **Node 22+** (`.nvmrc` pins 22; `package.json` enforces `engines`).
 - **One provider credential**: an Anthropic or OpenAI API key, a Claude
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
 - **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
   figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
-- **`sips`**: ships with macOS; used to downscale extracted figures. Not
-  available on Linux: figures are skipped there, the rest of the pipeline is
-  unaffected.
+- **`sips`**: ships with macOS; used by the VLM figure path. The local PDF
+  embedded-image path uses Poppler alone.
 - **tmux**: only required for the secure headless route
   (`npm run process:secure:tmux`).
 
@@ -139,7 +140,10 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run status` | Show all batches, per-request results, token counts |
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
+| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file |
+| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run figure extraction and patch an existing JSON in place |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
+| `npm test` | Run the offline unit-test suite under `tests/unit/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
 | `npm run guards:install` | Arm the local publish git hooks (contributors) |
 
@@ -151,7 +155,9 @@ and no `PROVIDER` env var the default is `claude`.
 - **Local PDFs**: drop any `.pdf` into `input/`. OpenAI uploads are cached in
   `state.json` by filename + content hash; unchanged files are reused.
 - **Remote URLs**: `input/urls.txt`, one HTTP(S) link per line (`#` comments
-  ignored).
+  ignored). PDF URLs are downloaded at preprocess time into `PDF_CACHE_DIR`
+  (default `<input dir>/_cache/pdf/`), stored by content hash and still sent to
+  the provider as URL document blocks. Failed downloads warn and remain queued.
 - **Per-paper focus hint (optional)**: steer emphasis for one paper without
   changing the global prompt:
   - PDF: sidecar `input/<basename>.focus.md` (body = emphasis block).
@@ -164,15 +170,15 @@ For a PDF at `input/my-paper.pdf`, an optional sidecar at
 `input/my-paper.focus.md` lets you steer one paper without touching the global
 prompt. Structured directive lines are stripped before the model sees the
 prose; the remainder is appended verbatim to the user message under the
-heading `READER EMPHASIS FOR THIS PAPER`. Malformed directive lines are
-ignored silently.
+heading `READER EMPHASIS FOR THIS PAPER`. Each `image_*` directive works on
+its own. Unknown `image_*` directives are warned about and ignored.
 
 | Directive | Purpose |
 |---|---|
-| `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). Omit to let the vision model choose. |
-| `image_caption: …` | Override the caption attached to the lead image |
-| `image_alt: …` | Override the alt text for the lead image |
-| `image_page_hint: N` | Parsed for backward compatibility; no longer used. The vision model locates the page itself. |
+| `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). This works on its own. |
+| `image_caption: …` | Override the caption attached to the lead image. This works on its own. |
+| `image_alt: …` | Override the alt text for the lead image. This works on its own. |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
 | `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
 | `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
 | `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |
@@ -195,16 +201,18 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `OPENAI_API_KEY` | OpenAI batch / API | unset |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Max/Pro sync route | unset |
 | `PROVIDER` | Default provider when no `--provider` flag | `claude` |
+| `OPENAI_USE_LANES` | OpenAI lane mode: `1` splits each paper into four lanes; a failed lane fails that paper | unset: one call per paper with the full document |
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
 | `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
+| `PDF_CACHE_DIR` | Local cache for PDF URLs downloaded at preprocess time | `<input dir>/_cache/pdf/` |
 | `EXPLAINER_OUTPUT_DIR` | Where JSON is written | `<repo>/output` |
 | `EXPLAINER_OBSIDIAN_DIR` | Extra always-on mirror for each saved JSON (independent of the output dir and website staging) | `~/obsidian/explainers` (set empty to disable) |
 | `WEBSITE_REPO` | Consuming website repo; enables staging + website HTML | unset (skipped) |
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
 Model defaults. Claude: batch/lane/synthesis `claude-opus-4-8`, repair
-`claude-sonnet-4-6`. OpenAI: batch/synthesis `gpt-5.6-terra`, lane/repair
+`claude-sonnet-5-5`. OpenAI: batch/synthesis `gpt-5.6-terra`, lane/repair
 `gpt-5.6-luna`. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
 
@@ -223,7 +231,7 @@ Fable runs once per paper, so its cost multiplies by paper count.
 |---|---|---|
 | Claude batch | `ANTHROPIC_API_KEY` | 50% discount, ~1h turnaround |
 | Claude sync | `CLAUDE_CODE_OAUTH_TOKEN` | Max/Pro quota; mixed OAuth+API-key env is rejected |
-| OpenAI batch | `OPENAI_API_KEY` | semantic-lane extraction + synthesis |
+| OpenAI batch | `OPENAI_API_KEY` | one explainer request per paper |
 | OpenAI sync | Codex CLI auth (no key fetched) or `OPENAI_API_KEY` | fast single runs, no batch wait |
 
 1Password is optional and orthogonal to the route: see the headless route
@@ -234,31 +242,28 @@ above and `docs/SECURITY.md`.
 ## How it works
 
 1. **Preprocess**: read local PDFs and the optional URL list.
-2. **Submit**: Claude sends one explainer request per paper. OpenAI runs
-   semantic lane extraction (`methods/results/limitations/implications`) with a
-   smaller lane model.
+2. **Submit**: Claude and OpenAI each send one explainer request per paper.
+   Set `OPENAI_USE_LANES=1` to opt into OpenAI's four-lane split
+   (`methods/results/limitations/implications`); a failed lane fails that paper.
 3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
    (skipped for `--sync`).
-4. **Synthesis + save**: OpenAI runs a second synthesis stage; all providers
-   get validation + an optional one-pass repair, then:
-   - **`normalizeSchemaDrift`** derives canonical `paragraphs` and
-     `end_takeaway.label/body` when the model emits `*_html`/`heading`
-     variants, so the renderer never shows blank blocks.
-   - **`attachFigureImage`** renders the source document (PDF pages via poppler,
-     or the live URL via Playwright), asks a vision model to pick the best figure
-     and return its bounding box, crops it from the source render, and inlines it
-     as a base64 data URL. A `.focus.md` override pins a specific figure/caption.
-     Routing is subscription-first (`FIGURE_VLM_*`). With `FIGURE_RECREATE=1`
-     (or a `recreate:` directive) a further pass tries to recover the data
-     behind the figure into `recreated_figure` for native ECharts rendering,
-     falling back to the clip whenever provenance is not good enough
-     (`docs/FIGURE-EXTRACTION.md`). Failures drop the image
-     block silently; the explainer still renders.
-   - JSON is written to the output dir, mirrored to `EXPLAINER_OBSIDIAN_DIR`
-     (`~/obsidian/explainers` by default), and, if `WEBSITE_REPO` is set, also
-     staged and rendered to standalone HTML.
+4. **Synthesis + save**: OpenAI runs a second synthesis stage. Every route
+   calls `finalizeResult` in `src/finalize.ts`, the shared v2 seam:
+   - Canonicalise text and remove unknown keys, then validate the wire output
+     against the generated contract. Provider dialects live in
+     `contract/generated/` and are loaded by `src/wire-schema.ts`.
+   - Repair prose at most twice, retaining the best candidate and the original
+     chart data. Invalid or thin charts are removed and recorded in quality.
+   - Stamp the version, date, slug, citation and provider provenance in code.
+     `persistArtefact` writes valid articles to the output directory and copies
+     successful results to the configured Obsidian mirror and website staging.
+     Articles needing editorial review go to `output/review/` without copying.
+   - Render successful results to standalone HTML when the website integration
+     is configured.
 
-The system prompt is `skill.md` (after its YAML frontmatter) sent verbatim.
+The system prompt is `skill.md` (after its YAML frontmatter) sent verbatim with
+the two contract markers stripped; the block between them is generated by
+`npm run contract:build`.
 
 ## Website integration (optional)
 
@@ -269,9 +274,9 @@ website repo. When set, every saved JSON is copied into that repo's
 the JSON (Chart.js from CDN, no Next.js runtime dependency). `output/*.html`
 opens directly in a browser for a pixel-accurate preview.
 
-**Shared type contract:** `src/types/explainer-json.ts` here must stay in sync
-with the website repo's equivalent `ExplainerJson` type. Any schema change must
-land in both repos.
+**Shared type contract:** stored articles follow `ExplainerV2` in
+`contract/explainer-v2.ts`. Keep the website renderer's equivalent contract in
+sync; schema changes must land in both repos.
 
 ## Troubleshooting
 
@@ -293,8 +298,11 @@ land in both repos.
 ```bash
 npm run typecheck      # tsc --noEmit
 npm run build          # compile to dist/
+npm test               # run unit tests
 npm run guards:install # arm local publish hooks (one-time, per clone)
 ```
+
+Contract tests under `tests/contract/` are run one file at a time by the stage that owns them and are not part of `npm test`.
 
 `state.json` is auto-managed; do not hand-edit. Agent guidance lives in
 `AGENTS.md`; Claude Code specifics in `CLAUDE.md`. The private-work →
