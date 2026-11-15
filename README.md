@@ -140,8 +140,8 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run status` | Show all batches, per-request results, token counts |
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
-| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file |
-| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run figure extraction and patch an existing JSON in place |
+| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file (needs `WEBSITE_REPO`) |
+| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run VLM figure extraction and patch the JSON in place. Still a v1 tool: it writes an inline `image` block and does not update a v2 `lead_figure` sidecar |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
 | `npm test` | Run the offline unit-test suite under `tests/unit/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
