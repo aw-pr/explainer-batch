@@ -6,13 +6,17 @@
 
 - **Input:** local PDFs and/or a list of paper URLs.
 - **Output:** one `output/<slug>.json` per paper (a validated, schema-stable
-  explainer object) plus an optional self-contained `output/<slug>.html`.
+  explainer object), its lead figure as a sidecar image beside it
+  (`output/<slug>/figure-3.png`, referenced from `lead_figure`), plus an
+  optional self-contained `output/<slug>.html`. Articles that still have
+  issues after repair go to `output/review/` instead.
 - **Cost:** uses the Claude Message Batches API / OpenAI Batch API (50%
   discount) or a synchronous path for fast single runs.
 - **Determinism:** model schema drift is normalised after generation. Figures
-  are selected by a vision model looking at the rendered document, then cropped
-  from the source render, never hallucinated or generated. Subscription-first
-  routing keeps cost low (see `docs/FIGURE-EXTRACTION.md`).
+  come from the source, never hallucinated or generated: a local PDF's own
+  embedded image when the match is unambiguous, otherwise a vision model's
+  pick cropped from the rendered document. Subscription-first routing keeps
+  cost low (see `docs/FIGURE-EXTRACTION.md`).
 
 ## What this is / is not
 
