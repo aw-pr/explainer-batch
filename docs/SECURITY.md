@@ -36,21 +36,27 @@ Each route fetches only the secrets it needs:
 
 ## Publish guards
 
-`scripts/install-guards.sh` arms two local git hooks (sources in
-`scripts/git-hooks/`):
+`scripts/install-guards.sh` arms the local git hooks in `scripts/git-hooks/`:
 
 - **pre-commit**: refuses to stage `.env`, `*.local`, `op-refs.local.sh`,
   `*settings.local.json`, `state.json`, logs, and any content matching the
   personal regex patterns in a gitignored `.publish-guard.local` (seeded from
-  `.publish-guard.local.example`).
+  `.publish-guard.local.example`). It also refuses any commit made directly on
+  the publish branch, which advances only by fast-forward.
+- **pre-merge-commit**: runs the same checks for merge commits, so a
+  `--no-ff` merge onto the publish branch is refused too.
 - **pre-push**: fail-closed publish gate. On the public remote (matched by
-  the local `git config publishguard.publicmatch`) only the default branch may
-  be pushed, **and** that push must arrive via the sanctioned path: the
-  `git publish` alias sets a sentinel env var (`PUBLISH_GUARD_OK=1`) which the
-  hook requires. A direct `git push <public> dev:main` is rejected so it
-  cannot skip the private-remote backup that `git publish` does first. Other
-  remotes (private backups) are unrestricted. Unset `publishguard.publicmatch`
-  → the hook is inert. Deliberate one-off override: `git push --no-verify`.
+  the local `git config publishguard.publicmatch`) only the publish branch
+  may be pushed, as the source of a pull request into the default branch, and
+  its tree is scanned for private-tier files. A push to the default branch is
+  refused: it advances only by merging that pull request on GitHub. (A repo
+  that sets `publishguard.boundary direct` instead allows a default-branch push
+  that carries the `PUBLISH_GUARD_OK=1` sentinel the `git publish` alias sets.)
+  Other remotes (private backups) are unrestricted. Unset
+  `publishguard.publicmatch` → the hook is inert. Deliberate one-off override:
+  `git push --no-verify`.
+- **commit-msg**: cosmetic; appends a vendor `Co-Authored-By` trailer for
+  agent-authored commits. Not a guard.
 
   Why fail-closed, not a warning: publishing to a public remote is effectively
   irreversible (objects stay fetchable by SHA, content can be cached/indexed),
