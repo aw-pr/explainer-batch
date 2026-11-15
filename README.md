@@ -182,10 +182,9 @@ its own. Unknown `image_*` directives are warned about and ignored.
 | `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). This works on its own. |
 | `image_caption: …` | Override the caption attached to the lead image. This works on its own. |
 | `image_alt: …` | Override the alt text for the lead image. This works on its own. |
-| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
-| `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
-| `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
-| `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — that the embedded-image path cannot capture additionally needs that env var raised.) |
+| `image_raster: yes` | Skip the embedded-image capture and always crop the figure region from the page render. |
+| `recreate:` / `recreate_x:` / `recreate_y:` / `data:` | Recreation directives. They are parsed and stripped from the focus text but currently have no effect: saves never run figure recreation and v2 articles carry no recreated figure. |
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
