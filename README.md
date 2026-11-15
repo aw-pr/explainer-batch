@@ -76,8 +76,8 @@ entirely optional.
 - **Node 22+** (`.nvmrc` pins 22; `package.json` enforces `engines`).
 - **One provider credential**: an Anthropic or OpenAI API key, a Claude
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
-- **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
-  figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
+- **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, `pdftohtml`,
+  used for figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
 - **`sips`**: ships with macOS; used by the VLM figure path. The local PDF
   embedded-image path uses Poppler alone.
 - **tmux**: only required for the secure headless route

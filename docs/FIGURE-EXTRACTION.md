@@ -293,7 +293,9 @@ clip. Pin the figure with `recreate: Figure N` when you want specific data.
 
 ## Dependencies
 
-- **poppler** (`pdftoppm`, `pdfinfo`): PDF render. `brew install poppler`.
+- **poppler** (`pdftoppm`, `pdfinfo`, plus `pdftotext`, `pdfimages` and
+  `pdftohtml` for the embedded-image path): PDF render and layout.
+  `brew install poppler`.
 - **`sips`**: macOS-only JPEG re-encode/downscale, also used for the
   vision size cap. On Linux the JPEG step falls back to raw PNG and
   oversized images are sent uncapped with a warning.
