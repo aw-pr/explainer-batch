@@ -9,8 +9,11 @@ caption/gap-finder (`figure-extract.ts`) remains retired.
 
 The finalise seam calls the figure hook after repair and resolution of
 surviving issues, only when `figure_request` is present. It checkpoints the
-result, including image bytes, so replay restores a lost sidecar without
-another extraction call. The request remains in the saved article for reextract.
+result, including image bytes, through the caller's checkpoint store, so a
+replay against a durable store restores a lost sidecar without another
+extraction call. The production save path passes a fresh in-memory store for
+each save, so re-running a save extracts again. The request remains in the
+saved article; `reextract` does not read it yet.
 
 `persistArtefact` writes the image before the JSON at
 `output/<slug>/<file>`, or `output/review/<slug>/<file>` for review articles.
