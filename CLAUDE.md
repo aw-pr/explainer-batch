@@ -7,13 +7,12 @@ belong in either.
 
 ## Publishing
 
-Private work to public mirror. Work on `wip/*` topic branches with atomic,
-per-agent-attributed commits, merge into the **`publish`** branch keeping
-those commits (history mode `preserve`; fast-forward, or `--no-ff` for a named
-merge commit), run `git publish`. Squash is a per-merge opt-out for genuinely
-messy WIP only. Every `publish` commit goes public; never rewrite commits
-already on the public remote. Full model +
-one-time setup: `docs/PUBLISH-WORKFLOW.md`. Machine-specific context (remotes,
+Private work to public mirror; the flow is in `AGENTS.md` (Publishing). In
+short: commits land on `dev`, `scripts/publish-sync.sh` replays them onto
+**`publish`** minus private-tier paths, and the public `main` advances only by
+a pull request from `publish`. Never commit on `publish` directly. Every
+`publish` commit goes public; never rewrite commits already on the public
+remote. Full model + one-time setup: `docs/PUBLISH-WORKFLOW.md`. Machine-specific context (remotes,
 config, paths) is in the gitignored `LOCAL.md`. The `repo-publish-workflow`
 skill carries the portable version of this for any repo.
 
