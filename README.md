@@ -222,7 +222,7 @@ on the `--sync` (OAuth/subscription) path; the batch path generates on
 `batchModel`. So reach for Fable on the route where it is cheapest:
 
 - **API batch (preferred):** `MODEL_BATCH=claude-fable-5 npm run process -- --provider claude`. The batch API applies its 50% discount, and Fable 5 needs your Console admin to have accepted 30-day data retention (misuse detection only, not training).
-- **Sync/OAuth:** `MODEL_SYNTHESIS=claude-fable-5 npm run process -- --provider claude --sync`. On the Claude.ai subscription, Fable 5 is free until 22 June 2026, then pre-paid with no batch discount, so prefer the API-batch route once that window closes.
+- **Sync/OAuth:** `MODEL_SYNTHESIS=claude-fable-5 npm run process -- --provider claude --sync`. On the Claude.ai subscription, Fable 5 is pre-paid with no batch discount (its free window closed on 22 June 2026), so prefer the API-batch route.
 
 Fable runs once per paper, so its cost multiplies by paper count.
 
