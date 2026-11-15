@@ -41,12 +41,14 @@ After wire repair, `output.ts:locateLeadFigure` first tries
 one complete embedded image immediately above it, with no intervening or
 overlapping PDF text. Duplicate captions, panel requests, multiple nearby
 images, an image below the caption, distant images and `forceRegionCrop`
-all fall through to the existing VLM path. Page hints remain advisory; the
+(set by an `image_raster: yes` directive) all fall through to the existing
+VLM path. Page hints remain advisory; the
 caption supplies the actual page. The operator's figure pin and caption/alt
 text overrides retain precedence.
 
 Poppler renders the native image bounds directly as JPEG at at least 300 DPI
-(up to 600 DPI when the embedded image's resolution warrants it). This is a
+(up to 600 DPI, following the resolution of the largest embedded image on
+that page). This is a
 PDF render of the image bounds, rather than extraction of the original image
 stream. `pdf-embedded` records that the bounds came from a native embedded
 image. The source caption supplies caption and alt text unless overridden.
@@ -168,9 +170,11 @@ satisfied the image block is dropped rather than silently substituted —
 a wrong figure under the right label is worse than no figure. Two
 practical consequences:
 
-- A pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24) fails with
-  "no suitable figure" because the model never sees its page. Raise the
-  env var (page-hint directives do not extend the render range).
+- On the VLM path, a pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24)
+  fails with "no suitable figure" because the model never sees its page.
+  Raise the env var (page-hint directives do not extend the render range).
+  The embedded-image path searches captions across the whole PDF, so this
+  applies only to layouts it declines.
 - The page hint and pin work best together: the pin constrains *what*,
   the hint speeds up *where*.
 
