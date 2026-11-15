@@ -249,8 +249,10 @@ above and `docs/SECURITY.md`.
 2. **Submit**: Claude and OpenAI each send one explainer request per paper.
    Set `OPENAI_USE_LANES=1` to opt into OpenAI's four-lane split
    (`methods/results/limitations/implications`); a failed lane fails that paper.
-3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
-   (skipped for `--sync`).
+3. **Poll**: check once, wait 3 min (90 s for an OpenAI synthesis batch),
+   then check every 30 s until the batch ends. Failed checks back off
+   exponentially to an 8 min cap; polling gives up after 12 h, and
+   `npm run poll` resumes it (skipped for `--sync`).
 4. **Synthesis + save**: in lane mode, OpenAI runs a second synthesis stage
    over the four lane outputs. Every route
    calls `finalizeResult` in `src/finalize.ts`, the shared v2 seam:
