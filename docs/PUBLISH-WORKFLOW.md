@@ -85,9 +85,10 @@ is the opt-in case for genuinely hacky WIP topic branches, not the default.
 git switch -c wip/<thing>        # atomic commits, per-agent --author=
 # …work…
 git switch PUBLISH_BRANCH
-git merge --ff-only wip/<thing>  # fast-forward when publish hasn't moved
-# or: git merge --no-ff wip/<thing> -m "merge wip/<thing>: <topic>"
-git publish                      # PRIV PUBLISH_BRANCH, then ff PUB/main
+git merge --ff-only wip/<thing>  # the only way it moves: pre-commit and
+                                 # pre-merge-commit refuse commits and --no-ff
+                                 # merges made on PUBLISH_BRANCH
+# then publish through the PR boundary (below)
 git branch -d wip/<thing>        # -d (not -D): commits live on publish now
 ```
 
@@ -95,11 +96,13 @@ git branch -d wip/<thing>        # -d (not -D): commits live on publish now
 # Opt-in squash: when wip/<thing> has messy WIP commits not worth preserving.
 git switch -c wip/<thing>        # messy commits, freely
 # …work…
-git switch PUBLISH_BRANCH
+git switch -c wip/<thing>-squash PUBLISH_BRANCH
 git merge --squash wip/<thing>
 git commit -m "One clean message"
-git publish
-git branch -D wip/<thing>        # -D: commits don't live on publish
+git switch PUBLISH_BRANCH
+git merge --ff-only wip/<thing>-squash   # pre-commit refuses commits made on PUBLISH_BRANCH itself
+# then publish through the PR boundary (below)
+git branch -D wip/<thing> wip/<thing>-squash
 ```
 
 Mode is a per-merge choice, not a per-repo flag. Use squash when you'd
@@ -108,24 +111,44 @@ atomic commits + per-agent authors are the honest output.
 
 `git publish` (alias, set by install-guards) =
 `git push PRIV PUBLISH_BRANCH && PUBLISH_GUARD_OK=1 git push PUB PUBLISH_BRANCH:main`.
-It backs up to the private remote first, then publishes.
+It backs up to the private remote first, then publishes. Its second push only
+succeeds in a repo that has opted out of the PR boundary below.
 
-The publish boundary is PR-by-default and the hook enforces it: the
-`PUB/main` push also needs `PUBLISH_PR_REVIEWED=1`, the attestation that a
-publish→main PR was opened and its diff reviewed (push the publish branch to
-PUB as the PR source first — the hook allows it, private-file-scanned — then
-`gh pr create --base main --head <PUBLISH_BRANCH>`). The ff push completes
-the PR; GitHub marks it merged when the base receives the head SHAs.
-Repo-level opt-out: `git config publishguard.boundary direct`.
+The publish boundary is PR-by-default and the hook enforces it: with
+`publishguard.boundary` unset or `pr`, any push to `PUB/main` is refused, with
+or without the sentinel. There is no environment-variable attestation; the
+public default branch advances only by a merge performed on the forge, where
+the diff is visible first:
+
+```bash
+git push PRIV PUBLISH_BRANCH                       # private backup
+git push PUB PUBLISH_BRANCH                        # PR source, private-file-scanned
+gh pr create --base main --head PUBLISH_BRANCH     # then read the diff and merge on GitHub
+```
+
+After the merge, fast-forward the local `PUBLISH_BRANCH` to `PUB/main` before
+the next round. Protect the public default branch on the forge as well, so a
+direct push fails even where the hook is missing. Repo-level opt-out:
+`git config publishguard.boundary direct`.
+
+When the private trunk tracks private-tier files (a `HANDOFF.md` on `dev`, say),
+`PUBLISH_BRANCH` cannot fast-forward from it. `scripts/publish-sync.sh`
+replays the trunk's new commits onto `PUBLISH_BRANCH` minus every
+`publishguard.privatefile` path, keeping authors and stamping each replay with
+a `Publish-Sync-Source:` trailer that marks where the next run starts. It is a
+dry run unless given `--apply`.
 
 ## The gate (why it can't be bypassed by accident)
 
 `pre-push` fails closed on the public remote (matched by
 `publishguard.publicmatch`):
 
-- non-default branch to public → rejected;
-- default branch to public → rejected **unless** the `PUBLISH_GUARD_OK=1`
-  sentinel is set, which only `git publish` does;
+- non-default branch to public → rejected, except the PR-source branch
+  (`publishguard.prsource`, default `PUBLISH_BRANCH`), which is still scanned
+  for private files;
+- default branch to public → rejected outright under the default `pr`
+  boundary; with `boundary direct`, rejected **unless** the
+  `PUBLISH_GUARD_OK=1` sentinel is set, which only `git publish` does;
 - non-fast-forward push to the public default branch → rejected **even with
   the sentinel set**. This enforces the immutability invariant directly:
   history already on `PUB/main` cannot be rewritten through the normal route
