@@ -307,7 +307,10 @@ clip. Pin the figure with `recreate: Figure N` when you want specific data.
 `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."] [--page N]`
 patches the `image` block on an existing explainer without a new
 synthesis run, using the same vision path and routing knobs. `--page N`
-is a soft page hint; the figure label pins a specific figure.
+is a soft page hint; the figure label pins a specific figure. It is still a
+v1 tool: it writes an inline base64 `image` block, skips the embedded-image
+path, and does not touch `lead_figure` or its sidecar. On a v2 article the
+added `image` key fails strict `ExplainerV2` validation.
 
 ## Deferred work
 
@@ -321,10 +324,6 @@ is a soft page hint; the figure label pins a specific figure.
   dropped instead. Deliberate for transient blips, but a long outage ships
   unchecked crops; consider distinguishing "model said no" from "no
   answer" with a retry.
-- **`reextract` keeps the stale caption.** Patching a new image onto an
-  existing JSON leaves the previous caption/alt unless `--caption` /
-  `--alt` are passed; it should refresh them from the new selection by
-  default.
 - **Candidate shortlist for PDFs.** A cheap first pass could narrow large
   PDFs to a few candidate pages before the full selection call, to cut
   tokens on the subscription route.
