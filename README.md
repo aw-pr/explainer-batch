@@ -212,8 +212,9 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
 Model defaults. Claude: batch/lane/synthesis `claude-opus-4-8`, repair
-`claude-sonnet-5-5`. OpenAI: batch/synthesis `gpt-5.6-terra`, lane/repair
-`gpt-5.6-luna`. For a committed profile, copy `config/models.json.example` to
+`claude-sonnet-5-5`. OpenAI: synthesis `gpt-5.6-terra`, lane/repair
+`gpt-5.6-luna`; every OpenAI route generates on the synthesis model (the lanes
+on the lane model), so `MODEL_BATCH` applies to Claude batch only. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
 
 Fable 5 is opt-in, not a default. The Claude `synthesisModel` is only consulted
@@ -247,7 +248,8 @@ above and `docs/SECURITY.md`.
    (`methods/results/limitations/implications`); a failed lane fails that paper.
 3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
    (skipped for `--sync`).
-4. **Synthesis + save**: OpenAI runs a second synthesis stage. Every route
+4. **Synthesis + save**: in lane mode, OpenAI runs a second synthesis stage
+   over the four lane outputs. Every route
    calls `finalizeResult` in `src/finalize.ts`, the shared v2 seam:
    - Canonicalise text and remove unknown keys, then validate the wire output
      against the generated contract. Provider dialects live in
