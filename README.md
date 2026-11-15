@@ -291,8 +291,8 @@ sync; schema changes must land in both repos.
 | Symptom | Cause / fix |
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
-| Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or (for URLs) Playwright/Chromium not installed. |
-| `JSON parse failed; raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
+| No `lead_figure` in the JSON | The model set `figure_request` to null (nothing is recorded), or extraction failed and the reason is in `metadata.quality.dropped`: no vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, no suitable figure found, or (for URLs) Playwright/Chromium not installed. |
+| `✗ <id>: INVALID_JSON: …` or `INVALID_ARTICLE: …` | The model output could not be parsed or validated into an article; the raw text is saved to `<output dir>/<date>_<slug>_error.txt`. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
 | `op-fetch is not installed` | Not fatal: the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
 
