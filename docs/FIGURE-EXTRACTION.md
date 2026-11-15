@@ -233,7 +233,12 @@ Routes by provider/auth (`src/vision.ts`):
 ## Figure-data recreation (experimental)
 
 This section describes the legacy tooling. The v2 save path does not run
-recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives.
+recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives, and
+nothing reads `FIGURE_RECREATE` any more. The directives below are still
+parsed and stripped from the focus text but change nothing, including the
+figure pick: only `image:` pins a figure. `FIGURE_DATA_MODEL` is still
+checked at start-up, so a model from the other provider still stops a run.
+Only `scripts/smoke-figure-data.ts` still calls the recreation code.
 
 `FIGURE_RECREATE=1` (or a per-paper `recreate:` directive) adds a
 post-clip pass that tries to recover the **data** behind the picked
