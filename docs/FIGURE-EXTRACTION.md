@@ -146,8 +146,9 @@ for every pick, pins included. A crude blank-crop guard
 (bytes-per-pixel below 0.006, or either side under 48px) rejects
 unpainted-chart screenshots before a verification call is spent.
 
-Selections below `MIN_CONFIDENCE` (0.35) or `found: false` drop the
-image block.
+Selections below `MIN_CONFIDENCE` (0.35) or `found: false` return no
+figure: the article has no `lead_figure` and records
+`figure_request: no figure located` in `metadata.quality.dropped`.
 
 The extractor can select autonomously when called without a pin; new saves
 pin `figure_request.label` by default. A `<paper>.focus.md` sidecar is
@@ -166,7 +167,7 @@ the PDF, URL-candidate and full-page paths) and the retry prompt tells
 the model only the pinned label is acceptable. The pin's label is only
 ever stamped on a pick the selection named as the pin and verification
 confirmed. If the pin cannot be
-satisfied the image block is dropped rather than silently substituted —
+satisfied no figure is attached rather than one silently substituted —
 a wrong figure under the right label is worse than no figure. Two
 practical consequences:
 
