@@ -8,7 +8,7 @@
 # block at the bottom of this file when you adapt it.
 #
 # Structured directives (parsed line-by-line, stripped before the model sees
-# the prose). Unknown or malformed directive lines are ignored silently.
+# the prose). An unknown image_* directive is warned about and ignored.
 
 # Force a specific figure as the lead image. Accepts "Figure 3", "Fig 3.2",
 # "fig. 4a", etc. Normalised to "Figure N" internally.
@@ -22,15 +22,19 @@ image_alt: Bar chart comparing spend brackets across four firm sizes.
 
 # Optional 1-based page hint. A soft bias: the selection prompt asks the
 # model to check this page first but still lets it choose elsewhere. It does
-# NOT extend how many pages are rendered — for a figure past page 24, also
-# raise FIGURE_VLM_MAX_PAGES (else the model never sees the page and a
-# pinned figure fails with "no suitable figure").
+# NOT extend how many pages are rendered — for a figure past page 24 that the
+# embedded-image path cannot capture, also raise FIGURE_VLM_MAX_PAGES (else
+# the model never sees the page and a pinned figure fails with "no suitable
+# figure").
 image_page_hint: 5
 
-# Experimental figure recreation (docs/FIGURE-EXTRACTION.md). "recreate:"
-# accepts yes / no / a figure label; a label pins both the clip and the
-# recreation target. "recreate: no" opts this paper out of a global
-# FIGURE_RECREATE=1.
+# Optional: skip the embedded-image capture and always crop the figure region
+# from the page render.
+# image_raster: yes
+
+# Figure recreation directives (docs/FIGURE-EXTRACTION.md). These are parsed
+# and stripped from the focus text but currently have no effect: saves never
+# run recreation and they do not pin the figure (use "image:" for that).
 # recreate: Figure 3
 # recreate_x: training steps, log scale in the paper but plot linear
 # recreate_y: accuracy in percent

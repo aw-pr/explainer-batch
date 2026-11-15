@@ -9,8 +9,11 @@ caption/gap-finder (`figure-extract.ts`) remains retired.
 
 The finalise seam calls the figure hook after repair and resolution of
 surviving issues, only when `figure_request` is present. It checkpoints the
-result, including image bytes, so replay restores a lost sidecar without
-another extraction call. The request remains in the saved article for reextract.
+result, including image bytes, through the caller's checkpoint store, so a
+replay against a durable store restores a lost sidecar without another
+extraction call. The production save path passes a fresh in-memory store for
+each save, so re-running a save extracts again. The request remains in the
+saved article; `reextract` does not read it yet.
 
 `persistArtefact` writes the image before the JSON at
 `output/<slug>/<file>`, or `output/review/<slug>/<file>` for review articles.
@@ -38,12 +41,14 @@ After wire repair, `output.ts:locateLeadFigure` first tries
 one complete embedded image immediately above it, with no intervening or
 overlapping PDF text. Duplicate captions, panel requests, multiple nearby
 images, an image below the caption, distant images and `forceRegionCrop`
-all fall through to the existing VLM path. Page hints remain advisory; the
+(set by an `image_raster: yes` directive) all fall through to the existing
+VLM path. Page hints remain advisory; the
 caption supplies the actual page. The operator's figure pin and caption/alt
 text overrides retain precedence.
 
 Poppler renders the native image bounds directly as JPEG at at least 300 DPI
-(up to 600 DPI when the embedded image's resolution warrants it). This is a
+(up to 600 DPI, following the resolution of the largest embedded image on
+that page). This is a
 PDF render of the image bounds, rather than extraction of the original image
 stream. `pdf-embedded` records that the bounds came from a native embedded
 image. The source caption supplies caption and alt text unless overridden.
@@ -141,8 +146,9 @@ for every pick, pins included. A crude blank-crop guard
 (bytes-per-pixel below 0.006, or either side under 48px) rejects
 unpainted-chart screenshots before a verification call is spent.
 
-Selections below `MIN_CONFIDENCE` (0.35) or `found: false` drop the
-image block.
+Selections below `MIN_CONFIDENCE` (0.35) or `found: false` return no
+figure: the article has no `lead_figure` and records
+`figure_request: no figure located` in `metadata.quality.dropped`.
 
 The extractor can select autonomously when called without a pin; new saves
 pin `figure_request.label` by default. A `<paper>.focus.md` sidecar is
@@ -161,13 +167,15 @@ the PDF, URL-candidate and full-page paths) and the retry prompt tells
 the model only the pinned label is acceptable. The pin's label is only
 ever stamped on a pick the selection named as the pin and verification
 confirmed. If the pin cannot be
-satisfied the image block is dropped rather than silently substituted —
+satisfied no figure is attached rather than one silently substituted —
 a wrong figure under the right label is worse than no figure. Two
 practical consequences:
 
-- A pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24) fails with
-  "no suitable figure" because the model never sees its page. Raise the
-  env var (page-hint directives do not extend the render range).
+- On the VLM path, a pinned figure past `FIGURE_VLM_MAX_PAGES` (default 24)
+  fails with "no suitable figure" because the model never sees its page.
+  Raise the env var (page-hint directives do not extend the render range).
+  The embedded-image path searches captions across the whole PDF, so this
+  applies only to layouts it declines.
 - The page hint and pin work best together: the pin constrains *what*,
   the hint speeds up *where*.
 
@@ -225,7 +233,12 @@ Routes by provider/auth (`src/vision.ts`):
 ## Figure-data recreation (experimental)
 
 This section describes the legacy tooling. The v2 save path does not run
-recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives.
+recreation, regardless of `FIGURE_RECREATE` or `.focus.md` directives, and
+nothing reads `FIGURE_RECREATE` any more. The directives below are still
+parsed and stripped from the focus text but change nothing, including the
+figure pick: only `image:` pins a figure. `FIGURE_DATA_MODEL` is still
+checked at start-up, so a model from the other provider still stops a run.
+Only `scripts/smoke-figure-data.ts` still calls the recreation code.
 
 `FIGURE_RECREATE=1` (or a per-paper `recreate:` directive) adds a
 post-clip pass that tries to recover the **data** behind the picked
@@ -280,7 +293,9 @@ clip. Pin the figure with `recreate: Figure N` when you want specific data.
 
 ## Dependencies
 
-- **poppler** (`pdftoppm`, `pdfinfo`): PDF render. `brew install poppler`.
+- **poppler** (`pdftoppm`, `pdfinfo`, plus `pdftotext`, `pdfimages` and
+  `pdftohtml` for the embedded-image path): PDF render and layout.
+  `brew install poppler`.
 - **`sips`**: macOS-only JPEG re-encode/downscale, also used for the
   vision size cap. On Linux the JPEG step falls back to raw PNG and
   oversized images are sent uncapped with a warning.
@@ -294,7 +309,10 @@ clip. Pin the figure with `recreate: Figure N` when you want specific data.
 `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "..."] [--alt "..."] [--page N]`
 patches the `image` block on an existing explainer without a new
 synthesis run, using the same vision path and routing knobs. `--page N`
-is a soft page hint; the figure label pins a specific figure.
+is a soft page hint; the figure label pins a specific figure. It is still a
+v1 tool: it writes an inline base64 `image` block, skips the embedded-image
+path, and does not touch `lead_figure` or its sidecar. On a v2 article the
+added `image` key fails strict `ExplainerV2` validation.
 
 ## Deferred work
 
@@ -308,10 +326,6 @@ is a soft page hint; the figure label pins a specific figure.
   dropped instead. Deliberate for transient blips, but a long outage ships
   unchecked crops; consider distinguishing "model said no" from "no
   answer" with a retry.
-- **`reextract` keeps the stale caption.** Patching a new image onto an
-  existing JSON leaves the previous caption/alt unless `--caption` /
-  `--alt` are passed; it should refresh them from the new selection by
-  default.
 - **Candidate shortlist for PDFs.** A cheap first pass could narrow large
   PDFs to a few candidate pages before the full selection call, to cut
   tokens on the subscription route.

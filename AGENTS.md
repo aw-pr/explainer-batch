@@ -60,13 +60,17 @@ code default is `claude`.
 
 ## Publishing
 
-This repo is a public mirror of private work. Work on `wip/*` branches with
-atomic, per-agent-attributed commits, merge into **`publish`** keeping those
-commits (fast-forward or `--no-ff`; history mode is `preserve`, squash is a
-per-merge opt-out for genuinely messy WIP), then `git publish` (never
-hand-push the default branch to the public remote; the pre-push gate blocks
-it by design, route through `git publish`). Never rewrite commits already
-public.
+This repo is a public mirror of private work. Work lands on the private `dev`
+trunk (through `wip/*` branches) as atomic, per-agent-attributed commits.
+`dev` tracks private-tier files such as `HANDOFF.md`, so **`publish`** is
+advanced by `scripts/publish-sync.sh`, which replays `dev`'s new commits minus
+the `publishguard.privatefile` paths and keeps their authors (history mode
+`preserve`). Never commit or `--no-ff` merge on `publish`; the guards refuse
+it. The public `main` advances only through a pull request from `publish`,
+merged on GitHub: push `publish` to the private remote, push it to the public
+remote as the PR source, then `gh pr create --base main --head publish`. The
+pre-push gate refuses any direct push to the public `main`. Never rewrite
+commits already public.
 Model + new-repo setup: `docs/PUBLISH-WORKFLOW.md`. Local-only operational
 context: gitignored `LOCAL.md`. Portable pattern: `repo-publish-workflow` skill.
 

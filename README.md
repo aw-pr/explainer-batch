@@ -2,17 +2,21 @@
 
 **Turn research PDFs into structured JSON explainer articles using the Claude or OpenAI batch/sync APIs.**
 
-![Node](https://img.shields.io/badge/node-20%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-22%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 - **Input:** local PDFs and/or a list of paper URLs.
 - **Output:** one `output/<slug>.json` per paper (a validated, schema-stable
-  explainer object) plus an optional self-contained `output/<slug>.html`.
+  explainer object), its lead figure as a sidecar image beside it
+  (`output/<slug>/figure-3.png`, referenced from `lead_figure`), plus an
+  optional self-contained `output/<slug>.html`. Articles that still have
+  issues after repair go to `output/review/` instead.
 - **Cost:** uses the Claude Message Batches API / OpenAI Batch API (50%
   discount) or a synchronous path for fast single runs.
 - **Determinism:** model schema drift is normalised after generation. Figures
-  are selected by a vision model looking at the rendered document, then cropped
-  from the source render, never hallucinated or generated. Subscription-first
-  routing keeps cost low (see `docs/FIGURE-EXTRACTION.md`).
+  come from the source, never hallucinated or generated: a local PDF's own
+  embedded image when the match is unambiguous, otherwise a vision model's
+  pick cropped from the rendered document. Subscription-first routing keeps
+  cost low (see `docs/FIGURE-EXTRACTION.md`).
 
 ## What this is / is not
 
@@ -72,8 +76,8 @@ entirely optional.
 - **Node 22+** (`.nvmrc` pins 22; `package.json` enforces `engines`).
 - **One provider credential**: an Anthropic or OpenAI API key, a Claude
   Max/Pro OAuth token, or Codex CLI auth (see Auth routes).
-- **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, used for
-  figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
+- **poppler**: `pdftotext`, `pdftoppm`, `pdfimages`, `pdfinfo`, `pdftohtml`,
+  used for figure extraction. `brew install poppler` / `apt-get install poppler-utils`.
 - **`sips`**: ships with macOS; used by the VLM figure path. The local PDF
   embedded-image path uses Poppler alone.
 - **tmux**: only required for the secure headless route
@@ -140,8 +144,8 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run status` | Show all batches, per-request results, token counts |
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
-| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file |
-| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run figure extraction and patch an existing JSON in place |
+| `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file (needs `WEBSITE_REPO`) |
+| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run VLM figure extraction and patch the JSON in place. Still a v1 tool: it writes an inline `image` block and does not update a v2 `lead_figure` sidecar |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
 | `npm test` | Run the offline unit-test suite under `tests/unit/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
@@ -178,10 +182,9 @@ its own. Unknown `image_*` directives are warned about and ignored.
 | `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). This works on its own. |
 | `image_caption: …` | Override the caption attached to the lead image. This works on its own. |
 | `image_alt: …` | Override the alt text for the lead image. This works on its own. |
-| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — additionally needs that env var raised.) |
-| `recreate: Figure N` \| `yes` \| `no` | Experimental: recreate the figure as native chart data (ECharts) instead of only clipping it; `no` opts out of a global `FIGURE_RECREATE=1`. See `docs/FIGURE-EXTRACTION.md`. |
-| `recreate_x: …` / `recreate_y: …` | Free-text axis guidance for the recreation pass. |
-| `data: results.csv` | Supply the chart data yourself (CSV/JSON sidecar in the input dir); highest-trust recreation tier. |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — that the embedded-image path cannot capture additionally needs that env var raised.) |
+| `image_raster: yes` | Skip the embedded-image capture and always crop the figure region from the page render. |
+| `recreate:` / `recreate_x:` / `recreate_y:` / `data:` | Recreation directives. They are parsed and stripped from the focus text but currently have no effect: saves never run figure recreation and v2 articles carry no recreated figure. |
 
 See `input/.focus.md.example` for a copy-paste-and-edit template.
 
@@ -212,8 +215,9 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `EXPLAINER_JOBS_DIR` | Shared batch-dashboard jobs dir (best-effort) | `<repo>/jobs` |
 
 Model defaults. Claude: batch/lane/synthesis `claude-opus-4-8`, repair
-`claude-sonnet-5-5`. OpenAI: batch/synthesis `gpt-5.6-terra`, lane/repair
-`gpt-5.6-luna`. For a committed profile, copy `config/models.json.example` to
+`claude-sonnet-5-5`. OpenAI: synthesis `gpt-5.6-terra`, lane/repair
+`gpt-5.6-luna`; every OpenAI route generates on the synthesis model (the lanes
+on the lane model), so `MODEL_BATCH` applies to Claude batch only. For a committed profile, copy `config/models.json.example` to
 `config/models.json` (gitignored; env vars still win over the file).
 
 Fable 5 is opt-in, not a default. The Claude `synthesisModel` is only consulted
@@ -221,7 +225,7 @@ on the `--sync` (OAuth/subscription) path; the batch path generates on
 `batchModel`. So reach for Fable on the route where it is cheapest:
 
 - **API batch (preferred):** `MODEL_BATCH=claude-fable-5 npm run process -- --provider claude`. The batch API applies its 50% discount, and Fable 5 needs your Console admin to have accepted 30-day data retention (misuse detection only, not training).
-- **Sync/OAuth:** `MODEL_SYNTHESIS=claude-fable-5 npm run process -- --provider claude --sync`. On the Claude.ai subscription, Fable 5 is free until 22 June 2026, then pre-paid with no batch discount, so prefer the API-batch route once that window closes.
+- **Sync/OAuth:** `MODEL_SYNTHESIS=claude-fable-5 npm run process -- --provider claude --sync`. On the Claude.ai subscription, Fable 5 is pre-paid with no batch discount (its free window closed on 22 June 2026), so prefer the API-batch route.
 
 Fable runs once per paper, so its cost multiplies by paper count.
 
@@ -245,9 +249,12 @@ above and `docs/SECURITY.md`.
 2. **Submit**: Claude and OpenAI each send one explainer request per paper.
    Set `OPENAI_USE_LANES=1` to opt into OpenAI's four-lane split
    (`methods/results/limitations/implications`); a failed lane fails that paper.
-3. **Poll**: exponential backoff (30 s → 5 min cap) until the batch ends
-   (skipped for `--sync`).
-4. **Synthesis + save**: OpenAI runs a second synthesis stage. Every route
+3. **Poll**: check once, wait 3 min (90 s for an OpenAI synthesis batch),
+   then check every 30 s until the batch ends. Failed checks back off
+   exponentially to an 8 min cap; polling gives up after 12 h, and
+   `npm run poll` resumes it (skipped for `--sync`).
+4. **Synthesis + save**: in lane mode, OpenAI runs a second synthesis stage
+   over the four lane outputs. Every route
    calls `finalizeResult` in `src/finalize.ts`, the shared v2 seam:
    - Canonicalise text and remove unknown keys, then validate the wire output
      against the generated contract. Provider dialects live in
@@ -286,8 +293,8 @@ sync; schema changes must land in both repos.
 | Symptom | Cause / fix |
 |---|---|
 | `Website HTML export skipped (WEBSITE_REPO not set)` | Expected when not using the website integration. Not an error. |
-| Image silently dropped | No vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, the model found no suitable figure, or (for URLs) Playwright/Chromium not installed. |
-| `JSON parse failed; raw output saved to *_error.txt` | Model returned non-JSON; inspect the `.txt` in the output dir. |
+| No `lead_figure` in the JSON | The model set `figure_request` to null (nothing is recorded), or extraction failed and the reason is in `metadata.quality.dropped`: no vision auth configured (`FIGURE_VLM_*` / subscription session), poppler not installed, no suitable figure found, or (for URLs) Playwright/Chromium not installed. |
+| `✗ <id>: INVALID_JSON: …` or `INVALID_ARTICLE: …` | The model output could not be parsed or validated into an article; the raw text is saved to `<output dir>/<date>_<slug>_error.txt`. |
 | Claude run rejected for mixed auth | Both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` were set for a sync run. Use the secure tmux route or unset one. |
 | `op-fetch is not installed` | Not fatal: the secure wrapper falls back to `.env`. Only the 1Password route needs `op-fetch`. |
 

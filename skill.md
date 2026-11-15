@@ -3,14 +3,6 @@ name: explainer-batch
 description: "Create JSON explainer articles from academic papers for a research website. Use this skill whenever the user drops a PDF of a research paper, arXiv link, or asks for an 'explainer' or 'research summary'. The output is a structured JSON object consumed by a React renderer; you do not write HTML for the page layout itself, though the specified inline markup is allowed in prose fields."
 ---
 
-## Claude.ai Compatibility
-
-- Exported for Claude.ai compatibility.
-- See `README.md` in this skill bundle for full portability notes.
-
-- Strict mode enabled.
-
-
 # Research Explainer Skill
 
 You produce a publication-ready JSON explainer article from an academic research paper. A React renderer turns that JSON into a page on the website.

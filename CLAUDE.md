@@ -7,13 +7,12 @@ belong in either.
 
 ## Publishing
 
-Private work to public mirror. Work on `wip/*` topic branches with atomic,
-per-agent-attributed commits, merge into the **`publish`** branch keeping
-those commits (history mode `preserve`; fast-forward, or `--no-ff` for a named
-merge commit), run `git publish`. Squash is a per-merge opt-out for genuinely
-messy WIP only. Every `publish` commit goes public; never rewrite commits
-already on the public remote. Full model +
-one-time setup: `docs/PUBLISH-WORKFLOW.md`. Machine-specific context (remotes,
+Private work to public mirror; the flow is in `AGENTS.md` (Publishing). In
+short: commits land on `dev`, `scripts/publish-sync.sh` replays them onto
+**`publish`** minus private-tier paths, and the public `main` advances only by
+a pull request from `publish`. Never commit on `publish` directly. Every
+`publish` commit goes public; never rewrite commits already on the public
+remote. Full model + one-time setup: `docs/PUBLISH-WORKFLOW.md`. Machine-specific context (remotes,
 config, paths) is in the gitignored `LOCAL.md`. The `repo-publish-workflow`
 skill carries the portable version of this for any repo.
 
@@ -44,7 +43,8 @@ content across three files and it drifted; keep it single-source.)
   non-null `figure_request`, checkpoints its bytes, and stamps provenance and
   `lead_figure` (relative asset path, hash, size and extraction metadata).
   `persistArtefact` in `src/output.ts` writes the sidecar before the JSON and
-  copies both to each eligible destination; replay restores lost sidecars.
+  copies both to each eligible destination. A replay restores lost sidecars
+  only with a durable checkpoint store; `batch.ts` passes an in-memory one.
   A missing figure records its reason in `quality.dropped`. Saves never run
   recreation or store inline image bytes.
   Canonicalisation fixes belong in the seam. Generated provider dialects live
@@ -56,7 +56,7 @@ content across three files and it drifted; keep it single-source.)
 src/
   index.ts          CLI entry; loads fill-only .env; dispatches commands
   env.ts            Fill-only .env/.env.local loader
-  preprocess.ts     Scans input/, uploads PDFs, returns InputItem[]
+  preprocess.ts     Scans input/ and urls.txt, parses focus sidecars, returns InputItem[]
   prompt.ts         Strips skill.md frontmatter; builds system prompt
   batch.ts          Submit/poll/collect for both providers; repair; cost
   output.ts         Extract JSON, drop thin charts, figure helpers; persist/stage/mirror
@@ -71,9 +71,22 @@ src/
   model-config.ts   Per-provider model defaults; env/file merge
   quality.ts        Structured chart checks + wire repair instructions
   repair.ts         Shared repair attempt bound
+  style-lint.ts     Prose style checks the seam records as quality issues
+  figure-locator/   Lead-figure location: embedded-image fast path, captions, crops, sidecar naming
+  figure-data.ts    Legacy figure-data recreation; only scripts/smoke-figure-data.ts calls it
+  pricing.ts        Per-call cost via cost-ledger.ts and model-registry.ts (config/models.snapshot.json)
+  state-v2.ts       v2 state store; state-migration.ts converts v1 state (scripts/migrate-state-v2.ts)
+  routes.ts, run-plan.ts, llm-contract.ts, source-snapshot.ts, page-text.ts, providers/
+                    Provider-route layer (docs/design/provider-routes.md); unit-tested, not yet wired into the CLI
   types/explainer-json.ts  Legacy v1 types retained for figure and migration tools
+contract/
+  explainer-v2.ts   Stored v2 contract; contract:build generates skill.md's schema block and contract/generated/
 scripts/
   render-html.ts    Wrapper around the website repo's HTML exporter
+  reextract-figure.ts  v1 figure re-extraction (writes an inline image block)
+  contract-build.ts Generates contract/generated/ and skill.md's schema block (--check verifies)
+  smoke-models.ts   Offline check that every provider tier resolves and is priced
+  publish-sync.sh   Replays dev commits onto publish minus private-tier paths
   export-html.ts    Re-renders HTML for a directory of JSON
   run-batch-tmux.sh Secure headless route (op-fetch / .env fallback)
   install-guards.sh Arms local publish git hooks
