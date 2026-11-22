@@ -5,18 +5,19 @@
 ![Node](https://img.shields.io/badge/node-22%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 - **Input:** local PDFs and/or a list of paper URLs.
-- **Output:** one `output/<slug>.json` per paper (a validated, schema-stable
-  explainer object), its lead figure as a sidecar image beside it
-  (`output/<slug>/figure-3.png`, referenced from `lead_figure`), plus an
+- **Output:** one `output/<slug>.json` per paper (a validated explainer object
+  whose shape is fixed by `contract/explainer-v2.ts`), its lead figure as a
+  sidecar image beside it (`output/<slug>/figure-3.png`, referenced from
+  `lead_figure`, the JSON field that records the image path and metadata), plus an
   optional self-contained `output/<slug>.html`. Articles that still have
   issues after repair go to `output/review/` instead.
 - **Cost:** uses the Claude Message Batches API / OpenAI Batch API (50%
-  discount) or a synchronous path for fast single runs.
+  discount) or a synchronous path for fast single runs. Subscription-first
+  routing keeps cost low.
 - **Determinism:** model schema drift is normalised after generation. Figures
   come from the source, never hallucinated or generated: a local PDF's own
   embedded image when the match is unambiguous, otherwise a vision model's
-  pick cropped from the rendered document. Subscription-first routing keeps
-  cost low (see `docs/FIGURE-EXTRACTION.md`).
+  pick cropped from the rendered document (see `docs/FIGURE-EXTRACTION.md`).
 
 ## What this is / is not
 
@@ -90,18 +91,23 @@ npm install
 cp .env.example .env
 # edit .env: set ANTHROPIC_API_KEY and/or OPENAI_API_KEY
 
+# Verify the setup offline (no API calls): every provider tier resolves and has a pricing row
+npm run smoke
+
 # Provide input as a local PDF...
 cp ~/Downloads/my-paper.pdf input/
 # ...and/or paper URLs (arXiv, DOI, publisher page, or direct PDF link):
 echo "https://arxiv.org/pdf/2411.13768" >> input/urls.txt
 
-# Claude batch (50% discount, ~1h turnaround):
+# Claude batch (50% discount, ~1h turnaround); needs ANTHROPIC_API_KEY:
 npm run process -- --provider claude
 
-# or OpenAI batch:
+# or OpenAI batch; needs OPENAI_API_KEY:
 npm run process -- --provider openai
 
-# or a fast synchronous run (Claude OAuth or Codex CLI auth, no batch wait):
+# or a fast synchronous run, no batch wait. OpenAI sync uses Codex CLI auth or
+# OPENAI_API_KEY; Claude sync (--provider claude --sync) needs only
+# CLAUDE_CODE_OAUTH_TOKEN. See Auth routes.
 npm run process -- --provider openai --sync
 ```
 
@@ -145,14 +151,16 @@ in a detached tmux session with a sanitised environment. If `op-fetch` or
 | `npm run process -- --sync` | Run synchronously (no batch queue) |
 | `npm run export-html -- --input-dir output` | Re-render HTML from existing JSON (needs `WEBSITE_REPO`) |
 | `npm run render-html -- <json> [--out <html>]` | Render one explainer JSON to a standalone HTML file (needs `WEBSITE_REPO`) |
-| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Re-run VLM figure extraction and patch the JSON in place. Still a v1 tool: it writes an inline `image` block and does not update a v2 `lead_figure` sidecar |
+| `npm run reextract -- <json> <pdf-or-url> [figure-label] [--caption "…"] [--alt "…"] [--page N]` | Still a v1 tool: it writes an inline `image` block and does not update a v2 `lead_figure` sidecar. Re-runs VLM figure extraction and patches the JSON in place |
 | `npm run typecheck` / `npm run build` | Type-check / compile to `dist/` |
 | `npm test` | Run the offline unit-test suite under `tests/unit/` |
 | `npm run smoke` | Offline check: every provider tier resolves and has a pricing row (no API calls) |
 | `npm run guards:install` | Arm the local publish git hooks (contributors) |
 
-Always pass `--provider claude` or `--provider openai` explicitly. With no flag
-and no `PROVIDER` env var the default is `claude`.
+Pass `--provider claude` or `--provider openai` explicitly. With no flag and no
+`PROVIDER` env var, `npm run process` and the other CLI commands default to
+`claude`, while `npm run process:secure:tmux` (`scripts/run-batch-tmux.sh`)
+defaults to `openai`.
 
 ## Inputs
 
@@ -182,7 +190,7 @@ its own. Unknown `image_*` directives are warned about and ignored.
 | `image: Figure N` | Pin a specific figure as the lead image (accepts `Figure 3`, `Fig. 4a`, etc.). This works on its own. |
 | `image_caption: …` | Override the caption attached to the lead image. This works on its own. |
 | `image_alt: …` | Override the alt text for the lead image. This works on its own. |
-| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` — default 24 — that the embedded-image path cannot capture additionally needs that env var raised.) |
+| `image_page_hint: N` | Soft hint: the selection prompt asks the model to check page N first, without constraining the choice. This works on its own. Useful when the paper has many similar figures. (It does not extend the rendered page range: a figure beyond `FIGURE_VLM_MAX_PAGES` (default 24) that the embedded-image path cannot capture additionally needs that env var raised.) |
 | `image_raster: yes` | Skip the embedded-image capture and always crop the figure region from the page render. |
 | `recreate:` / `recreate_x:` / `recreate_y:` / `data:` | Recreation directives. They are parsed and stripped from the focus text but currently have no effect: saves never run figure recreation and v2 articles carry no recreated figure. |
 
@@ -204,7 +212,7 @@ All variables are optional except a provider credential. Set them in `.env`,
 | `OPENAI_API_KEY` | OpenAI batch / API | unset |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Max/Pro sync route | unset |
 | `PROVIDER` | Default provider when no `--provider` flag | `claude` |
-| `OPENAI_USE_LANES` | OpenAI lane mode: `1` splits each paper into four lanes; a failed lane fails that paper | unset: one call per paper with the full document |
+| `OPENAI_USE_LANES` | OpenAI lane mode: `1`, `true` or `yes` (case-insensitive) splits each paper into four lanes; a failed lane fails that paper | unset: one call per paper with the full document |
 | `MODEL_BATCH` `MODEL_LANE` `MODEL_SYNTHESIS` `MODEL_REPAIR` | Per-stage model overrides | see below |
 | `MAX_TOKENS` `LANE_MAX_TOKENS` `SYNTHESIS_MAX_TOKENS` `REPAIR_MAX_TOKENS` | Per-stage token caps | see below |
 | `EXPLAINER_INPUT_DIR` | Where source PDFs / `urls.txt` / focus sidecars are read | `<repo>/input` |
