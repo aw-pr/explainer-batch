@@ -1,6 +1,6 @@
 # TODO
 
-Open follow-ups noted during recent work. Not a roadmap — just a parking lot so things don't get lost.
+Open follow-ups noted during recent work. Not a roadmap, just a parking lot so things don't get lost.
 
 ## Figure extraction
 
