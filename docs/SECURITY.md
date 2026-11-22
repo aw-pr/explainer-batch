@@ -42,7 +42,10 @@ Each route fetches only the secrets it needs:
   `*settings.local.json`, `state.json`, logs, and any content matching the
   personal regex patterns in a gitignored `.publish-guard.local` (seeded from
   `.publish-guard.local.example`). It also refuses any commit made directly on
-  the publish branch, which advances only by fast-forward.
+  the publish branch. That branch advances only through
+  `scripts/publish-sync.sh`, which replays `dev` commits with private-tier
+  files stripped, so it diverges from `dev` and is not a fast-forward of it.
+  The public default branch advances only by a pull request from `publish`.
 - **pre-merge-commit**: runs the same checks for merge commits, so a
   `--no-ff` merge onto the publish branch is refused too.
 - **pre-push**: fail-closed publish gate. On the public remote (matched by
@@ -53,8 +56,13 @@ Each route fetches only the secrets it needs:
   that sets `publishguard.boundary direct` instead allows a default-branch push
   that carries the `PUBLISH_GUARD_OK=1` sentinel the `git publish` alias sets.)
   Other remotes (private backups) are unrestricted. Unset
-  `publishguard.publicmatch` → the hook is inert. Deliberate one-off override:
-  `git push --no-verify`.
+  `publishguard.publicmatch` → the hook is inert. Do not bypass the guard; fix
+  the cause the hook reports.
+- **reference-transaction**: refuses any move of a protected branch (the
+  publish branch, plus any `releasetrain.protectedbranch`) to a commit that no
+  other branch and no remote holds. It judges the ref move itself, so it
+  covers cherry-pick, revert, rebase and `--no-verify` routes that
+  pre-commit never sees.
 - **commit-msg**: cosmetic; appends a vendor `Co-Authored-By` trailer for
   agent-authored commits. Not a guard.
 
@@ -69,5 +77,5 @@ line, topic-branch workflow, one-time setup for a new repo) is in
 `docs/PUBLISH-WORKFLOW.md`.
 
 Hooks are local and not transferred by clone; each contributor runs
-`npm run guards:install` once. Override an individual block intentionally with
-`--no-verify`.
+`npm run guards:install` once. Do not bypass a block; fix the cause the hook
+reports.

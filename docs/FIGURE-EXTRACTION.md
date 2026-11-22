@@ -85,7 +85,7 @@ pipeline, schematic, visual abstract) only when the paper has no results figure.
    Verification failures escalate the pad through
    0.5% → 2% → 4.5% (`CROP_PAD_STEPS`; the first step is
    `FIGURE_VLM_PAD`), and as a last resort the crop widens to the full
-   page width over the bbox's vertical span — that step exists because a
+   page width over the bbox's vertical span. That step exists because a
    rotated y-axis label sits far left of where the model draws the box.
    Only when every step fails does the whole selection retry. The result
    is JPEG-encoded via `sips`.
@@ -133,7 +133,7 @@ first escalates the crop pad (see pad escalation above); only when every
 crop of the same bbox fails does the rejection feed its reason into a
 retry of the *selection*, and the retry prompt names the failed pick
 (page, figure, bbox or candidate number), so "choose a different figure"
-is actionable — unless the figure is pinned, in which case a different
+is actionable, unless the figure is pinned, in which case a different
 figure is not an acceptable answer. For an unpinned pick the check fails
 open: a transport or parse error never discards a crop. For a pinned
 figure the check is told the expected label ("the crop must be Figure 3
@@ -167,7 +167,7 @@ the PDF, URL-candidate and full-page paths) and the retry prompt tells
 the model only the pinned label is acceptable. The pin's label is only
 ever stamped on a pick the selection named as the pin and verification
 confirmed. If the pin cannot be
-satisfied no figure is attached rather than one silently substituted —
+satisfied no figure is attached rather than one silently substituted:
 a wrong figure under the right label is worse than no figure. Two
 practical consequences:
 
@@ -181,7 +181,7 @@ practical consequences:
 
 **Captions are written for a glancing reader.** The selection prompt
 requires the caption to translate any statistical construct (CCDF /
-1 − F(x), tail parameters, log axes, error bands) into plain words —
+1 − F(x), tail parameters, log axes, error bands) into plain words:
 first what a point on the figure means, then the takeaway. The same rule
 lives in the synthesis skill for the explainer's own charts.
 
@@ -196,15 +196,17 @@ is cheaper than metered API spend.
 | `FIGURE_VLM_PROVIDER` | `claude` \| `openai`. Default: whichever subscription session is present (Claude OAuth first), else any API key. |
 | `FIGURE_VLM_ROUTE` | `auto` (default) \| `subscription` \| `api`. `auto` prefers the subscription route and falls back to the API. |
 | `FIGURE_VLM_MODEL` | Override the vision model (default: the provider's `visionModel`). A model from the other provider is refused at start-up. |
-| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF — the model cannot pick a page it never saw. |
+| `FIGURE_VLM_MAX_PAGES` | Page cap for PDF render (default 24). Raise it when pinning a figure that lives deeper in the PDF; the model cannot pick a page it never saw. |
 | `FIGURE_VLM_ATTEMPTS` | Selection attempts before giving up; retries on transport failure, unparseable reply, a blank/uncroppable crop, or a verification rejection (default 2). |
 | `FIGURE_VLM_DPI` | PDF crop render DPI, i.e. sharpness (default 300). |
 | `FIGURE_VLM_MAX_PX` | Cap on the crop's longest side in px; bounds the sidecar image size (default 2200). |
 | `FIGURE_VLM_JPEG_QUALITY` | JPEG quality 1-100; size vs fidelity (default 90). |
 | `FIGURE_VLM_REFINE_PX` | Width of the pass-2 single-page render (default 2200). |
-| `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight — verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
+| `FIGURE_VLM_PAD` | First step of the pad-escalation ladder (default 0.005; later steps 0.02 and 0.045 are fixed). Keep it tight: verification escalates automatically when labels get shaved, and generous padding only drags in body text. |
 | `FIGURE_VLM_VERIFY` | Set `0` to disable the crop verification pass (default on). |
 | `FIGURE_VLM_VERIFY_MODEL` | Model for the verification call (default: the selection model). A model from the other provider is refused at start-up. |
+| `FIGURE_ARXIV_SOURCE` | Set `0` to disable `arxivSourceFigure` (`src/figure-locator/arxiv-source.ts`), which returns reason `disabled` without fetching. Any other value leaves it on (default on). Only `scripts/figure-arxiv.ts` calls it in this tree. |
+| `FIGURE_VERIFY` | Set `1` to make `pickRegion` (`src/figure-locator/picker.ts`) send the chosen candidate for a yes/no verification call; anything but `yes` returns `verify-rejected`. Default off. Separate from `FIGURE_VLM_VERIFY`. |
 
 **Superseded base64 description (removed in W7).** The following describes
 legacy output and the pending reextract migration. V2 saves decode the VLM's
